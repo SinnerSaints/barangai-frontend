@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
-import { League_Spartan, Sonsie_One, Poppins, Inter } from "next/font/google";
+import { League_Spartan, Sonsie_One, Poppins, Inter, Archivo_Black } from "next/font/google";
 
 const leagueSpartan = League_Spartan({
   subsets: ["latin"],
@@ -25,6 +25,12 @@ const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "600", "700", "800"],
   variable: "--font-inter",
+});
+
+const archivoBlack = Archivo_Black({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-archivo",
 });
 
 export const metadata: Metadata = {

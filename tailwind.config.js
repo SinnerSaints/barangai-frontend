@@ -12,13 +12,15 @@ module.exports = {
     extend: {
       colors: {
         brandGreen: "#034440",
-        accentGreen: "#00FF7F",       
+        accentGreen: "#9CE067",       
         strokeGreen: "#9DE16A",    
       },
       fontFamily: {
         league: ["var(--font-league)", "sans-serif"],
         sonsie: ["var(--font-sonsie)", "cursive"],
         poppins: ["var(--font-poppins)", "sans-serif"],
+        inter: ["var(--font-inter)", "sans-serif"],
+        archivo: ["var(--font-archivo)", "sans-serif"],
       },
     },
   },
