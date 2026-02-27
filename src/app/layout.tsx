@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/context/auth";
 
-import { League_Spartan, Sonsie_One, Poppins, Inter, Archivo_Black } from "next/font/google";
+import { League_Spartan, Sonsie_One, Poppins, Inter, Archivo_Black, League_Gothic, Pattaya, Manrope } from "next/font/google";
 
 const leagueSpartan = League_Spartan({
   subsets: ["latin"],
@@ -33,6 +34,24 @@ const archivoBlack = Archivo_Black({
   variable: "--font-archivo",
 });
 
+const league_gothic = League_Gothic({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-league-gothic",
+});
+
+const pattaya = Pattaya({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-pattaya",
+});
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-manrope",
+});
+
 export const metadata: Metadata = {
   title: "BarangAI",
   description: "Empowering Barangays one click at a time",
@@ -45,8 +64,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${leagueSpartan.variable} ${senseiOne.variable} ${poppins.variable} bg-brandGreen text-white`}>
-        {children}
+      <body className={`${leagueSpartan.variable} ${manrope.variable} ${senseiOne.variable} ${poppins.variable} ${archivoBlack.variable} ${league_gothic.variable} ${pattaya.variable} bg-brandGreen text-white`}>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
