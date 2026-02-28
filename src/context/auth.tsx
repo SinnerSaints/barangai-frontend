@@ -13,7 +13,7 @@ type AuthContextValue = {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, role: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
   logout: () => void;
 };
@@ -33,10 +33,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  async function login(email: string, password: string) {
+  async function login(email: string, password: string, role: string) {
     setLoading(true);
     try {
-      const raw = await apiLogin(email, password);
+      const raw = await apiLogin(email, password, role);
       const data: any = raw as any; // backend payload (access, refresh, email, role...)
       // apiLogin already persists tokens and user_email if provided
       const uEmail = data?.email || data?.user || localStorage.getItem("user_email") || email;
