@@ -77,7 +77,7 @@ export default function CardsRow({ apiUrl }: Props) {
       {loading && (
         <>
           {new Array(4).fill(0).map((_, i) => (
-            <div key={i} className="h-44 bg-white/5 rounded-lg p-4 animate-pulse" />
+            <div key={i} className="h-44 bg-gray-100 rounded-lg p-4 animate-pulse" />
           ))}
         </>
       )}
@@ -85,16 +85,16 @@ export default function CardsRow({ apiUrl }: Props) {
       {!loading && list.map((c, idx) => (
         <div
           key={c.id}
-          className={`h-44 bg-white/5 rounded-lg p-4 flex flex-col justify-between transform transition duration-300 ${entered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"} hover:scale-[1.02] hover:shadow-lg`}
+          className={`h-44 bg-white/90 rounded-lg p-4 flex flex-col justify-between transform transition duration-300 ${entered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"} hover:scale-[1.02] hover:shadow-lg`}
           style={{ transitionDelay: `${idx * 60}ms` }}
         >
           <div>
-            <div className="text-lg font-semibold">{c.title}</div>
-            <div className="text-sm text-gray-400 mt-1">{c.description}</div>
+            <div className="text-lg font-semibold text-gray-900">{c.title}</div>
+            <div className="text-sm text-gray-700 mt-1">{c.description}</div>
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-300">Progress: {c.progress ?? 0}%</div>
+            <div className="text-sm text-gray-600">Progress: {c.progress ?? 0}%</div>
             <Link href={c.id ? `/courses/${c.id}` : "/courses"} className="text-sm bg-accentGreen text-black px-3 py-1 rounded-full hover:brightness-95 transition">
               Continue
             </Link>
