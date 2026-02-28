@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react";
-import { API_BASE_URL } from "@/lib/auth";
+import { useRouter } from "next/navigation";
+import { API_BASE_URL, logout as apiLogout } from "@/lib/auth";
 
 type UserItem = {
   id: number;
@@ -14,11 +15,22 @@ type UserItem = {
 };
 
 export default function AdminDashboard() {
-  const [users, setUsers] = useState<UserItem[] | null>(null);
-  const [pendingUsers, setPendingUsers] = useState<UserItem[] | null>(null);
-  const [approvedUsers, setApprovedUsers] = useState<UserItem[] | null>(null);
+  const router = useRouter();
+
+  // derive logged-in user from localStorage for display
+  const currentEmail = typeof window !== "undefined" ? localStorage.getItem("user_email") : null;
+  const currentRole = typeof window !== "undefined" ? localStorage.getItem("user_role") : null;
+  const currentAvatar = typeof window !== "undefined" ? localStorage.getItem("user_avatar") : null;
+
+  const [lastRefreshed, setLastRefreshed] = useState<string | null>(null);
+  // initialize as empty arrays so counts render immediately (avoid showing "—")
+  const [users, setUsers] = useState<UserItem[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<UserItem[]>([]);
+  const [approvedUsers, setApprovedUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingQuery, setPendingQuery] = useState("");
+  const [approvedQuery, setApprovedQuery] = useState("");
 
   // Fetch pending users from a backend endpoint. If your backend route differs,
   // update the URL below. The UI will fall back to sample data on failure.
@@ -47,7 +59,7 @@ export default function AdminDashboard() {
           ...u,
         }));
 
-        setUsers(mapped);
+  setUsers(mapped);
         // categorize
         const approved = mapped.filter((x) => {
           if (typeof x.is_active === "boolean") return x.is_active === true;
@@ -55,12 +67,14 @@ export default function AdminDashboard() {
           return false;
         });
         const pending = mapped.filter((x) => !approved.includes(x));
-        setApprovedUsers(approved);
-        setPendingUsers(pending);
+  setApprovedUsers(approved);
+  setPendingUsers(pending);
+  setLastRefreshed(new Date().toLocaleString());
       } else {
-        setUsers([]);
-        setApprovedUsers([]);
-        setPendingUsers([]);
+    setUsers([]);
+    setApprovedUsers([]);
+    setPendingUsers([]);
+    setLastRefreshed(new Date().toLocaleString());
       }
     } catch (err: any) {
       // fallback sample data so admin can still use UI while backend is absent
@@ -70,9 +84,10 @@ export default function AdminDashboard() {
         { id: 2, email: "user2@example.com", password: "hunter2", role: "OFFICIALS", is_active: false },
         { id: 3, email: "approved@example.com", password: undefined, role: "CAPTAIN", is_active: true },
       ];
-      setUsers(sample as any);
-      setPendingUsers(sample.filter((s) => !s.is_active));
-      setApprovedUsers(sample.filter((s) => s.is_active));
+  setUsers(sample as any);
+  setPendingUsers(sample.filter((s) => !s.is_active));
+  setApprovedUsers(sample.filter((s) => s.is_active));
+  setLastRefreshed(new Date().toLocaleString());
     } finally {
       setLoading(false);
     }
@@ -96,10 +111,7 @@ export default function AdminDashboard() {
 
       // Some backends expect an empty POST body; others accept JSON. We'll send no body
       // and rely on the URL+method. If your backend expects JSON, we can send { id } instead.
-      const res = await fetch(url, {
-        method: "ALLOWED_METHODS" in Response.prototype ? "ALLOW_METHODS" : action === "approve" ? "POST" : "DELETE",
-        headers,
-      });
+      const res = await fetch(url, { method: "POST", headers });
 
       // Helpful logging for debugging
       // eslint-disable-next-line no-console
@@ -123,40 +135,95 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-8">
-      <h1 className="text-3xl font-bold mb-4">Admin Dashboard</h1>
-      <p className="mb-6">Approve or reject newly registered users. The table shows their email, password (as submitted) and role.</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <div className="text-sm text-gray-500">Manage users, approvals and accounts</div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="text-right">
+            <div className="text-sm text-gray-600">Signed in as</div>
+            <div className="flex items-center gap-2">
+              <img src={currentAvatar || (currentEmail ? `https://ui-avatars.com/api/?name=${encodeURIComponent(currentEmail)}&background=9DE16A&color=034440&rounded=true&size=32` : "/favicon.ico")} alt="avatar" className="w-8 h-8 rounded-full" />
+              <div className="text-sm">
+                <div className="font-medium">{currentEmail ?? "—"}</div>
+                <div className="text-xs text-gray-500">{currentRole ?? "Admin"}</div>
+              </div>
+            </div>
+          </div>
+          <button onClick={() => { apiLogout(); router.push('/auth'); }} className="px-3 py-2 bg-red-50 text-red-700 rounded-md text-sm">Logout</button>
+        </div>
+      </div>
 
       {loading && <div className="mb-4">Loading users...</div>}
       {error && <div className="mb-4 text-sm text-red-600">{error}</div>}
 
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white shadow rounded-lg p-4">
+          <div className="text-sm text-gray-500">Total Users</div>
+          <div className="text-2xl font-bold">{(users?.length ?? (pendingUsers.length + approvedUsers.length))}</div>
+        </div>
+        <div className="bg-white shadow rounded-lg p-4">
+          <div className="text-sm text-gray-500">Pending</div>
+          <div className="text-2xl font-bold text-yellow-600">{pendingUsers ? pendingUsers.length : "—"}</div>
+        </div>
+        <div className="bg-white shadow rounded-lg p-4 flex items-center justify-between">
+          <div>
+            <div className="text-sm text-gray-500">Approved</div>
+            <div className="text-2xl font-bold text-green-600">{approvedUsers ? approvedUsers.length : "—"}</div>
+          </div>
+          <div className="text-xs text-gray-500">{lastRefreshed ?? "Not refreshed yet"}</div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <section>
-          <h2 className="text-xl font-semibold mb-3">Pending Users</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-semibold">Pending Users</h2>
+            <div className="text-sm text-gray-500">{pendingUsers ? pendingUsers.length : 0} pending</div>
+          </div>
+          <div className="mb-3 flex gap-2">
+            <input value={pendingQuery} onChange={(e) => setPendingQuery(e.target.value)} placeholder="Search pending users" className="flex-1 p-2 border rounded-md text-sm" />
+            <button onClick={() => fetchPending()} className="px-3 py-2 bg-gray-100 rounded-md text-sm">Refresh</button>
+          </div>
           <div className="overflow-x-auto shadow rounded-lg">
             <table className="min-w-full bg-white">
               <thead>
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Password</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {pendingUsers && pendingUsers.length > 0 ? (
-                  pendingUsers.map((u) => (
-                    <tr key={`p-${u.id}`} className="border-t">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{u.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{u.email}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{u.password ?? "—"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{u.role ?? "—"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button onClick={() => handleAction(u.id, "approve")} className="mr-2 inline-flex items-center px-3 py-1 rounded bg-accentGreen text-black">Approve</button>
-                        <button onClick={() => handleAction(u.id, "reject")} className="inline-flex items-center px-3 py-1 rounded bg-red-600 text-white">Reject</button>
-                      </td>
-                    </tr>
-                  ))
+                  pendingUsers
+                    .filter((u) => {
+                      const q = pendingQuery.trim().toLowerCase();
+                      if (!q) return true;
+                      return (u.email || "").toLowerCase().includes(q) || (u.role || "").toLowerCase().includes(q);
+                    })
+                    .map((u, idx) => (
+                      <tr key={`p-${u.id}`} className={`border-t odd:bg-gray-50 hover:bg-gray-100 transition-colors`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{u.id}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{u.email}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          <span className={`px-2 py-0.5 text-xs rounded-full ${u.role === 'CAPTAIN' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>{u.role ?? "—"}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button onClick={() => handleAction(u.id, "approve")} className="mr-2 inline-flex items-center gap-2 px-3 py-1 rounded bg-accentGreen text-black">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                            Approve
+                          </button>
+                          <button onClick={() => handleAction(u.id, "reject")} className="inline-flex items-center gap-2 px-3 py-1 rounded bg-red-600 text-white">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H3a1 1 0 100 2h2v8H3a1 1 0 100 2h2v1a1 1 0 102 0v-1h6v1a1 1 0 102 0v-1h2a1 1 0 100-2h-2V6h2a1 1 0 100-2h-2V3a1 1 0 00-1-1H6z" clipRule="evenodd" /></svg>
+                            Reject
+                          </button>
+                        </td>
+                      </tr>
+                    ))
                 ) : (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-500">No pending users</td>
@@ -181,16 +248,22 @@ export default function AdminDashboard() {
               </thead>
               <tbody>
                 {approvedUsers && approvedUsers.length > 0 ? (
-                  approvedUsers.map((u) => (
-                    <tr key={`a-${u.id}`} className="border-t">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{u.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{u.email}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{u.role ?? "—"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button onClick={() => handleAction(u.id, "reject")} className="inline-flex items-center px-3 py-1 rounded bg-red-600 text-white">Delete</button>
-                      </td>
-                    </tr>
-                  ))
+                  approvedUsers
+                    .filter((u) => {
+                      const q = approvedQuery.trim().toLowerCase();
+                      if (!q) return true;
+                      return (u.email || "").toLowerCase().includes(q) || (u.role || "").toLowerCase().includes(q);
+                    })
+                    .map((u) => (
+                      <tr key={`a-${u.id}`} className={`border-t odd:bg-gray-50 hover:bg-gray-100 transition-colors`}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{u.id}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{u.email}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700"><span className={`px-2 py-0.5 text-xs rounded-full ${u.role === 'CAPTAIN' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>{u.role ?? "—"}</span></td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button onClick={() => handleAction(u.id, "reject")} className="inline-flex items-center gap-2 px-3 py-1 rounded bg-red-600 text-white">Delete</button>
+                        </td>
+                      </tr>
+                    ))
                 ) : (
                   <tr>
                     <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-500">No approved users</td>
