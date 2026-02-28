@@ -67,8 +67,8 @@ export default function ProfilePage() {
 
       <div className="w-full max-w-6xl mx-auto justify-center my-12 grid grid-cols-1 md:grid-cols-12 gap-6">
         {/* Right form card */}
-        <div className="md:col-span-5 flex items-center">
-          <div className={isDark ? "w-full bg-black/80 text-white rounded-2xl p-8 shadow-lg" : "w-full bg-white text-black rounded-2xl p-8 shadow-lg"}>
+        <div className="md:col-span-5 flex justify-center items-center">
+          <div className={isDark ? "w-full bg-black/80 text-white rounded-2xl justify-center p-8 shadow-lg" : "w-full justify-center bg-white text-black rounded-2xl p-8 shadow-lg"}>
             <h1 className="text-2xl font-bold mb-2">Update your details here</h1>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
