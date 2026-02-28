@@ -13,7 +13,7 @@ type AuthContextValue = {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (email: string, password: string, role: string) => Promise<void>;
+  login: (email: string, password: string, id: number, role: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
   updateProfile: (opts: { email?: string; password?: string; avatarFile?: File | null }) => Promise<any>;
   logout: () => void;
@@ -34,15 +34,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  async function login(email: string, password: string, role: string) {
+  async function login(email: string, password: string, id: number, role: string) {
     setLoading(true);
     try {
-      const raw = await apiLogin(email, password, role);
+      const raw = await apiLogin(email, password, id, role);
       const data: any = raw as any; // backend payload (access, refresh, email, role...)
       // apiLogin already persists tokens and user_email if provided
+      const uId = data?.id || localStorage.getItem("user_id") || undefined;
       const uEmail = data?.email || data?.user || localStorage.getItem("user_email") || email;
       const uRole = data?.role || localStorage.getItem("user_role") || undefined;
-      setUser({ email: uEmail, role: uRole });
+      const uAvatar = data?.avatar || data?.photo || localStorage.getItem("user_avatar") || undefined;
+      setUser({ id: uId, email: uEmail, role: uRole, avatar: uAvatar });
     } finally {
       setLoading(false);
     }
