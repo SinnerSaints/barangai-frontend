@@ -11,7 +11,7 @@ import ProfileMenu from "@/components/ui/ProfileMenu";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const links = ["Home", "Tutorials", "About us", "Register"];
+  const links = ["Home", "Tutorials", "About us", "Contact us"];
   const auth = useAuth();
   const router = useRouter();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -35,7 +35,7 @@ const Navbar = () => {
         {links.map((link) => (
           <li key={link}>
             <Link
-              href={link === "Register" ? "/auth" : "#"}
+              href={link === "Contact us" ? "/contact" : "#"}
               className="px-2 py-1 transition-colors duration-300 hover:text-accentGreen"
             >
               {link}

@@ -13,8 +13,8 @@ type AuthContextValue = {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (email: string, password: string, role: string) => Promise<void>;
-  signup: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, role?: string) => Promise<void>;
+  signup: (email: string, password: string, role?: string) => Promise<void>;
   updateProfile: (opts: { email?: string; password?: string; avatarFile?: File | null }) => Promise<any>;
   logout: () => void;
 };
@@ -34,7 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  async function login(email: string, password: string, role: string) {
+  async function login(email: string, password: string, role?: string) {
     setLoading(true);
     try {
       const raw = await apiLogin(email, password, role);
@@ -48,10 +48,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  async function signup(email: string, password: string) {
+  async function signup(email: string, password: string, role?: string) {
     setLoading(true);
     try {
-      const raw = await apiSignup(email, password);
+      const raw = await apiSignup(email, password, role);
       const data: any = raw as any;
       // auto-login behavior: if the register endpoint returned tokens, set user
       if (data?.access) {

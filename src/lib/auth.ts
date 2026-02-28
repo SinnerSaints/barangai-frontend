@@ -16,17 +16,19 @@ const API_BASE_URL = "https://barangaibackend-production.up.railway.app";
 export async function login(
   email: string,
   password: string,
-  role: string,
+  role?: string,
   options?: { returnRaw?: boolean; includeCredentials?: boolean }
 ): Promise<LoginResponse | { success: boolean; data?: any; error?: any }> {
   const url = `${API_BASE_URL}/accounts/login/`;
 
   let res: Response;
   try {
+    const body: any = { email, password };
+    if (role) body.role = role;
     res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, role}),
+      body: JSON.stringify(body),
       // allow callers to opt into sending cookies if they change server to cookie-based
       credentials: options?.includeCredentials ? "include" : (undefined as any),
     });
@@ -71,12 +73,14 @@ export async function login(
   return data as LoginResponse;
 }
 
-export async function signup(email: string, password: string) {
+export async function signup(email: string, password: string, role?: string) {
   const url = `${API_BASE_URL}/accounts/register/`;
+  const body: any = { email, password };
+  if (role) body.role = role;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.detail || JSON.stringify(data) || "Signup failed");
@@ -86,6 +90,7 @@ export async function signup(email: string, password: string) {
   if (data?.photo) localStorage.setItem("user_avatar", data.photo);
   if (data?.user) localStorage.setItem("user_email", data.user);
   if (data?.email) localStorage.setItem("user_email", data.email);
+  if (data?.role) localStorage.setItem("user_role", data.role);
   return data;
 }
 

@@ -1,7 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { useAuth } from "@/context/auth";
+import { useRouter } from "next/navigation";
+import chatBgLight from "@/assets/img/chatBotBg-white.png";
+import chatBgDark from "@/assets/img/chatBotBg-black.png";
+import { useTheme } from "@/context/theme";
+import bgEdit from "@/assets/img/authBg.png";
 
 export default function ProfilePage() {
   const auth = useAuth();
@@ -11,6 +17,9 @@ export default function ProfilePage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+  const router = useRouter();
 
   useEffect(() => {
     const e = auth.user?.email || localStorage.getItem("user_email") || "";
@@ -45,39 +54,61 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen flex items-start justify-center py-16 px-4 bg-transparent">
-      <div className="w-full max-w-3xl bg-black/30 backdrop-blur-md rounded-xl p-8">
-        <h1 className="text-2xl font-bold mb-6">Your Profile</h1>
-        <div className="flex gap-8">
-          <div className="w-40 h-40 rounded-full overflow-hidden bg-black/20 flex items-center justify-center">
-            {preview ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={preview} alt="avatar" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-xl">{(auth.user?.email || "?").charAt(0).toUpperCase()}</span>
-            )}
+    <div className="min-h-screen flex items-center justify-center bg-transparent">
+      {/* background image full bleed */}
+      <div className="absolute inset-0 -z-10">
+        <Image 
+            src={bgEdit} 
+            fill 
+            className="object-cover" 
+            alt="background"
+        />
+      </div>
+
+      <div className="w-full max-w-6xl mx-auto justify-center my-12 grid grid-cols-1 md:grid-cols-12 gap-6">
+        {/* Right form card */}
+        <div className="md:col-span-5 flex items-center">
+          <div className={isDark ? "w-full bg-black/80 text-white rounded-2xl p-8 shadow-lg" : "w-full bg-white text-black rounded-2xl p-8 shadow-lg"}>
+            <h1 className="text-2xl font-bold mb-2">Update your details here</h1>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm mb-1">Email</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={isDark ? "w-full p-3 rounded border border-white/10 bg-transparent" : "w-full p-3 rounded border border-gray-200 bg-white"} />
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1">New password</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={isDark ? "w-full p-3 rounded border border-white/10 bg-transparent" : "w-full p-3 rounded border border-gray-200 bg-white"} />
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1">Confirm password</label>
+                <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className={isDark ? "w-full p-3 rounded border border-white/10 bg-transparent" : "w-full p-3 rounded border border-gray-200 bg-white"} />
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1">Profile picture</label>
+                <input type="file" accept="image/*" onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} className="w-full" />
+              </div>
+
+              {status && <div className={isDark ? "text-yellow-200" : "text-yellow-700"}>{status}</div>}
+
+              <div>
+                <button type="submit" className={isDark ? "w-full py-3 rounded-full bg-accentGreen text-black font-semibold" : "w-full py-3 rounded-full bg-black text-white font-semibold"}>Save</button>
+              </div>
+
+              <div className="text-center text-sm opacity-70 mt-2">
+                Want to go back?{" "}
+                <button
+                  type="button"
+                  onClick={() => router.back()}
+                  className="text-accentGreen hover:underline"
+                >
+                  Back to previous page
+                </button>
+              </div>
+            </form>
           </div>
-
-          <form onSubmit={handleSubmit} className="flex-1">
-            <label className="block text-sm mb-1">Email</label>
-            <input type="email" className="w-full p-2 rounded bg-black/30 mb-4" value={email} onChange={(e) => setEmail(e.target.value)} />
-
-            <label className="block text-sm mb-1">New password</label>
-            <input type="password" className="w-full p-2 rounded bg-black/30 mb-4" value={password} onChange={(e) => setPassword(e.target.value)} />
-
-            <label className="block text-sm mb-1">Confirm password</label>
-            <input type="password" className="w-full p-2 rounded bg-black/30 mb-4" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-
-            <label className="block text-sm mb-1">Profile picture</label>
-            <input type="file" accept="image/*" onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} className="mb-4" />
-
-            {status && <div className="mb-4 text-sm text-yellow-200">{status}</div>}
-
-            <div className="flex gap-4">
-              <button className="px-4 py-2 bg-accentGreen text-black rounded" type="submit">Save</button>
-              <button className="px-4 py-2 bg-white/5 text-white rounded" type="button" onClick={() => { setAvatarFile(null); setPreview(localStorage.getItem('user_avatar') || null); }}>Cancel</button>
-            </div>
-          </form>
         </div>
       </div>
     </div>
