@@ -152,7 +152,7 @@ export default function AuthForm() {
                     <label className="block text-sm mb-1">Role</label>
                     <select value={sRole} onChange={(e) => setSRole(e.target.value)} className={isDark ? 'w-full p-2 rounded border border-white/10 bg-transparent' : 'w-full p-2 rounded border border-gray-200 bg-white'}>
                       <option value="CAPTAIN">Barangay Captain</option>
-                      <option value="OFFICIALS">Barangay Official</option>
+                      <option value="OFFICIAL">Barangay Official</option>
                     </select>
                   </div>
 
