@@ -11,6 +11,7 @@ export default function AuthForm() {
   // login state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"user" | "admin">("user");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,13 +23,25 @@ export default function AuthForm() {
   const router = useRouter();
   const auth = useAuth();
 
+                  <div>
+                    <label className="text-sm opacity-80">Role</label>
+                    <select
+                      value={role}
+                      onChange={(e) => setRole(e.target.value as "user" | "admin")}
+                      className="w-full bg-transparent border-b border-white/20 py-2 focus:outline-none text-white"
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      await auth.login(email, password);
-      router.push("/");
+      // use selected role when logging in
+      await auth.login(email, password, role);
+      router.push("/dashboard");
     } catch (err: any) {
       setError(err?.message || "Login failed");
     } finally {
@@ -47,7 +60,7 @@ export default function AuthForm() {
     try {
       await auth.signup(sEmail, sPassword);
       // auth.signup may set user; ensure logged in then redirect
-      router.push("/");
+      router.push("/dashboard");
     } catch (err: any) {
       setError(err?.message || "Signup failed");
     } finally {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { login as apiLogin, signup as apiSignup, logout as apiLogout } from "@/lib/auth";
+import { login as apiLogin, signup as apiSignup, logout as apiLogout, updateProfile as apiUpdateProfile } from "@/lib/auth";
 
 type User = {
   email?: string;
@@ -15,6 +15,7 @@ type AuthContextValue = {
   loading: boolean;
   login: (email: string, password: string, role: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
+  updateProfile: (opts: { email?: string; password?: string; avatarFile?: File | null }) => Promise<any>;
   logout: () => void;
 };
 
@@ -64,6 +65,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  async function updateProfile(opts: { email?: string; password?: string; avatarFile?: File | null }) {
+    setLoading(true);
+    try {
+      const data = await apiUpdateProfile(opts);
+      const email = data?.email || localStorage.getItem("user_email") || undefined;
+      const role = data?.role || localStorage.getItem("user_role") || undefined;
+      const avatar = data?.avatar || data?.photo || localStorage.getItem("user_avatar") || undefined;
+      setUser({ email, role, avatar });
+      return data;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function logout() {
     apiLogout();
     setUser(null);
@@ -75,6 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     login,
     signup,
+    updateProfile,
     logout,
   };
 

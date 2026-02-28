@@ -80,6 +80,12 @@ export async function signup(email: string, password: string) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.detail || JSON.stringify(data) || "Signup failed");
+
+  // persist avatar/email if returned
+  if (data?.avatar) localStorage.setItem("user_avatar", data.avatar);
+  if (data?.photo) localStorage.setItem("user_avatar", data.photo);
+  if (data?.user) localStorage.setItem("user_email", data.user);
+  if (data?.email) localStorage.setItem("user_email", data.email);
   return data;
 }
 
@@ -88,4 +94,57 @@ export function logout() {
   localStorage.removeItem("refresh_token");
   localStorage.removeItem("user_role");
   localStorage.removeItem("user_email");
+  localStorage.removeItem("user_avatar");
+}
+
+/**
+ * Update profile: supports updating email, password, and avatar file.
+ * - If `avatarFile` is provided, the request is sent as multipart/form-data
+ * - Requires an access token saved in localStorage under `access_token`
+ */
+export async function updateProfile(opts: {
+  email?: string;
+  password?: string;
+  avatarFile?: File | null;
+}) {
+  const url = `${API_BASE_URL.replace(/\/$/, "")}/accounts/profile/`;
+  const access = localStorage.getItem("access_token");
+  if (!access) throw new Error("Not authenticated");
+
+  let res: Response;
+  if (opts.avatarFile) {
+    const fd = new FormData();
+    if (opts.email) fd.append("email", opts.email);
+    if (opts.password) fd.append("password", opts.password);
+    // use 'avatar' field name expected by most backends
+    fd.append("avatar", opts.avatarFile);
+    // use PATCH to partially update profile; servers should accept multipart PATCH
+    res = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${access}`,
+      } as any,
+      body: fd,
+    });
+  } else {
+    // JSON path uses PATCH as well
+    res = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${access}`,
+      },
+      body: JSON.stringify({ email: opts.email, password: opts.password }),
+    });
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.detail || JSON.stringify(data) || "Profile update failed");
+
+  // persist returned fields if present
+  if (data?.avatar) localStorage.setItem("user_avatar", data.avatar);
+  if (data?.photo) localStorage.setItem("user_avatar", data.photo);
+  if (data?.email) localStorage.setItem("user_email", data.email);
+
+  return data;
 }

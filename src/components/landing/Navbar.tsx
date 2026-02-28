@@ -2,20 +2,33 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useAuth } from "@/context/auth";
+import { useRouter } from "next/navigation";
 import { HiMenu, HiX, HiArrowUp } from "react-icons/hi";
-import heroImg from "@/assets/img/hero.png";
 import Image from "next/image";
+import heroImg from "@/assets/img/hero.png";
+import ProfileMenu from "@/components/ui/ProfileMenu";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const links = ["Home", "Tutorials", "About us", "Register"];
+  const auth = useAuth();
+  const router = useRouter();
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showTop, setShowTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setShowTop(window.scrollY > 300);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
-    <nav className="w-full px-8 md:px-16 py-6 bg-brandGreen/90 backdrop-blur-md border-b-[1px] border-white/20 flex justify-between items-center transition-all duration-300">
+    <nav className="w-full overflow-true px-8 md:px-16 py-6 bg-brandGreen/90 backdrop-blur-md border-b-[1px] border-white/20 flex justify-between items-center transition-all duration-300">
       {/* Logo */}
-      <div className="text-2xl font-bold font-inter text-white hover:scale-105 transition-transform duration-300">
+      <Link href="/" className="text-2xl font-bold font-inter text-white hover:scale-105 transition-transform duration-300">
         Barang<span className="text-accentGreen text-3xl font-league">AI</span>
-      </div>
+      </Link>
 
       {/* Desktop Links */}
       <ul className="hidden md:flex items-center gap-8 text-[16px] text-white font-inter">
@@ -31,13 +44,19 @@ const Navbar = () => {
         ))}
       </ul>
 
-      {/* Desktop Button */}
-      <Link
-        href="/auth"
-        className="hidden md:inline-block bg-accentGreen text-black px-5 py-2 rounded-full shadow-lg hover:-translate-y-1 hover:opacity-90 transition-all duration-300"
-      >
-        Join us
-      </Link>
+      {/* Desktop Button / Profile */}
+      {auth.isAuthenticated ? (
+        <div className="hidden md:flex items-center gap-4">
+          <ProfileMenu compact />
+        </div>
+      ) : (
+        <Link
+          href="/auth"
+          className="hidden md:inline-block bg-accentGreen text-black px-5 py-2 rounded-full shadow-lg hover:-translate-y-1 hover:opacity-90 transition-all duration-300"
+        >
+          Join us
+        </Link>
+      )}
 
       {/* Mobile Hamburger */}
       <div className="md:hidden text-white">
