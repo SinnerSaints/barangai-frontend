@@ -5,7 +5,7 @@ type LoginResponse = {
   [k: string]: any;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = "https://barangaibackend-production.up.railway.app";
 
 /**
  * Login helper.
@@ -16,16 +16,17 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8
 export async function login(
   email: string,
   password: string,
+  role: string,
   options?: { returnRaw?: boolean; includeCredentials?: boolean }
 ): Promise<LoginResponse | { success: boolean; data?: any; error?: any }> {
-  const url = `${API_BASE_URL.replace(/\/$/, "")}/accounts/login/`;
+  const url = `${API_BASE_URL}/accounts/login/`;
 
   let res: Response;
   try {
     res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, role}),
       // allow callers to opt into sending cookies if they change server to cookie-based
       credentials: options?.includeCredentials ? "include" : (undefined as any),
     });
@@ -71,7 +72,7 @@ export async function login(
 }
 
 export async function signup(email: string, password: string) {
-  const url = `${API_BASE_URL.replace(/\/$/, "")}/accounts/register/`;
+  const url = `${API_BASE_URL}/accounts/register/`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
