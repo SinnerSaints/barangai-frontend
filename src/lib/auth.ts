@@ -16,17 +16,50 @@ const API_BASE_URL = "https://barangaibackend-production.up.railway.app";
 export async function login(
   email: string,
   password: string,
+  id: number,
   role: string,
+  avatar?: string,
   options?: { returnRaw?: boolean; includeCredentials?: boolean }
 ): Promise<LoginResponse | { success: boolean; data?: any; error?: any }> {
   const url = `${API_BASE_URL}/accounts/login/`;
+  const token_url = `${API_BASE_URL}/accounts/token/`;
+
+  let token_res: Response;
+  try {
+    token_res = await fetch(token_url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },  
+      body: JSON.stringify({ email, password }),
+      credentials: options?.includeCredentials ? "include" : (undefined as any),
+    }); 
+  } catch (err) {
+    const rawMsg = (err as Error).message || "Network error";
+    const isNetworkErr = [
+      "Failed to fetch",
+      "NetworkError when attempting to fetch resource.",
+      "Load failed",
+      "Network error",
+      "request to .* failed",
+    ].some((m) => {
+      try {
+        const re = new RegExp(m);
+        return re.test(rawMsg);
+      } catch {
+        return rawMsg === m;
+      }
+    });
+
+    const message = isNetworkErr ? "Unable to reach authentication server" : rawMsg;
+    if (options?.returnRaw) return { success: false, error: message };
+    throw new Error(message);
+  }
 
   let res: Response;
   try {
     res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, role}),
+      body: JSON.stringify({email, password, role, id, avatar}),
       // allow callers to opt into sending cookies if they change server to cookie-based
       credentials: options?.includeCredentials ? "include" : (undefined as any),
     });
@@ -60,12 +93,16 @@ export async function login(
     throw new Error(message);
   }
 
+  const token_data = await token_res.json().catch(() => ({}));
+
   // persist tokens / info for convenience (adjust keys as you prefer)
-  if (data.access) localStorage.setItem("access_token", data.access);
-  if (data.refresh) localStorage.setItem("refresh_token", data.refresh);
+  if (token_data.access) localStorage.setItem("access_token", token_data.access);
+  if (token_data.refresh) localStorage.setItem("refresh_token", token_data.refresh);
+
   if (data.role) localStorage.setItem("user_role", data.role);
   if (data.user) localStorage.setItem("user_email", data.user);
   if (data.email) localStorage.setItem("user_email", data.email);
+  if (data.id) localStorage.setItem("user_id", data.id.toString());
 
   if (options?.returnRaw) return { success: true, data };
   return data as LoginResponse;
@@ -94,6 +131,7 @@ export function logout() {
   localStorage.removeItem("refresh_token");
   localStorage.removeItem("user_role");
   localStorage.removeItem("user_email");
+  localStorage.removeItem("user_password");
   localStorage.removeItem("user_avatar");
 }
 
@@ -107,9 +145,10 @@ export async function updateProfile(opts: {
   password?: string;
   avatarFile?: File | null;
 }) {
-  const url = `${API_BASE_URL.replace(/\/$/, "")}/accounts/profile/`;
+  const user_id = localStorage.getItem("user_id");
+  const url = `${API_BASE_URL.replace(/\/$/, "")}/accounts/users/${user_id}/update/`;
   const access = localStorage.getItem("access_token");
-  if (!access) throw new Error("Not authenticated");
+  // if (!access) throw new Error("Not authenticated");
 
   let res: Response;
   if (opts.avatarFile) {
