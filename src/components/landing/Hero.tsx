@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import heroImg from "@/assets/img/hero.png";
 
 export default function Hero() {
@@ -34,9 +35,12 @@ export default function Hero() {
           className="w-full h-[900px] object-cover"
           priority
         />
-        <button className="absolute z-10 -top-8 left-1/2 border-8 border-[#034440] -translate-x-1/2 font-poppins px-8 py-3 bg-[#9DE16A] text-[#034440] rounded-full hover:brightness-90 transition shadow-lg">
-          Get Started →
-        </button>
+        <Link
+          href="/auth">
+          <button className="absolute z-10 -top-8 left-1/2 border-8 border-[#034440] -translate-x-1/2 font-poppins px-8 py-3 bg-[#9DE16A] text-[#034440] rounded-full hover:brightness-90 transition shadow-lg">
+            Get Started →
+          </button>
+        </Link>
       </div>
     </section>
   );

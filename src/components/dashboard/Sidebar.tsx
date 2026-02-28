@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { HiHome, HiChat, HiBookOpen, HiClipboardList, HiChartBar, HiCog, HiMenu } from "react-icons/hi";
 import ProfileMenu from "@/components/ui/ProfileMenu";
+
 type Props = {
   collapsed?: boolean;
   onToggle?: () => void;
@@ -11,6 +13,25 @@ type Props = {
 
 export default function Sidebar({ collapsed = false, onToggle }: Props) {
   const pathname = usePathname() || "/";
+  const isControlled = typeof onToggle === "function";
+  const [internalCollapsed, setInternalCollapsed] = useState<boolean>(collapsed);
+
+  // initialize internal state from localStorage when uncontrolled
+  useEffect(() => {
+    if (isControlled) return;
+    try {
+      const v = localStorage.getItem("sidebar_collapsed");
+      if (v !== null) setInternalCollapsed(v === "true");
+    } catch (err) {
+      // ignore
+    }
+  }, [isControlled]);
+
+  // keep internalCollapsed in sync when parent-controlled prop changes
+  useEffect(() => {
+    if (isControlled) return;
+    setInternalCollapsed(collapsed);
+  }, [collapsed, isControlled]);
   const items = [
     { label: "Dashboard", href: "/dashboard", icon: HiHome },
     { label: "Chatbot", href: "/chatbot", icon: HiChat },
@@ -20,14 +41,30 @@ export default function Sidebar({ collapsed = false, onToggle }: Props) {
     { label: "Settings", href: "/settings", icon: HiCog },
   ];
 
+  const effectiveCollapsed = isControlled ? collapsed : internalCollapsed;
+
+  const handleToggle = () => {
+    if (isControlled) {
+      onToggle && onToggle();
+      return;
+    }
+    setInternalCollapsed((s) => {
+      const next = !s;
+      try {
+        localStorage.setItem("sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   return (
-    <aside className={`bg-[#0f0f0f] text-white min-h-screen hidden md:flex flex-col p-4 gap-6 transition-[width] duration-300 ${collapsed ? "w-20" : "w-64"}`}>
+    <aside className={`bg-[#0f0f0f] text-white min-h-screen hidden md:flex flex-col p-4 gap-6 transition-[width] duration-300 ${effectiveCollapsed ? "w-20" : "w-64"}`}>
       <div className="flex items-center gap-3 px-2">
         {/* hamburger in header (replaces logo) */}
-        <button onClick={onToggle} className="text-white p-1">
+        <button onClick={handleToggle} className="text-white p-1">
           <HiMenu className="w-6 h-6" />
         </button>
-            {!collapsed && (
+            {!effectiveCollapsed && (
               <Link href="/" className="text-lg font-bold">
                 Barang<span className="text-accentGreen">AI</span>
               </Link>

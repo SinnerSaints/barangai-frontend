@@ -46,7 +46,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen flex items-start justify-center py-16 px-4 bg-transparent">
-      <div className="w-full max-w-3xl bg-white/5 backdrop-blur-md rounded-xl p-8">
+      <div className="w-full max-w-3xl bg-black/30 backdrop-blur-md rounded-xl p-8">
         <h1 className="text-2xl font-bold mb-6">Your Profile</h1>
         <div className="flex gap-8">
           <div className="w-40 h-40 rounded-full overflow-hidden bg-black/20 flex items-center justify-center">
