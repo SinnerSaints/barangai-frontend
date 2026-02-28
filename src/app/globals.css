@@ -127,3 +127,15 @@ body {
 .chat-enter {
   animation: chatEnter 420ms cubic-bezier(.2,.9,.2,1) both;
 }
+
+@keyframes buttonEnter {
+  from { transform: translateY(8px) scale(.995); opacity: 0; }
+  60% { transform: translateY(-4px) scale(1.01); opacity: 1; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.stagger-child {
+  opacity: 0;
+  transform: translateY(8px) scale(.995);
+  animation: buttonEnter 420ms cubic-bezier(.2,.9,.2,1) both;
+}

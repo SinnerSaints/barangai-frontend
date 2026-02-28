@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/context/auth";
+import { ThemeProvider } from "@/context/theme";
 
 import { League_Spartan, Sonsie_One, Poppins, Inter, Archivo_Black, League_Gothic, Pattaya, Manrope } from "next/font/google";
 
@@ -65,7 +66,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${leagueSpartan.variable} ${manrope.variable} ${senseiOne.variable} ${poppins.variable} ${archivoBlack.variable} ${league_gothic.variable} ${pattaya.variable} bg-brandGreen text-white`}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <ThemeProvider>{children}</ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );
