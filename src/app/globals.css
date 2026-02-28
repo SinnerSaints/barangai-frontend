@@ -118,3 +118,12 @@ body {
 .dash-out .dash-panel.right {
   animation: dashOutRight 300ms forwards cubic-bezier(.2,.9,.2,1);
 }
+
+@keyframes chatEnter {
+  from { transform: translateY(12px) scale(.995); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.chat-enter {
+  animation: chatEnter 420ms cubic-bezier(.2,.9,.2,1) both;
+}

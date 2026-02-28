@@ -57,15 +57,6 @@ export default function Sidebar({ collapsed = false, onToggle }: Props) {
           })}
         </ul>
       </nav>
-
-      <div className="px-3">
-        <div className="mb-2">
-          {/* profile menu */}
-          <ProfileMenu />
-        </div>
-
-        <div className="text-sm text-gray-400">© BarangAI</div>
-      </div>
     </aside>
   );
 }
