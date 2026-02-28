@@ -5,7 +5,7 @@ type LoginResponse = {
   [k: string]: any;
 };
 
-const API_BASE_URL = "https://barangaibackend-production.up.railway.app";
+export const API_BASE_URL = "https://barangaibackend-production.up.railway.app";
 
 /**
  * Login helper.
@@ -16,13 +16,9 @@ const API_BASE_URL = "https://barangaibackend-production.up.railway.app";
 export async function login(
   email: string,
   password: string,
-<<<<<<< HEAD
-  role?: string,
-=======
   id: number,
   role: string,
   avatar?: string,
->>>>>>> 998070e956098c0e9bc73a3e59a6d11192018a6a
   options?: { returnRaw?: boolean; includeCredentials?: boolean }
 ): Promise<LoginResponse | { success: boolean; data?: any; error?: any }> {
   const url = `${API_BASE_URL}/accounts/login/`;
@@ -65,11 +61,7 @@ export async function login(
     res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-<<<<<<< HEAD
-      body: JSON.stringify(body),
-=======
       body: JSON.stringify({email, password, role, id, avatar}),
->>>>>>> 998070e956098c0e9bc73a3e59a6d11192018a6a
       // allow callers to opt into sending cookies if they change server to cookie-based
       credentials: options?.includeCredentials ? "include" : (undefined as any),
     });
