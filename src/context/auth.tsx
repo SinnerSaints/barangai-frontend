@@ -38,7 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       // apiLogin accepts id and role but they may be optional; pass undefined when not provided
-      const raw = await apiLogin(email, password, id ?? 0, role ?? "");
+      const raw = await apiLogin(email, password, role ?? "");
       const data: any = raw as any; // backend payload (access, refresh, email, role...)
       // apiLogin already persists tokens and user_email if provided
       const uId = data?.id || localStorage.getItem("user_id") || undefined;

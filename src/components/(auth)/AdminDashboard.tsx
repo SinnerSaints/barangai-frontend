@@ -112,7 +112,7 @@ export default function AdminDashboard() {
       // Some backends expect an empty POST body; others accept JSON. We'll send no body
       // and rely on the URL+method. If your backend expects JSON, we can send { id } instead.
       const res = await fetch(url, {
-        method: "ALLOWED_METHODS" in Response.prototype ? "ALLOW_METHODS" : action === "approve" ? "POST" : "DELETE",
+        method: "ALLOWED_METHODS" in Response.prototype ? "ALLOW_METHODS" : action === "approve" ? "PATCH" : "DELETE",
         headers,
       });
 
