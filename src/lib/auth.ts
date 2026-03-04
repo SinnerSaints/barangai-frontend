@@ -5,146 +5,81 @@ type LoginResponse = {
   [k: string]: any;
 };
 
-// export const API_BASE_URL = "https://barangaibackend-production.up.railway.app";
 export const API_BASE_URL = "http://127.0.0.1:8000/";
 
 /**
- * Login helper.
- * By default throws on error and returns parsed response on success.
- * If `options.returnRaw === true` it will return `{ success, data, error }` instead
- * of throwing so callers can handle the result object.
+ * Login helper: Fetches JWT tokens and user profile info.
  */
 export async function login(
   email: string,
   password: string,
-  id: number,
-  role: string,
-  avatar?: string,
+  role?: string,
   options?: { returnRaw?: boolean; includeCredentials?: boolean }
 ): Promise<LoginResponse | { success: boolean; data?: any; error?: any }> {
-  const url = `${API_BASE_URL}/accounts/login/`;
-  const token_url = `${API_BASE_URL}/accounts/token/`;
+  const login_url = `${API_BASE_URL}accounts/login/`;
+  const token_url = `${API_BASE_URL}accounts/token/`;
 
-  let token_res: Response;
   try {
-    token_res = await fetch(token_url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },  
-      body: JSON.stringify({ email, password }),
-      credentials: options?.includeCredentials ? "include" : (undefined as any),
-    }); 
-  } catch (err) {
-    const rawMsg = (err as Error).message || "Network error";
-    const isNetworkErr = [
-      "Failed to fetch",
-      "NetworkError when attempting to fetch resource.",
-      "Load failed",
-      "Network error",
-      "request to .* failed",
-    ].some((m) => {
-      try {
-        const re = new RegExp(m);
-        return re.test(rawMsg);
-      } catch {
-        return rawMsg === m;
-      }
-    });
-
-    const message = isNetworkErr ? "Unable to reach authentication server" : rawMsg;
-    if (options?.returnRaw) return { success: false, error: message };
-    throw new Error(message);
-  }
-
-  let res: Response;
-  try {
-    const body: any = { email, password };
-    if (role) body.role = role;
-    res = await fetch(url, {
+    // 1. Get JWT Tokens
+    const token_res = await fetch(token_url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({email, password, role, id, avatar}),
-      // allow callers to opt into sending cookies if they change server to cookie-based
-      credentials: options?.includeCredentials ? "include" : (undefined as any),
-    });
-  } catch (err) {
-    // Normalize common browser network error messages into a clearer message
-    const rawMsg = (err as Error).message || "Network error";
-    const isNetworkErr = [
-      "Failed to fetch",
-      "NetworkError when attempting to fetch resource.",
-      "Load failed",
-      "Network error",
-      "request to .* failed",
-    ].some((m) => {
-      try {
-        const re = new RegExp(m);
-        return re.test(rawMsg);
-      } catch {
-        return rawMsg === m;
-      }
+      body: JSON.stringify({ email, password }),
     });
 
-    const message = isNetworkErr ? "Unable to reach authentication server" : rawMsg;
-    if (options?.returnRaw) return { success: false, error: message };
-    throw new Error(message);
+    if (!token_res.ok) {
+      const errorData = await token_res.json();
+      throw new Error(errorData.detail || "Invalid credentials");
+    }
+
+    const token_data = await token_res.json();
+
+    // 2. Get User Profile/Role Info
+    const login_res = await fetch(login_url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, role }),
+    });
+
+    const user_data = await login_res.json();
+
+    if (!login_res.ok) throw new Error(user_data.detail || "Profile fetch failed");
+
+    // 3. Persist everything to localStorage
+    localStorage.setItem("access_token", token_data.access);
+    localStorage.setItem("refresh_token", token_data.refresh);
+    localStorage.setItem("user_id", user_data.id.toString());
+    localStorage.setItem("user_email", user_data.email || user_data.user);
+    localStorage.setItem("user_role", user_data.role);
+    if (user_data.avatar) localStorage.setItem("user_avatar", user_data.avatar);
+
+    if (options?.returnRaw) return { success: true, data: { ...token_data, ...user_data } };
+    return { ...token_data, ...user_data } as LoginResponse;
+
+  } catch (err: any) {
+    if (options?.returnRaw) return { success: false, error: err.message };
+    throw err;
   }
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const message = data?.detail || data?.error || JSON.stringify(data) || "Login failed";
-    if (options?.returnRaw) return { success: false, error: message };
-    throw new Error(message);
-  }
-
-  const token_data = await token_res.json().catch(() => ({}));
-
-  // persist tokens / info for convenience (adjust keys as you prefer)
-  if (token_data.access) localStorage.setItem("access_token", token_data.access);
-  if (token_data.refresh) localStorage.setItem("refresh_token", token_data.refresh);
-
-  if (data.role) localStorage.setItem("user_role", data.role);
-  if (data.user) localStorage.setItem("user_email", data.user);
-  if (data.email) localStorage.setItem("user_email", data.email);
-  if (data.id) localStorage.setItem("user_id", data.id.toString());
-
-  if (options?.returnRaw) return { success: true, data };
-  return data as LoginResponse;
 }
 
 export async function signup(email: string, password: string, role?: string) {
-  const url = `${API_BASE_URL}/accounts/register/`;
-  const body: any = { email, password };
-  if (role) body.role = role;
+  const url = `${API_BASE_URL}accounts/register/`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ email, password, role }),
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.detail || JSON.stringify(data) || "Signup failed");
-
-  // persist avatar/email if returned
-  if (data?.avatar) localStorage.setItem("user_avatar", data.avatar);
-  if (data?.photo) localStorage.setItem("user_avatar", data.photo);
-  if (data?.user) localStorage.setItem("user_email", data.user);
-  if (data?.email) localStorage.setItem("user_email", data.email);
-  if (data?.role) localStorage.setItem("user_role", data.role);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Signup failed");
   return data;
 }
 
 export function logout() {
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("refresh_token");
-  localStorage.removeItem("user_role");
-  localStorage.removeItem("user_email");
-  localStorage.removeItem("user_password");
-  localStorage.removeItem("user_avatar");
+  localStorage.clear(); // Clears all auth data at once
 }
 
 /**
- * Update profile: supports updating email, password, and avatar file.
- * - If `avatarFile` is provided, the request is sent as multipart/form-data
- * - Requires an access token saved in localStorage under `access_token`
+ * Update profile: Supports Email, Password, and Avatar File.
  */
 export async function updateProfile(opts: {
   email?: string;
@@ -152,44 +87,26 @@ export async function updateProfile(opts: {
   avatarFile?: File | null;
 }) {
   const user_id = localStorage.getItem("user_id");
-  const url = `${API_BASE_URL.replace(/\/$/, "")}/accounts/users/${user_id}/update/`;
   const access = localStorage.getItem("access_token");
-  // if (!access) throw new Error("Not authenticated");
+  const url = `${API_BASE_URL}accounts/users/${user_id}/update/`;
 
-  let res: Response;
-  if (opts.avatarFile) {
-    const fd = new FormData();
-    if (opts.email) fd.append("email", opts.email);
-    if (opts.password) fd.append("password", opts.password);
-    // use 'avatar' field name expected by most backends
-    fd.append("avatar", opts.avatarFile);
-    // use PATCH to partially update profile; servers should accept multipart PATCH
-    res = await fetch(url, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${access}`,
-      } as any,
-      body: fd,
-    });
-  } else {
-    // JSON path uses PATCH as well
-    res = await fetch(url, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${access}`,
-      },
-      body: JSON.stringify({ email: opts.email, password: opts.password }),
-    });
-  }
+  const fd = new FormData();
+  if (opts.email) fd.append("email", opts.email);
+  if (opts.password) fd.append("password", opts.password);
+  if (opts.avatarFile) fd.append("avatar", opts.avatarFile);
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.detail || JSON.stringify(data) || "Profile update failed");
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${access}` },
+    body: fd,
+  });
 
-  // persist returned fields if present
-  if (data?.avatar) localStorage.setItem("user_avatar", data.avatar);
-  if (data?.photo) localStorage.setItem("user_avatar", data.photo);
-  if (data?.email) localStorage.setItem("user_email", data.email);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Update failed");
+
+  // Sync updated info
+  if (data.email) localStorage.setItem("user_email", data.email);
+  if (data.avatar) localStorage.setItem("user_avatar", data.avatar);
 
   return data;
 }
