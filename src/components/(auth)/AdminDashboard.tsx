@@ -34,12 +34,37 @@ export default function AdminDashboard() {
 
   // Fetch pending users from a backend endpoint. If your backend route differs,
   // update the URL below. The UI will fall back to sample data on failure.
+  const getAccessToken = async () => { // Para ni ug mo refresh ang user sa page di mawala ang token.
+    let token = localStorage.getItem("access_token");
+    const refreshToken = localStorage.getItem("refresh_token");
+
+    if (!token && refreshToken) {
+      try {
+        const res = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/accounts/token/`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({refresh: refreshToken}),
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          localStorage.setItem("access_token", data.access);
+          return data.access;
+        }
+      } catch (err) {
+        console.error("Token refresh failed", err)
+      }
+    }
+    return token;
+  };
+
   const fetchPending = async () => {
     setLoading(true);
     setError(null);
     try {
       // Use the backend user list endpoint as requested. Include auth token if present.
-      const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+      const token = await getAccessToken();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
