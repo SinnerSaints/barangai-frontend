@@ -111,7 +111,9 @@ export default function ProfilePage() {
       if (!res.ok) throw new Error(data.detail || "Delete failed");
 
       localStorage.clear();
-      router.push("/login");
+      sessionStorage.clear();
+
+      window.location.href = "/"; // Para ma redirect padung landing page after ma delete ang account.
     } catch (err: any) {
       setStatus(err.message);
     }
