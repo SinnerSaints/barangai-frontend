@@ -54,7 +54,7 @@ export default function AuthForm() {
     try {
       await auth.signup(sEmail, sPassword, sRole);
       // auth.signup may set user; ensure logged in then redirect
-      router.push("/dashboard");
+      setMode("login") // changed from router.push to setMode to stay on page but show login form after creating an account
     } catch (err: any) {
       setError(err?.message || "Signup failed");
     } finally {
