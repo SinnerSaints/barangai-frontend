@@ -96,22 +96,45 @@ export default function ProfilePage() {
       const token = localStorage.getItem("access_token");
       const user_id = localStorage.getItem("user_id");
       if (!token) throw new Error("Not authenticated");
+      const base = API_BASE_URL.endsWith("/") ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
 
-      const base = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
-      const res = await fetch(`${base}/accounts/users/${user_id}/delete/`, {
+      // Try DELETE first. Some backends expect POST to a delete/ endpoint — if DELETE fails
+      // with 405 or non-ok, attempt POST as a fallback.
+      const url = `${base}/accounts/users/${user_id}/delete/`;
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+
+      let res = await fetch(url, {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({ password: deletePassword }),
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || "Delete failed");
+      if (res.status === 405 || !res.ok) {
+        // fallback to POST
+        res = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ password: deletePassword }),
+        });
+      }
 
-      localStorage.clear();
-      router.push("/login");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || data.error || "Delete failed");
+
+      // clear only auth-related keys (be conservative)
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("user_role");
+      localStorage.removeItem("user_email");
+      localStorage.removeItem("user_avatar");
+
+      setShowDeleteConfirm(false);
+      setStatus("Account deleted — redirecting...");
+      // push to auth page
+      router.push("/auth");
     } catch (err: any) {
       setStatus(err.message);
     }
@@ -124,55 +147,74 @@ export default function ProfilePage() {
       </div>
 
       <div
-        className={`w-full max-w-lg p-8 rounded-3xl shadow-2xl backdrop-blur-md ${
+        className={`w-full max-w-3xl p-8 rounded-3xl shadow-2xl backdrop-blur-md ${
           isDark
             ? "bg-black/70 text-white border border-white/10"
             : "bg-white/90 text-black border border-gray-200"
         }`}
       >
+        {/* status message */}
+        {status && (
+          <div className={`mb-4 p-3 rounded ${status.toLowerCase().includes('deleted') || status.toLowerCase().includes('redirect') ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
+            {status}
+          </div>
+        )}
+
         {/* PROFILE OVERVIEW */}
         {!editMode ? (
-          <>
-            <div className="flex flex-col items-center space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+            <div className="col-span-1 flex flex-col items-center">
               {user?.avatar ? (
                 <Image
                   src={getFullImageUrl(user.avatar) || ""}
                   alt="Avatar"
-                  width={120}
-                  height={120}
+                  width={140}
+                  height={140}
                   className="rounded-full object-cover border-2 border-accentGreen"
                   unoptimized
                 />
               ) : (
-                <div className="w-28 h-28 rounded-full bg-gray-400 flex items-center justify-center text-xs text-white">
+                <div className="w-36 h-36 rounded-full bg-gray-400 flex items-center justify-center text-xs text-white">
                   No Image
                 </div>
               )}
-              <h2 className="text-xl font-bold">{user?.email}</h2>
-              <p className="text-sm opacity-70 uppercase tracking-widest">{user?.role}</p>
             </div>
 
-            <div className="mt-8 flex flex-col gap-3">
-              <button
-                onClick={() => setEditMode(true)}
-                className="w-full py-3 rounded-full bg-accentGreen text-black font-semibold hover:opacity-90 transition"
-              >
-                Edit Account
-              </button>
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="w-full py-3 rounded-full bg-red-600 text-white font-semibold hover:opacity-90 transition"
-              >
-                Delete Account
-              </button>
-              <button
-                onClick={() => router.back()}
-                className="w-full py-2 text-sm text-center opacity-70 hover:underline"
-              >
-                Back to Previous Page
-              </button>
+            <div className="col-span-2 flex flex-col gap-4">
+              <div>
+                <h2 className="text-2xl font-bold">{user?.email}</h2>
+                <div className="mt-2 flex items-center gap-3">
+                  <span className="text-sm uppercase tracking-widest text-gray-500">{user?.role}</span>
+                  <span className="px-2 py-1 text-xs rounded-full bg-accentGreen/20 text-accentGreen">{user?.role === 'CAPTAIN' ? 'Barangay Captain' : (user?.role ?? 'User')}</span>
+                </div>
+                <p className="mt-3 text-sm text-gray-600">Manage your account details here. You can update your email, password, and avatar. Deleting your account is permanent.</p>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button
+                  onClick={() => setEditMode(true)}
+                  className="col-span-1 sm:col-span-2 py-3 rounded-full bg-accentGreen text-black font-semibold hover:opacity-90 transition"
+                >
+                  Edit Account
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="col-span-1 py-3 rounded-full bg-red-600 text-white font-semibold hover:opacity-90 transition"
+                >
+                  Delete Account
+                </button>
+              </div>
+
+              <div className="mt-4">
+                <button
+                  onClick={() => router.back()}
+                  className="text-sm text-gray-500 hover:underline"
+                >
+                  Back to Previous Page
+                </button>
+              </div>
             </div>
-          </>
+          </div>
         ) : (
           /* EDIT MODE */
           <form onSubmit={handleUpdate} className="space-y-4">
@@ -284,7 +326,8 @@ export default function ProfilePage() {
               </button>
               <button
                 onClick={handleDelete}
-                className="flex-1 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                disabled={!deletePassword.trim()}
+                className={`flex-1 py-2 text-white rounded-lg transition ${deletePassword.trim() ? 'bg-red-600 hover:bg-red-700' : 'bg-red-300 cursor-not-allowed'}`}
               >
                 Delete
               </button>

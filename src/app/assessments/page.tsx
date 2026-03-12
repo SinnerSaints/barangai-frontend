@@ -8,36 +8,204 @@ import chatBgLight from "@/assets/img/chatBotBg-white.png";
 import chatBgDark from "@/assets/img/chatBotBg-black.png";
 import { useTheme } from "@/context/theme";
 
+interface Assessment {
+  id: number;
+  title: string;
+  due: string;
+  status: string;
+  quizId?: number;
+}
+
+interface Quiz {
+  id: number;
+  title: string;
+  questions?: { id: number; question: string }[];
+}
+
+interface QuizResult {
+  total_questions: number;
+  correct_count: number;
+  score_percent: number;
+}
+
 export default function AssessmentsPage() {
-  const [assessments] = useState([
-    { id: 1, title: "Community Needs Assessment", due: "2026-03-10", status: "Open" },
-    { id: 2, title: "Volunteer Skills Check", due: "2026-04-01", status: "Draft" },
+  const [assessments] = useState<Assessment[]>([
+    { id: 1, title: "Community Needs Assessment", due: "2026-03-10", status: "Open", quizId: 1 },
+    { id: 2, title: "Volunteer Skills Check", due: "2026-04-01", status: "Draft", quizId: 2 },
   ]);
+
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [result, setResult] = useState<QuizResult | null>(null);
+  const [quizError, setQuizError] = useState<string | null>(null);
+  const [loadingQuizId, setLoadingQuizId] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
   const { theme } = useTheme();
   const isDark = theme === "dark";
+
+  // Fetch quiz from API
+  const fetchQuizById = async (quizId?: number) => {
+    if (!quizId) return;
+    setLoadingQuizId(quizId);
+    setQuizError(null);
+    setResult(null);
+
+    try {
+      const res = await fetch(`/api/quizzes/${quizId}/`);
+      if (!res.ok) throw new Error(`Failed to fetch quiz ${quizId}`);
+      const data = await res.json();
+      setQuiz(data);
+    } catch (err: any) {
+      setQuizError(err.message || "Failed to load quiz.");
+    } finally {
+      setLoadingQuizId(null);
+    }
+  };
+
+  // Submit quiz to API
+  const submitQuiz = async () => {
+    if (!quiz) return;
+    setSubmitting(true);
+    setQuizError(null);
+
+    try {
+      const res = await fetch(`/api/progress/submit/${quiz.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          // Example: send answers; adjust as needed
+          answers: quiz.questions?.map((q) => ({ question_id: q.id, answer: "sample" })) || [],
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to submit quiz.");
+
+      const data = await res.json();
+      // Assuming API returns total_questions, correct_count, score_percent
+      setResult(data);
+    } catch (err: any) {
+      setQuizError(err.message || "Failed to submit quiz.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const renderQuestion = (q: any) => (
+    <div key={q.id} className="p-4 border rounded mb-2">
+      <div className="font-semibold">{q.question}</div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen flex">
       <Sidebar />
       <main className={`flex-1 p-6 relative overflow-hidden ${isDark ? "text-white" : "text-black"}`}>
+        {/* Background */}
         <div className="absolute inset-0 z-0">
-          <Image src={isDark ? chatBgDark : chatBgLight} alt="background" fill className="object-cover opacity-95" />
+          <Image
+            src={isDark ? chatBgDark : chatBgLight}
+            alt="background"
+            fill
+            className="object-cover opacity-95"
+          />
         </div>
 
         <div className="max-w-4xl mx-auto relative z-10">
           <TopBar />
           <h1 className="text-2xl font-bold mt-6">Assessments</h1>
+
+          {/* Assessments List */}
           <div className="mt-4 grid gap-4">
             {assessments.map((a) => (
-              <div key={a.id} className={isDark ? "bg-white/5 rounded p-4 flex justify-between items-center" : "bg-white/90 rounded p-4 flex justify-between items-center"}>
+              <div
+                key={a.id}
+                className={`rounded p-4 flex justify-between items-center ${
+                  isDark ? "bg-white/5" : "bg-white/90"
+                } shadow-md`}
+              >
                 <div>
-                  <div className={isDark ? "font-semibold text-white" : "font-semibold text-gray-900"}>{a.title}</div>
-                  <div className={isDark ? "text-sm text-gray-400" : "text-sm text-gray-700"}>Due: {a.due}</div>
+                  <div className={isDark ? "font-semibold text-white" : "font-semibold text-gray-900"}>
+                    {a.title}
+                  </div>
+                  <div className={isDark ? "text-sm text-gray-400" : "text-sm text-gray-700"}>
+                    Due: {a.due}
+                  </div>
                 </div>
-                <div className={isDark ? "text-sm px-3 py-1 rounded bg-white/10" : "text-sm px-3 py-1 rounded bg-white/10 text-gray-800"}>{a.status}</div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`${
+                      isDark
+                        ? "text-sm px-3 py-1 rounded bg-white/10"
+                        : "text-sm px-3 py-1 rounded bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {a.status}
+                  </div>
+                  {a.quizId && (
+                    <button
+                      onClick={() => fetchQuizById(a.quizId)}
+                      className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+                      disabled={loadingQuizId === a.quizId}
+                    >
+                      {loadingQuizId === a.quizId ? "Loading…" : "Open"}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
+
+          {/* Quiz Panel */}
+          {quiz && (
+            <div className={`mt-6 p-6 rounded shadow-md ${isDark ? "bg-white/10" : "bg-white/95"}`}>
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h2 className="text-xl font-bold">{quiz.title}</h2>
+                  <div className="text-sm text-gray-400">Questions: {quiz.questions?.length ?? 0}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setQuiz(null);
+                      setResult(null);
+                      setQuizError(null);
+                    }}
+                    className="text-sm px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={submitQuiz}
+                    disabled={submitting}
+                    className="text-sm px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700"
+                  >
+                    {submitting ? "Submitting…" : "Submit"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                {quiz.questions?.length === 0 && <div>No questions found for this quiz.</div>}
+                {quiz.questions?.map(renderQuestion)}
+              </div>
+
+              {quizError && <div className="mt-4 text-red-500">Error: {quizError}</div>}
+
+              {result && (
+                <div className="mt-4 p-4 rounded border bg-gray-50 text-gray-900">
+                  <div className="text-lg font-semibold">Result</div>
+                  <div>Total questions: {result.total_questions}</div>
+                  <div>Correct: {result.correct_count}</div>
+                  <div>Score: {result.score_percent}%</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Global Quiz Error */}
+          {quizError && !quiz && (
+            <div className="mt-6 p-4 rounded bg-red-50 text-red-700">{quizError}</div>
+          )}
         </div>
       </main>
     </div>
