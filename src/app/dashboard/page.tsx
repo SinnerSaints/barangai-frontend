@@ -50,7 +50,7 @@ export default function DashboardPage() {
 
 						<div className="mt-6">
 							<DashboardHero />
-							<CardsRow apiUrl={undefined} />
+							<CardsRow />
 						</div>
 					</div>
 				</main>

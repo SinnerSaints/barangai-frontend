@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Sidebar from "@/components/dashboard/Sidebar";
 import TopBar from "@/components/dashboard/TopBar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import chatBgLight from "@/assets/img/chatBotBg-white.png";
 import chatBgDark from "@/assets/img/chatBotBg-black.png";
 import { useTheme } from "@/context/theme";
@@ -16,42 +16,81 @@ interface Assessment {
   quizId?: number;
 }
 
+interface Question {
+  id: number;
+  question_text: string;
+  choice_a: string;
+  choice_b: string;
+  choice_c: string;
+  choice_d: string;
+  correct_choice?: string;
+}
+
 interface Quiz {
   id: number;
   title: string;
-  questions?: { id: number; question: string }[];
+  questions?: Question[];
 }
 
 interface QuizResult {
   total_questions: number;
   correct_count: number;
   score_percent: number;
+  per_question?: Record<number, boolean>;
 }
 
 export default function AssessmentsPage() {
-  const [assessments] = useState<Assessment[]>([
-    { id: 1, title: "Community Needs Assessment", due: "2026-03-10", status: "Open", quizId: 1 },
-    { id: 2, title: "Volunteer Skills Check", due: "2026-04-01", status: "Draft", quizId: 2 },
-  ]);
-
-  const [quiz, setQuiz] = useState<Quiz | null>(null);
-  const [result, setResult] = useState<QuizResult | null>(null);
-  const [quizError, setQuizError] = useState<string | null>(null);
-  const [loadingQuizId, setLoadingQuizId] = useState<number | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  // Fetch quiz from API
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [result, setResult] = useState<QuizResult | null>(null);
+  const [loadingQuizId, setLoadingQuizId] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [quizError, setQuizError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchAssessments = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        const res = await fetch("/api/assessments/", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        let data: Assessment[] = [];
+        if (res.ok) data = await res.json();
+        if (!data.length) {
+          data = [
+            { id: 1, title: "Community Needs Assessment", due: "2026-03-10", status: "Open", quizId: 1 },
+            { id: 2, title: "Volunteer Skills Check", due: "2026-04-01", status: "Draft", quizId: 2 },
+          ];
+        }
+        setAssessments(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAssessments();
+  }, []);
+
   const fetchQuizById = async (quizId?: number) => {
     if (!quizId) return;
     setLoadingQuizId(quizId);
     setQuizError(null);
     setResult(null);
+    setAnswers({});
+    setCurrentIndex(0);
 
     try {
-      const res = await fetch(`/api/quizzes/${quizId}/`);
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`/api/quizzes/${quizId}/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) throw new Error(`Failed to fetch quiz ${quizId}`);
       const data = await res.json();
       setQuiz(data);
@@ -62,26 +101,33 @@ export default function AssessmentsPage() {
     }
   };
 
-  // Submit quiz to API
+  const handleSelectAnswer = (choice: string, questionId: number) => {
+    setAnswers({ ...answers, [questionId]: choice });
+  };
+
   const submitQuiz = async () => {
     if (!quiz) return;
     setSubmitting(true);
     setQuizError(null);
 
     try {
+      const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
+        question_id: Number(questionId),
+        answer,
+      }));
+
+      const token = localStorage.getItem("access_token");
       const res = await fetch(`/api/progress/submit/${quiz.id}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          // Example: send answers; adjust as needed
-          answers: quiz.questions?.map((q) => ({ question_id: q.id, answer: "sample" })) || [],
-        }),
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ answers: formattedAnswers }),
       });
 
       if (!res.ok) throw new Error("Failed to submit quiz.");
-
-      const data = await res.json();
-      // Assuming API returns total_questions, correct_count, score_percent
+      const data: QuizResult = await res.json();
       setResult(data);
     } catch (err: any) {
       setQuizError(err.message || "Failed to submit quiz.");
@@ -90,121 +136,173 @@ export default function AssessmentsPage() {
     }
   };
 
-  const renderQuestion = (q: any) => (
-    <div key={q.id} className="p-4 border rounded mb-2">
-      <div className="font-semibold">{q.question}</div>
-    </div>
-  );
+  if (loading) return <div className="p-10 text-brandGreen font-bold text-center">Loading Assessments...</div>;
+
+  const currentQuestion = quiz?.questions?.[currentIndex];
+
+  const getChoiceStyle = (q: Question, choice: string) => {
+    if (result && result.per_question) {
+      const correct = q.correct_choice;
+      const userAnswer = answers[q.id];
+      if (userAnswer === choice) {
+        if (userAnswer === correct) return "bg-green-600 text-white border-green-600";
+        return "bg-red-600 text-white border-red-600";
+      }
+      if (choice === correct) return "bg-green-400 text-white border-green-400";
+    }
+    return "";
+  };
 
   return (
     <div className="min-h-screen flex">
       <Sidebar />
       <main className={`flex-1 p-6 relative overflow-hidden ${isDark ? "text-white" : "text-black"}`}>
-        {/* Background */}
         <div className="absolute inset-0 z-0">
           <Image
             src={isDark ? chatBgDark : chatBgLight}
             alt="background"
             fill
-            className="object-cover opacity-95"
+            className="object-cover opacity-90"
           />
         </div>
 
         <div className="max-w-4xl mx-auto relative z-10">
           <TopBar />
-          <h1 className="text-2xl font-bold mt-6">Assessments</h1>
+          <h1 className="text-3xl font-extrabold mt-6 mb-4 text-transparent bg-clip-text bg-gradient-to-r from-brandGreen to-accentGreen">
+            Assessments
+          </h1>
 
           {/* Assessments List */}
-          <div className="mt-4 grid gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
             {assessments.map((a) => (
               <div
                 key={a.id}
-                className={`rounded p-4 flex justify-between items-center ${
-                  isDark ? "bg-white/5" : "bg-white/90"
-                } shadow-md`}
+                className={`rounded-3xl p-6 shadow-lg transform transition hover:scale-105 hover:shadow-2xl ${
+                  isDark ? "bg-zinc-900 border border-white/10" : "bg-white border border-gray-200"
+                }`}
               >
-                <div>
-                  <div className={isDark ? "font-semibold text-white" : "font-semibold text-gray-900"}>
-                    {a.title}
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h2 className="font-bold text-lg">{a.title}</h2>
+                    <p className="text-sm text-gray-400">Due: {a.due}</p>
                   </div>
-                  <div className={isDark ? "text-sm text-gray-400" : "text-sm text-gray-700"}>
-                    Due: {a.due}
+                  <div className="flex gap-2">
+                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${a.status === 'Open' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>{a.status}</span>
+                    {a.quizId && (
+                      <button
+                        onClick={() => fetchQuizById(a.quizId)}
+                        className="px-3 py-1 rounded-full bg-brandGreen text-white font-semibold hover:bg-green-700 transition"
+                      >
+                        Open
+                      </button>
+                    )}
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`${
-                      isDark
-                        ? "text-sm px-3 py-1 rounded bg-white/10"
-                        : "text-sm px-3 py-1 rounded bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {a.status}
-                  </div>
-                  {a.quizId && (
-                    <button
-                      onClick={() => fetchQuizById(a.quizId)}
-                      className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
-                      disabled={loadingQuizId === a.quizId}
-                    >
-                      {loadingQuizId === a.quizId ? "Loading…" : "Open"}
-                    </button>
-                  )}
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Quiz Panel */}
-          {quiz && (
-            <div className={`mt-6 p-6 rounded shadow-md ${isDark ? "bg-white/10" : "bg-white/95"}`}>
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h2 className="text-xl font-bold">{quiz.title}</h2>
-                  <div className="text-sm text-gray-400">Questions: {quiz.questions?.length ?? 0}</div>
+          {/* Quiz Card */}
+          {quiz && currentQuestion && (
+            <div
+              className={`p-6 rounded-3xl shadow-2xl backdrop-blur-md ${
+                isDark ? "bg-zinc-900 border border-white/10" : "bg-white border border-gray-200"
+              }`}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">{quiz.title}</h2>
+                <span className="text-sm text-gray-400">
+                  {currentIndex + 1}/{quiz.questions?.length}
+                </span>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full h-2 bg-gray-300 rounded-full mb-6 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-brandGreen to-accentGreen transition-all duration-500"
+                  style={{ width: `${((currentIndex + 1) / (quiz.questions?.length || 1)) * 100}%` }}
+                />
+              </div>
+
+              {/* Question */}
+              <div className="mb-6">
+                <h3 className="font-semibold text-lg mb-4">{currentQuestion.question_text}</h3>
+                <div className="grid grid-cols-1 gap-4">
+                  {(["A","B","C","D"] as const).map((choice) => {
+                    const text =
+                      choice === "A" ? currentQuestion.choice_a :
+                      choice === "B" ? currentQuestion.choice_b :
+                      choice === "C" ? currentQuestion.choice_c :
+                      currentQuestion.choice_d;
+
+                    const selected = answers[currentQuestion.id] === choice;
+                    const choiceClasses = getChoiceStyle(currentQuestion, choice);
+
+                    return (
+                      <button
+                        key={choice}
+                        onClick={() => !result && handleSelectAnswer(choice, currentQuestion.id)}
+                        className={`w-full text-left p-4 rounded-xl border shadow-sm transition transform hover:scale-105 font-medium ${
+                          choiceClasses || (selected ? "border-brandGreen" : isDark ? "bg-zinc-800 text-white border-white/10" : "bg-white text-black border-gray-300")
+                        }`}
+                      >
+                        {choice}. {text}
+                      </button>
+                    );
+                  })}
                 </div>
-                <div className="flex items-center gap-2">
+              </div>
+
+              {/* Navigation */}
+              <div className="flex justify-between mt-6">
+                <button
+                  onClick={() => setCurrentIndex((i) => Math.max(i - 1, 0))}
+                  disabled={currentIndex === 0}
+                  className="px-5 py-2 rounded-xl bg-gray-300 hover:bg-gray-400 disabled:opacity-50 transition"
+                >
+                  Previous
+                </button>
+
+                {currentIndex < (quiz.questions!.length - 1) ? (
                   <button
-                    onClick={() => {
-                      setQuiz(null);
-                      setResult(null);
-                      setQuizError(null);
-                    }}
-                    className="text-sm px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+                    onClick={() => setCurrentIndex((i) => i + 1)}
+                    disabled={!answers[currentQuestion.id]}
+                    className="px-5 py-2 rounded-xl bg-brandGreen text-white hover:bg-green-700 disabled:opacity-50 transition"
                   >
-                    Close
+                    Next
                   </button>
+                ) : (
                   <button
                     onClick={submitQuiz}
-                    disabled={submitting}
-                    className="text-sm px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700"
+                    disabled={submitting || !answers[currentQuestion.id]}
+                    className="px-5 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition"
                   >
-                    {submitting ? "Submitting…" : "Submit"}
+                    {submitting ? "Submitting…" : "Submit Quiz"}
                   </button>
-                </div>
+                )}
               </div>
 
-              <div className="mt-4">
-                {quiz.questions?.length === 0 && <div>No questions found for this quiz.</div>}
-                {quiz.questions?.map(renderQuestion)}
-              </div>
-
-              {quizError && <div className="mt-4 text-red-500">Error: {quizError}</div>}
-
-              {result && (
-                <div className="mt-4 p-4 rounded border bg-gray-50 text-gray-900">
-                  <div className="text-lg font-semibold">Result</div>
-                  <div>Total questions: {result.total_questions}</div>
-                  <div>Correct: {result.correct_count}</div>
-                  <div>Score: {result.score_percent}%</div>
-                </div>
-              )}
+              {quizError && <div className="mt-4 text-red-500">{quizError}</div>}
             </div>
           )}
 
-          {/* Global Quiz Error */}
-          {quizError && !quiz && (
-            <div className="mt-6 p-4 rounded bg-red-50 text-red-700">{quizError}</div>
+          {/* Result Card */}
+          {result && (
+            <div
+              className={`p-6 mt-6 rounded-3xl shadow-2xl backdrop-blur-md text-center ${
+                isDark ? "bg-zinc-900 border border-white/10" : "bg-white border border-gray-200"
+              }`}
+            >
+              <h2 className="text-2xl font-bold mb-4">Quiz Result</h2>
+              <div className="text-lg mb-2">Score: <span className="font-extrabold">{result.score_percent}%</span></div>
+              <div className="mb-4">Correct: {result.correct_count} / {result.total_questions}</div>
+              <button
+                className="mt-4 px-6 py-2 rounded-xl bg-brandGreen text-white font-semibold hover:bg-green-700 transition"
+                onClick={() => { setQuiz(null); setResult(null); setAnswers({}); setCurrentIndex(0); }}
+              >
+                Close
+              </button>
+            </div>
           )}
         </div>
       </main>

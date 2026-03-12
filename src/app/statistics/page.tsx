@@ -13,7 +13,7 @@ export default function StatisticsPage() {
   return (
     <div className="min-h-screen flex">
       <Sidebar />
-      <StatisticsClient stats={stats} />
+      <StatisticsClient/>
     </div>
   );
 }
