@@ -30,10 +30,12 @@ export default function DashboardHero() {
   // Get username from localStorage
   useEffect(() => {
     const storedEmail = localStorage.getItem("user_email");
+    const firstName = localStorage.getItem("first_name");
 
     if (storedEmail) {
       const name = storedEmail.split("@")[0]; // extract username
-      setUserName(name);
+
+      if (firstName != null) { setUserName(firstName) } else { setUserName(name)}
     }
   }, []);
 
