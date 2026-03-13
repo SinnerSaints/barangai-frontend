@@ -30,6 +30,8 @@ export default function ProfilePage() {
   const [confirm, setConfirm] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [first_name, setFirstName] = useState("");
+  const [last_name, setLastName] = useState("");
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -41,11 +43,15 @@ export default function ProfilePage() {
     const storedEmail = localStorage.getItem("user_email") || "";
     const storedAvatar = localStorage.getItem("user_avatar");
     const storedRole = localStorage.getItem("user_role");
+    const storedFirstName = localStorage.getItem("user_firstName") || "";
+    const storedLastName = localStorage.getItem("user_lastName") || "";
 
     setUser({
       email: storedEmail,
       avatar: storedAvatar,
       role: storedRole,
+      first_name: storedFirstName,
+      last_name: storedLastName
     });
 
     setEmail(storedEmail);
@@ -67,18 +73,24 @@ export default function ProfilePage() {
       const data = await updateProfile({
         email,
         password: password || undefined,
-        avatarFile
+        avatarFile,
+        first_name,
+        last_name
       });
 
       // Update LOCAL STORAGE so it persists on refresh
       if (data.avatar) localStorage.setItem("user_avatar", data.avatar);
       if (data.email) localStorage.setItem("user_email", data.email);
+      if (data.first_name) localStorage.setItem("user_firstName", data.first_name);
+      if (data.last_name) localStorage.setItem("user_lastName", data.last_name);
 
       // Update LOCAL STATE so the UI changes immediately
       setUser({ 
         ...user, 
         email: data.email, 
-        avatar: data.avatar // This must match the key returned by your UserSerializer
+        avatar: data.avatar, // This must match the key returned by your UserSerializer
+        first_name: first_name,
+        last_name: last_name
       });
 
       setEditMode(false);
@@ -188,6 +200,26 @@ export default function ProfilePage() {
                 isDark ? "bg-black/30 border-white/20" : "bg-white border-gray-300"
               } focus:outline-none focus:ring-2 focus:ring-accentGreen`}
               placeholder="Email"
+            />
+
+            <input
+              type="first_name"
+              value={first_name}
+              onChange={(e) => setFirstName(e.target.value)}
+              className={`w-full p-3 rounded border ${
+                isDark ? "bg-black/30 border-white/20" : "bg-white border-gray-300"
+              } focus:outline-none focus:ring-2 focus:ring-accentGreen`}
+              placeholder={localStorage.getItem("user_firstName") || ""}
+            />
+
+            <input 
+              type="last_name"
+              value={last_name}
+              onChange={(e) => setLastName(e.target.value)}
+              className={`w-full p-3 rounded border ${
+                isDark ? "bg-black/30 border-white/20" : "bg-white border-gray-300"
+              } focus:outline-none focus:ring-2 focus:ring-accentGreen`}
+              placeholder="Last Name"
             />
 
             <input
