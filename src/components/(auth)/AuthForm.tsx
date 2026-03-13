@@ -13,6 +13,8 @@ export default function AuthForm() {
   // login state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   // role removed from login; signup will collect role
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +24,8 @@ export default function AuthForm() {
   const [sPassword, setSPassword] = useState("");
   const [sConfirm, setSConfirm] = useState("");
   const [sRole, setSRole] = useState<string>("CAPTAIN");
+  const [sFirstName, setSFirstName] = useState<string>("");
+  const [sLastName, setSLastName] = useState<string>("");
 
   const router = useRouter();
   const auth = useAuth();
@@ -34,7 +38,7 @@ export default function AuthForm() {
     setLoading(true);
   try {
   // login should not pass a role (role is only for signup)
-  await auth.login(email, password);
+  await auth.login(email, password, firstName, lastName);
       router.push("/dashboard");
     } catch (err: any) {
       setError(err?.message || "Login failed");
@@ -52,7 +56,7 @@ export default function AuthForm() {
     }
     setLoading(true);
     try {
-      await auth.signup(sEmail, sPassword, sRole);
+      await auth.signup(sEmail, sPassword, sFirstName, sLastName, sRole);
       // auth.signup may set user; ensure logged in then redirect
       setMode("login") // changed from router.push to setMode to stay on page but show login form after creating an account
     } catch (err: any) {
@@ -85,8 +89,8 @@ export default function AuthForm() {
         {/* Right form card */}
         <div className="md:col-span-5 flex items-center">
           <div
-            className={`w-full rounded-2xl p-8 shadow-lg ${isDark ? "bg-black/80 text-white" : "bg-white text-black"}`}
-            style={{ height: "530px" }}
+            className={`w-full rounded-2xl p-8 shadow-lg relative flex flex-col ${isDark ? "bg-black/80 text-white" : "bg-white text-black"}`}
+            style={{ minHeight: "530px" }}
           >
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl font-bold">
@@ -138,6 +142,17 @@ export default function AuthForm() {
                     <input type="email" required value={sEmail} onChange={(e) => setSEmail(e.target.value)} className={isDark ? 'w-full p-3 rounded border border-white/10 bg-transparent' : 'w-full p-3 rounded border border-gray-200 bg-white'} />
                   </div>
 
+                  <div className="flex gap-4">
+                    <div className="w-1/2">
+                      <label className="block text-sm mb-1">First Name</label>
+                      <input type="text" required value={sFirstName} onChange={(e) => setSFirstName(e.target.value)} className={isDark ? 'w-full p-3 rounded border border-white/10 bg-transparent' : 'w-full p-3 rounded border border-gray-200 bg-white'} />
+                    </div>
+                    <div className="w-1/2">
+                      <label className="block text-sm mb-1">Last Name</label>
+                      <input type="text" required value={sLastName} onChange={(e) => setSLastName(e.target.value)} className={isDark ? 'w-full p-3 rounded border border-white/10 bg-transparent' : 'w-full p-3 rounded border border-gray-200 bg-white'} />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm mb-1">Password</label>
                     <input type="password" required value={sPassword} onChange={(e) => setSPassword(e.target.value)} className={isDark ? 'w-full p-3 rounded border border-white/10 bg-transparent' : 'w-full p-3 rounded border border-gray-200 bg-white'} />
@@ -167,7 +182,7 @@ export default function AuthForm() {
               </form>
             )}
 
-            <div className="-mt-16 text-center text-sm opacity-70">Or continue with <a href="#" className="text-accentGreen">Google</a></div>
+            <div className="mt-auto pt-4 text-center text-sm opacity-70">Or continue with <a href="#" className="text-accentGreen">Google</a></div>
           </div>
         </div>
       </div>

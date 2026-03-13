@@ -5,6 +5,8 @@ import { login as apiLogin, signup as apiSignup, logout as apiLogout, updateProf
 
 type User = {
   email?: string;
+  first_name: string;
+  last_name: string;
   role?: string;
   [k: string]: any;
 };
@@ -13,9 +15,9 @@ type AuthContextValue = {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (email: string, password: string, id?: number, role?: string) => Promise<void>;
-  signup: (email: string, password: string, role?: string) => Promise<void>;
-  updateProfile: (opts: { email?: string; password?: string; avatarFile?: File | null }) => Promise<any>;
+  login: (email: string, password: string, first_name: string, last_name: string, id?: number, role?: string) => Promise<void>;
+  signup: (email: string, password: string, first_name: string, last_name: string, role?: string) => Promise<void>;
+  updateProfile: (opts: { email?: string; password?: string; avatarFile?: File | null; first_name: string; last_name: string }) => Promise<any>;
   logout: () => void;
 };
 
@@ -29,38 +31,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // initialize from localStorage if present
     const email = localStorage.getItem("user_email");
     const role = localStorage.getItem("user_role");
+    const first_name = localStorage.getItem("first_name");
+    const last_name = localStorage.getItem("last_name");
     if (email || role) {
-      setUser({ email: email || undefined, role: role || undefined });
+      setUser({ email: email || undefined, first_name: first_name || "", last_name: last_name || "", role: role || undefined});
     }
   }, []);
 
-  async function login(email: string, password: string, id?: number, role?: string) {
+  async function login(email: string, password: string, first_name: string, last_name: string, id?: number, role?: string) {
     setLoading(true);
     try {
       // apiLogin accepts id and role but they may be optional; pass undefined when not provided
-      const raw = await apiLogin(email, password, role ?? "");
+      const raw = await apiLogin(email, password, first_name, last_name, role ?? "");
       const data: any = raw as any; // backend payload (access, refresh, email, role...)
       // apiLogin already persists tokens and user_email if provided
       const uId = data?.id || localStorage.getItem("user_id") || undefined;
       const uEmail = data?.email || data?.user || localStorage.getItem("user_email") || email;
       const uRole = data?.role || localStorage.getItem("user_role") || undefined;
       const uAvatar = data?.avatar || data?.photo || localStorage.getItem("user_avatar") || undefined;
-      setUser({ id: uId, email: uEmail, role: uRole, avatar: uAvatar });
+      const uFirstName = data?.first_name || data?.user || localStorage.getItem("first_name") || first_name;
+      const uLastName = data?.last_name || data?.user || localStorage.getItem("last_name") || last_name;
+      setUser({ id: uId, email: uEmail, role: uRole, avatar: uAvatar, first_name: uFirstName, last_name: uLastName });
     } finally {
       setLoading(false);
     }
   }
 
-  async function signup(email: string, password: string, role?: string) {
+  async function signup(email: string, password: string, first_name: string, last_name: string, role?: string) {
     setLoading(true);
     try {
-      const raw = await apiSignup(email, password, role);
+      const raw = await apiSignup(email, password, first_name, last_name, role);
       const data: any = raw as any;
       // auto-login behavior: if the register endpoint returned tokens, set user
       if (data?.access) {
         const uEmail = data?.email || data?.user || email;
         const uRole = data?.role || undefined;
-        setUser({ email: uEmail, role: uRole });
+        const uFirstName = data?.first_name || first_name;
+        const uLastName = data?.last_name || last_name;
+        setUser({ email: uEmail, first_name: uFirstName, last_name: uLastName, role: uRole });
       }
       return data;
     } finally {
@@ -68,14 +76,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  async function updateProfile(opts: { email?: string; password?: string; avatarFile?: File | null }) {
+  async function updateProfile(opts: { email?: string; password?: string; avatarFile?: File | null; first_name: string; last_name: string }) {
     setLoading(true);
     try {
       const data = await apiUpdateProfile(opts);
       const email = data?.email || localStorage.getItem("user_email") || undefined;
       const role = data?.role || localStorage.getItem("user_role") || undefined;
       const avatar = data?.avatar || data?.photo || localStorage.getItem("user_avatar") || undefined;
-      setUser({ email, role, avatar });
+      const first_name = data?.first_name || localStorage.getItem("first_name")
+      const last_name = data?.last_name || localStorage.getItem("last_name")
+      setUser({ email, role, avatar, first_name, last_name});
       return data;
     } finally {
       setLoading(false);
