@@ -32,6 +32,13 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
   useEffect(() => {
     const fetchLessons = async () => {
       try {
+        const cachedCourses = localStorage.getItem("cached_courses"); // Same gihapon, para ka isa ra i call ang api.
+        if(cachedCourses) {
+          setLessons(JSON.parse(cachedCourses));
+          setLoading(false);
+          return;
+        }
+
         const token = localStorage.getItem("access_token");
         const response = await fetch(fetchEndpoint, {
           headers: {
@@ -42,7 +49,7 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
         if (!response.ok) throw new Error("Failed to load");
         const data = await response.json();
         // map and normalize server data to our UI model
-        setLessons((data || []).map((l: any, idx: number) => ({
+        const mapped_lessons = ((data || []).map((l: any, idx: number) => ({
           id: l.id ?? idx,
           title: l.title ?? l.name ?? `Lesson ${idx + 1}`,
           topic: l.topic ?? l.category ?? "General",
@@ -53,6 +60,9 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
           total_lessons: l.total_lessons ?? 12,
           total_quizzes: l.total_quizzes ?? 3,
         })));
+
+        localStorage.setItem("cached_courses", JSON.stringify(mapped_lessons)); // i-save ang fetched lessons, para ka isa ra i call ang api
+        setLessons(mapped_lessons);
       } catch (err) {
         console.error(err);
       } finally {

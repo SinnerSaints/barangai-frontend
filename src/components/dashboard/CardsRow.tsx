@@ -20,6 +20,13 @@ export default function CardsRow() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
+        const cachedLessons = localStorage.getItem("cached_lessons"); // e-check sa niya if naay stored lesson sa local before mo run sa fetch function.
+        if (cachedLessons) {
+          setItems(JSON.parse(cachedLessons));
+          setLoading(false);
+          return;
+        }
+
         const token = localStorage.getItem("access_token");
 
         const res = await fetch(`${API_BASE_URL}lessons/`, {
@@ -42,6 +49,8 @@ export default function CardsRow() {
               ? d.progress
               : Math.floor(Math.random() * 80) + 10,
         }));
+
+        localStorage.setItem("cached_lessons", JSON.stringify(mapped)); // e-store ang fetched lessons, para di na mag balik2 ug call sa api.
 
         setItems(mapped);
       } catch (err) {
