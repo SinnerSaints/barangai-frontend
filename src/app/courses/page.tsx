@@ -3,7 +3,6 @@
 import React from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import CoursesClient from "@/components/courses/CoursesClient";
-import TopBar from "@/components/dashboard/TopBar";
 import { useTheme } from "@/context/theme";
 
 export default function CoursesPage() {
@@ -35,12 +34,9 @@ export default function CoursesPage() {
   return (
     <div className="min-h-screen flex">
       <Sidebar collapsed={collapsed} onToggle={toggle} />
-      <div className="flex-1 flex mt-6 mx-auto flex-col">
         <main className="flex-1">
-          <TopBar searchValue={query} onSearch={setQuery} />
           <CoursesClient apiUrl={undefined} searchQuery={query} />
         </main>
       </div>
-    </div>
   );
 }

@@ -139,3 +139,57 @@ body {
   transform: translateY(8px) scale(.995);
   animation: buttonEnter 420ms cubic-bezier(.2,.9,.2,1) both;
 }
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out;
+}
+
+.animate-pulse {
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Chat thread scrollbar:
+   Hidden when idle, visible only while user interacts/scrolls. */
+.chat-scroll-area {
+  scrollbar-width: none; /* Firefox */
+}
+
+.chat-scroll-area::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.chat-scroll-area.is-scrolling,
+.chat-scroll-area:hover {
+  scrollbar-width: thin;
+}
+
+.chat-scroll-area.is-scrolling::-webkit-scrollbar,
+.chat-scroll-area:hover::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-scroll-area::-webkit-scrollbar-thumb {
+  background: rgba(140, 153, 178, 0.45);
+  border-radius: 9999px;
+}
+
+.chat-scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
