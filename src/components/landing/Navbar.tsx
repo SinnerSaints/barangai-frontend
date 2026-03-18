@@ -24,7 +24,7 @@ const Navbar = () => {
   }, []);
 
   return (
-    <nav className="w-full overflow-true px-8 md:px-16 py-6 bg-brandGreen/90 backdrop-blur-md border-b-[1px] border-white/20 flex justify-between items-center transition-all duration-300">
+    <nav className="w-full overflow-true px-8 md:px-16 py-6 flex justify-between items-center transition-all duration-300">
       {/* Logo */}
       <Link href="/" className="text-2xl font-bold font-inter text-white hover:scale-105 transition-transform duration-300">
         Barang<span className="text-accentGreen text-3xl font-league">AI</span>
@@ -67,7 +67,7 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="absolute top-full left-0 w-full bg-brandGreen/95 backdrop-blur-md border-b-[1px] border-white/30 flex flex-col items-center py-4 md:hidden">
+        <div className="absolute top-full left-0 w-full bg-brandGreen/95 backdrop-blur-md flex flex-col items-center py-4 md:hidden">
           {links.map((link) => (
             <Link
               key={link}

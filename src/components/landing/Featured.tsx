@@ -4,13 +4,29 @@ import Image from "next/image"
 import img1 from "@/assets/img/sample/sample1.png"
 import img2 from "@/assets/img/sample/sample2.png"
 import img3 from "@/assets/img/sample/sample3.png"
+import RotatingText from "@/components/ui/text/RotatingText"
+
 
 export default function Featured() {
   return (
     <section className="image-section">
       <div className="relative">
-        <h1 className=" -mt-[280] font-league font-extrabold text-center text-[100px] md:text-[90px] leading-tight text-white" >
-          Featured <span className="text-[#9DE16A]">Courses</span>
+        <h1 className="-mt-[280px] font-league font-extrabold text-center text-[100px] md:text-[90px] leading-tight text-white">
+          Featured{" "}
+          <span className="text-[#9DE16A] inline-block align-middle">
+            <RotatingText
+              texts={["Courses", "Tutorials", "Lessons"]}
+              mainClassName="inline-block"
+              staggerFrom="last"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "-120%" }}
+              staggerDuration={0.03}
+              splitLevelClassName="overflow-hidden"
+              transition={{ type: "spring", damping: 30, stiffness: 400 }}
+              rotationInterval={2000}
+            />
+          </span>
         </h1>
 
         <div className="flex justify-center gap-8 flex-wrap">
