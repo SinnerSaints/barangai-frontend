@@ -35,7 +35,6 @@ export default function Chatbot() {
     <div className="min-h-screen flex">
       <Sidebar collapsed={collapsed} onToggle={toggle} />
       <main className={`flex-1 p-6 relative overflow-hidden ${isDark ? "text-white" : "text-black"}`}>
-        
         <ChatbotPage />
       </main>
     </div>

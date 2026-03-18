@@ -84,7 +84,7 @@ export default function DashboardHero() {
     >
       {/* LEFT CONTENT */}
       <div className="flex-1">
-        <p className="text-sm opacity-80">Hey there, {userName} 👋</p>
+        <p className="text-sm opacity-80">Hey there, {userName} </p>
 
         <h2 className="text-3xl font-bold my-4">
           You’re enrolled in

@@ -30,9 +30,6 @@ const DEFAULT_HISTORY = [
 ];
 
 export default function ChatbotPage() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
-
   return (
     <div>
       <main>
@@ -51,8 +48,10 @@ function ChatSection() {
   const isDark = theme === "dark";
 
   const [entered, setEntered] = useState(false);
+  const [userName, setUserName] = useState("User");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
+
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("chat_messages");
       if (!saved) return [];
@@ -88,6 +87,18 @@ function ChatSection() {
   const scrollIdleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+
+  // Get username from localStorage
+  useEffect(() => {
+    const storedEmail = localStorage.getItem("user_email");
+    const firstName = localStorage.getItem("first_name");
+
+    if (storedEmail) {
+      const name = storedEmail.split("@")[0]; // extract username
+
+      if (firstName != null) { setUserName(firstName) } else { setUserName(name)}
+    }
+  }, []);
 
   const suggestions = [
     "Make a report for my current progress",
@@ -271,7 +282,7 @@ function ChatSection() {
           </div>
 
           <h1 className={headingClass}>
-            Good morning, User
+            Good morning, {userName}!
             <br />
             Can I help you with anything?
           </h1>
