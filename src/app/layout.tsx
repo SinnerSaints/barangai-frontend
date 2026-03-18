@@ -3,7 +3,10 @@ import "./globals.css";
 import { AuthProvider } from "@/context/auth";
 import { ThemeProvider } from "@/context/theme";
 
-import { League_Spartan, Sonsie_One, Poppins, Inter, Archivo_Black, League_Gothic, Pattaya, Manrope } from "next/font/google";
+import { League_Spartan, Sonsie_One, Poppins, Inter, Archivo_Black, League_Gothic, Pattaya, Manrope, Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const leagueSpartan = League_Spartan({
   subsets: ["latin"],
@@ -64,7 +67,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={cn("font-sans", geist.variable)}>
       <body className={`${leagueSpartan.variable} ${manrope.variable} ${senseiOne.variable} ${poppins.variable} ${archivoBlack.variable} ${league_gothic.variable} ${pattaya.variable} bg-brandGreen text-white`}>
         <AuthProvider>
           <ThemeProvider>{children}</ThemeProvider>
