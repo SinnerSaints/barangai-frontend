@@ -58,7 +58,7 @@ export default function Sidebar({ collapsed = false, onToggle }: Props) {
   };
 
   return (
-    <aside className={`bg-[#0f0f0f] text-white min-h-screen hidden md:flex flex-col p-4 gap-6 transition-[width] duration-300 ${effectiveCollapsed ? "w-20" : "w-64"}`}>
+    <aside className={`bg-[#034440] text-white min-h-screen hidden md:flex flex-col p-4 gap-6 transition-[width] duration-300 ${effectiveCollapsed ? "w-20" : "w-64"}`}>
       <div className="flex items-center gap-3 px-2">
         {/* hamburger in header (replaces logo) */}
         <button onClick={handleToggle} className="text-white p-1">
