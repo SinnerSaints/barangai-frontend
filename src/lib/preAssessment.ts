@@ -44,7 +44,7 @@ export interface AssessmentStatus {
   proficiency_level: string | null;
 }
 
-const PRE_ASSESSMENT_PATH = "pre-assessment/";
+const PRE_ASSESSMENT_PATH = "assessments/";
 const STATUS_CACHE_KEY = "pre_assessment_status";
 const RESULT_CACHE_KEY = "pre_assessment_result";
 

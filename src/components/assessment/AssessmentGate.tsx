@@ -84,7 +84,7 @@ export default function AssessmentGate({ title, description, children }: Props) 
                 href="/assessments"
                 className={`rounded-full px-5 py-2.5 text-sm font-semibold ${isDark ? "bg-accentGreen text-black" : "bg-brandGreen text-white"}`}
               >
-                Take Assessment Now
+                Take the Assessment
               </Link>
               <Link
                 href="/dashboard"
