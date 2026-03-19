@@ -55,6 +55,10 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
 
         const data = await response.json();
 
+        const lessonsArray = Array.isArray(data)
+          ? data
+          : data.results || [];
+
         const mapped_lessons = ((data || []).map((l: any, idx: number) => ({
           id: l.id ?? idx,
           title: l.title ?? l.name ?? `Lesson ${idx + 1}`,
@@ -205,15 +209,14 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
                       <span>{new Date(lesson.created_at).toLocaleDateString()}</span>
                     </div>
 
-                    {lesson.url ? (
-                      <Link href={lesson.url} target="_blank" className="px-4 py-2 rounded-full font-semibold bg-accentGreen text-black">
-                        Open
-                      </Link>
-                    ) : (
-                      <button className={`${isDark ? 'bg-zinc-800' : 'bg-gray-100'} px-4 py-2 rounded-full`}>
-                        View
-                      </button>
-                    )}
+                    <Link
+                      href={`/courses/${lesson.id}`}
+                      className={`px-4 py-2 rounded-full font-semibold ${
+                        isDark ? "bg-accentGreen text-black" : "bg-brandGreen text-white"
+                      }`}
+                    >
+                      Open
+                    </Link>
                   </div>
 
                 </div>

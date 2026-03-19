@@ -2,6 +2,7 @@
 
 import React from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
+import AssessmentGate from "@/components/assessment/AssessmentGate";
 import CoursesClient from "@/components/courses/CoursesClient";
 import { useTheme } from "@/context/theme";
 
@@ -35,7 +36,12 @@ export default function CoursesPage() {
     <div className="min-h-screen flex">
       <Sidebar collapsed={collapsed} onToggle={toggle} />
         <main className="flex-1">
-          <CoursesClient apiUrl={undefined} searchQuery={query} />
+          <AssessmentGate
+            title="Courses are locked until the pre-assessment is done"
+            description="Your course recommendations should start only after we measure your current digital literacy level."
+          >
+            <CoursesClient apiUrl={undefined} searchQuery={query} />
+          </AssessmentGate>
         </main>
       </div>
   );

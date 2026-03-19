@@ -6,6 +6,7 @@ import Sidebar from "@/components/dashboard/Sidebar";
 import TopBar from "@/components/dashboard/TopBar";
 import DashboardHero from "@/components/dashboard/DashboardHero";
 import CardsRow from "@/components/dashboard/CardsRow";
+import Assessment from "@/components/dashboard/Assessment";
 import chatBgLight from "@/assets/img/chatBotBg-white.png";
 import chatBgDark from "@/assets/img/chatBotBg-black.png";
 import { useTheme } from "@/context/theme";
@@ -51,6 +52,7 @@ export default function DashboardPage() {
 						<div className="mt-6">
 							<DashboardHero />
 							<CardsRow />
+							<Assessment />
 						</div>
 					</div>
 				</main>
