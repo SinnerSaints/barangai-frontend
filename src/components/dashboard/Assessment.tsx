@@ -6,9 +6,11 @@ import {
   BarChart3,
   CheckCircle2,
   Loader2,
+  LockKeyhole,
   PlayCircle,
   Send,
   Sparkles,
+  X,
 } from "lucide-react";
 import {
   AssessmentAttempt,
@@ -69,6 +71,7 @@ export default function Assessment() {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -151,6 +154,11 @@ export default function Assessment() {
     setRatings((current) => ({ ...current, [questionId]: rating }));
   };
 
+  const handleConfirmSubmit = () => {
+    setShowSubmitModal(false);
+    void handleSubmit();
+  };
+
   if (loading) {
     return (
       <section className={`mt-6 rounded-[2rem] border p-8 shadow-xl ${isDark ? "border-white/10 bg-zinc-950/85 text-white" : "border-gray-200 bg-white/90 text-[#034440]"}`}>
@@ -163,7 +171,7 @@ export default function Assessment() {
   }
 
   return (
-    <section className={`mt-6 rounded-[2rem] border p-6 shadow-xl lg:p-8 ${isDark ? "border-white/10 bg-zinc-950/85 text-white" : "border-gray-200 bg-white/90 text-[#034440]"}`}>
+    <section className={`relative mt-6 rounded-[2rem] border p-6 shadow-xl lg:p-8 ${isDark ? "border-white/10 bg-zinc-950/85 text-white" : "border-gray-200 bg-white/90 text-[#034440]"}`}>
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-2xl">
           <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
@@ -245,7 +253,7 @@ export default function Assessment() {
             </div>
             <button
               type="button"
-              onClick={handleSubmit}
+              onClick={() => setShowSubmitModal(true)}
               disabled={!isComplete || submitting}
               className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${isDark ? "bg-accentGreen text-black disabled:bg-zinc-700 disabled:text-zinc-300" : "bg-brandGreen text-white disabled:bg-gray-300"}`}
             >
@@ -342,6 +350,75 @@ export default function Assessment() {
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {showSubmitModal && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/35 px-4 backdrop-blur-sm">
+          <div
+            className={`w-full max-w-lg rounded-[1.75rem] border p-6 shadow-2xl ${
+              isDark ? "border-white/10 bg-zinc-950/95 text-white" : "border-gray-200 bg-white text-[#034440]"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className={`rounded-2xl p-3 ${isDark ? "bg-white/10" : "bg-brandGreen/10"}`}>
+                  <LockKeyhole className="h-6 w-6 text-brandGreen" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold">Submit your assessment?</h3>
+                  <p className={`mt-2 text-sm leading-6 ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
+                    You answered all {totalQuestions} statements. Once submitted, your responses will be reviewed and used to set your proficiency level.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowSubmitModal(false)}
+                className={`rounded-full p-2 transition ${isDark ? "bg-white/10 text-zinc-300 hover:bg-white/15" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                aria-label="Close submit confirmation"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => setShowSubmitModal(false)}
+                className={`rounded-full px-5 py-3 text-sm font-semibold ${isDark ? "bg-white/10 text-zinc-200" : "bg-gray-100 text-gray-700"}`}
+              >
+                Review Answers
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSubmit}
+                className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold ${isDark ? "bg-accentGreen text-black" : "bg-brandGreen text-white"}`}
+              >
+                <Send className="h-4 w-4" />
+                Submit Assessment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {submitting && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+          <div
+            className={`w-full max-w-md rounded-[1.75rem] border p-6 text-center shadow-2xl ${
+              isDark ? "border-white/10 bg-zinc-950/95 text-white" : "border-gray-200 bg-white text-[#034440]"
+            }`}
+          >
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brandGreen/10">
+              <Loader2 className="h-7 w-7 animate-spin text-brandGreen" />
+            </div>
+            <h3 className="mt-5 text-xl font-semibold">Checking Assessment</h3>
+            <p className={`mt-2 text-sm leading-6 ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
+              Please wait while we review your responses and calculate your proficiency level.
+            </p>
           </div>
         </div>
       )}

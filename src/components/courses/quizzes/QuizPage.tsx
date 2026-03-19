@@ -13,7 +13,6 @@ import {
   Loader2,
   Send,
 } from "lucide-react";
-import Sidebar from "@/components/dashboard/Sidebar";
 import TopBar from "@/components/dashboard/TopBar";
 import { API_BASE_URL } from "@/lib/auth";
 import chatBgLight from "@/assets/img/chatBotBg-white.png";
@@ -95,15 +94,6 @@ export default function QuizPage() {
   const baseUrl = API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("sidebar_collapsed");
-      if (stored !== null) {
-        setCollapsed(stored === "true");
-      }
-    } catch {}
-  }, []);
-
-  useEffect(() => {
     const fetchAssessments = async () => {
       try {
         setLoading(true);
@@ -148,16 +138,6 @@ export default function QuizPage() {
   }, [answers, selectedQuiz]);
 
   const currentQuestion = selectedQuiz?.questions[currentQuestionIndex] ?? null;
-
-  const toggle = () => {
-    setCollapsed((current) => {
-      const next = !current;
-      try {
-        localStorage.setItem("sidebar_collapsed", String(next));
-      } catch {}
-      return next;
-    });
-  };
 
   const resetQuizState = () => {
     setCurrentQuestionIndex(0);
@@ -210,10 +190,12 @@ export default function QuizPage() {
     setSubmitting(true);
     setQuizError("");
 
-    const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
-      question_id: Number(questionId),
-      answer,
-    }));
+    const formattedAnswers = Object.fromEntries(
+      Object.entries(answers).map(([questionId, answer]) => [
+        questionId,
+        answer,
+      ])
+    );
 
     try {
       const token = localStorage.getItem("access_token");
@@ -254,7 +236,6 @@ export default function QuizPage() {
 
   return (
     <div className="min-h-screen flex">
-      <Sidebar collapsed={collapsed} onToggle={toggle} />
       <main className={`flex-1 p-6 lg:p-10 relative overflow-hidden ${isDark ? "text-white" : "text-black"}`}>
         <div className="absolute inset-0 z-0">
           <Image
