@@ -432,8 +432,8 @@ function ChatSection() {
                       className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm shadow ${
                         msg.role === "user"
                           ? isDark
-                            ? "bg-blue-600 text-white"
-                            : "bg-blue-500 text-white"
+                            ? "bg-[#608247] text-white"
+                            : "bg-[#9DE16A] text-black"
                           : isDark
                           ? "bg-white/10 text-gray-200"
                           : "bg-gray-200 text-black"
