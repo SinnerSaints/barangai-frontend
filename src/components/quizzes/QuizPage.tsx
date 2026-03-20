@@ -232,7 +232,7 @@ export default function QuizPage() {
       const token = localStorage.getItem("access_token");
       if (!token) throw new Error("No access token found.");
 
-      const res = await fetch(`${baseUrl}progress/submit/${selectedQuiz.id}/`, {
+      const res = await fetch(`${baseUrl}quizzes/submit/${selectedQuiz.id}/`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -296,7 +296,7 @@ export default function QuizPage() {
                     Pick a lesson first, then choose a quiz to start.
                   </p>
                 </div>
-                <div className={`rounded-full px-4 py-2 text-sm font-semibold ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
+                <div className={`rounded-full px-4 py-2 text-sm font-semibold bg-textGreen/60 text-white ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
                   {selectedLessonTopic ? `${filteredAssessments.length} quizzes` : `${lessonOptions.length} lessons`}
                 </div>
               </div>
@@ -425,8 +425,8 @@ export default function QuizPage() {
               {!selectedQuiz ? (
                 <div className="flex h-full min-h-[720px] items-center justify-center p-10">
                   <div className="max-w-md text-center">
-                    <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full ${isDark ? "bg-white/10" : "bg-brandGreen/10"}`}>
-                      <ClipboardList size={28} className={isDark ? "text-accentGreen" : "text-brandGreen"} />
+                    <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full ${isDark ? "bg-white/10" : "bg-textGreen/10"}`}>
+                      <ClipboardList size={28} className={isDark ? "text-accentGreen" : "text-textGreen"} />
                     </div>
                     <h2 className="text-2xl font-bold">Choose a quiz to begin</h2>
                     <p className={`mt-3 text-sm leading-7 ${isDark ? "text-zinc-400" : "text-gray-600"}`}>

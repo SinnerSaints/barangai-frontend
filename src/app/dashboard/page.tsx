@@ -66,7 +66,7 @@ export default function DashboardPage() {
     <div className="min-h-screen flex">
       <Sidebar collapsed={collapsed} onToggle={toggle} />
 
-      <main className={`relative flex-1 overflow-hidden p-6 ${isDark ? "text-white" : "text-black"}`}>
+      <main className={`relative flex-1 overflow-hidden p-6 ${isDark ? "text-white" : "text-black" }`}>
         <div className="absolute inset-0 z-0">
           <Image src={isDark ? chatBgDark : chatBgLight} alt="background" fill className="object-cover opacity-95" />
         </div>

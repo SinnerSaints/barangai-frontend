@@ -68,7 +68,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={cn("font-sans", geist.variable)}>
-      <body className={`${leagueSpartan.variable} ${manrope.variable} ${senseiOne.variable} ${poppins.variable} ${archivoBlack.variable} ${league_gothic.variable} ${pattaya.variable} bg-brandGreen text-white`}>
+      <body className={`${leagueSpartan.variable} ${manrope.variable} ${senseiOne.variable} ${poppins.variable} ${archivoBlack.variable} ${league_gothic.variable} ${pattaya.variable} bg-brandGreen`}>
         <AuthProvider>
           <ThemeProvider>{children}</ThemeProvider>
         </AuthProvider>

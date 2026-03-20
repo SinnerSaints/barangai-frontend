@@ -58,17 +58,19 @@ export default function Sidebar({ collapsed = false, onToggle }: Props) {
   };
 
   return (
-    <aside className={`bg-[#034440] text-white min-h-screen hidden md:flex flex-col p-4 gap-6 transition-[width] duration-300 ${effectiveCollapsed ? "w-20" : "w-64"}`}>
-      <div className="flex items-center gap-3 px-2">
+    <aside
+      className={`hidden md:flex flex-col text-white gap-6 transition-[width] duration-300 ${effectiveCollapsed ? "w-20" : "w-64"} my-4 ml-4 h-[calc(100vh-2rem)] rounded-2xl bg-[#034440]/20 backdrop-blur-xl border border-white/15 shadow-2xl shadow-black/20 p-4`}
+    >
+      <div className="flex items-center gap-3 px-2 pb-2 border-b border-white/10">
         {/* hamburger in header (replaces logo) */}
         <button onClick={handleToggle} className="text-white p-1">
           <HiMenu className="w-6 h-6" />
         </button>
-            {!effectiveCollapsed && (
-              <Link href="/" className="text-lg font-bold">
-                Barang<span className="text-accentGreen">AI</span>
-              </Link>
-            )}
+        {!effectiveCollapsed && (
+          <Link href="/" className="text-lg font-bold">
+            Barang<span className="text-accentGreen">AI</span>
+          </Link>
+        )}
       </div>
 
       <nav className="flex-1">
@@ -79,15 +81,33 @@ export default function Sidebar({ collapsed = false, onToggle }: Props) {
               <li key={it.label}>
                 <Link
                   href={it.href}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors duration-200 ${collapsed ? "justify-center" : ""} ${!collapsed && active ? "bg-accentGreen/80" : "bg-transparent"}`}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-colors duration-200 ${
+                    effectiveCollapsed ? "justify-center" : ""
+                  } ${
+                    active
+                      ? effectiveCollapsed
+                        ? "bg-accentGreen/25 border border-accentGreen/30"
+                        : "bg-accentGreen/25 border border-accentGreen/30"
+                      : effectiveCollapsed
+                        ? "bg-transparent border border-transparent"
+                        : "bg-transparent border border-transparent"
+                  } hover:bg-white/10`}
                 >
                   {/* icon: when collapsed and active, icon gets accent color; when expanded, icon/text turn white and row gets accent background */}
                   <it.icon
                     className={`w-5 h-5 transition-transform duration-150 ${
-                      collapsed ? (active ? "text-accentGreen scale-110" : "text-[#AFAFAF]") : (active ? "text-white" : "text-[#AFAFAF]")
+                      effectiveCollapsed
+                        ? active
+                          ? "text-accentGreen scale-110"
+                          : "text-[#AFAFAF]"
+                        : active
+                          ? "text-white"
+                          : "text-[#AFAFAF]"
                     }`}
                   />
-                  {!collapsed && <span className={`text-sm ${active ? "text-white" : "text-[#AFAFAF]"}`}>{it.label}</span>}
+                  {!effectiveCollapsed && (
+                    <span className={`text-sm ${active ? "text-white" : "text-[#AFAFAF]"}`}>{it.label}</span>
+                  )}
                 </Link>
               </li>
             );
