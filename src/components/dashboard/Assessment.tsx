@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   AlertCircle,
   BarChart3,
@@ -72,6 +73,7 @@ export default function Assessment() {
   const [starting, setStarting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [hasPromptedSubmit, setHasPromptedSubmit] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -80,10 +82,10 @@ export default function Assessment() {
         setLoading(true);
         setError("");
 
-        const status = await fetchAssessmentStatus(false);
+        const status = await fetchAssessmentStatus();
 
         if (status.completed) {
-          const assessmentResult = await fetchAssessmentResult(false);
+          const assessmentResult = await fetchAssessmentResult();
           setResult(assessmentResult);
           setViewState("completed");
           return;
@@ -109,6 +111,13 @@ export default function Assessment() {
   );
   const isComplete = Boolean(attempt) && answeredQuestions === totalQuestions && totalQuestions > 0;
 
+  useEffect(() => {
+    if (viewState === "ready" && isComplete && !showSubmitModal && !hasPromptedSubmit) {
+      setShowSubmitModal(true);
+      setHasPromptedSubmit(true);
+    }
+  }, [hasPromptedSubmit, isComplete, showSubmitModal, viewState]);
+
   const handleStart = async () => {
     try {
       setStarting(true);
@@ -117,6 +126,8 @@ export default function Assessment() {
 
       setAttempt(assessmentAttempt);
       setRatings({});
+      setHasPromptedSubmit(false);
+      setShowSubmitModal(false);
       setViewState("ready");
     } catch (err: any) {
       console.error(err);
@@ -141,6 +152,7 @@ export default function Assessment() {
       const assessmentResult = await submitPreAssessment(payload);
       setResult(assessmentResult);
       setAttempt(null);
+      setHasPromptedSubmit(false);
       setViewState("completed");
     } catch (err: any) {
       console.error(err);
@@ -302,6 +314,28 @@ export default function Assessment() {
         </div>
       )}
 
+
+      {isComplete && (
+        <div className={`mt-6 flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] border px-5 py-4 ${isDark ? "border-accentGreen/30 bg-[#123428]" : "border-brandGreen/20 bg-brandGreen/5"}`}>
+          <div>
+            <p className="text-base font-semibold">All statements answered</p>
+            <p className={`mt-1 text-sm ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
+              Your assessment is ready to submit. Review your answers below or submit now.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => setShowSubmitModal(true)}
+              className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold ${isDark ? "bg-accentGreen text-black" : "bg-brandGreen text-white"}`}
+            >
+              <Send className="h-4 w-4" />
+              Submit Assessment
+            </button>
+          </div>
+        </div>
+      )}
+
       {viewState === "completed" && result && (
         <div className="mt-8 grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
           <div className={`rounded-[1.75rem] p-6 ${isDark ? "bg-[#0f1f18]" : "bg-[#034440] text-white"}`}>
@@ -324,6 +358,16 @@ export default function Assessment() {
             <div className="mt-8 rounded-[1.5rem] bg-white/10 p-5">
               <p className="text-xs uppercase tracking-[0.2em] text-white/70">Proficiency level</p>
               <p className="mt-3 text-2xl font-bold">{formatProficiencyLevel(result.proficiency_level)}</p>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/dashboard"
+                onClick={() => window.scrollTo({ top: 0 })}
+                className="inline-flex items-center justify-center rounded-full bg-accentGreen px-5 py-3 text-sm font-semibold text-black"
+              >
+                Back to Dashboard
+              </Link>
             </div>
           </div>
 

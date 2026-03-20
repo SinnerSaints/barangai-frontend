@@ -3,9 +3,9 @@
 import React from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import AssessmentGate from "@/components/assessment/AssessmentGate";
-import QuizPage from "@/components/courses/quizzes/QuizPage";
+import QuizPage from "@/components/quizzes/QuizPage";
 
-export default function AssessmentsPage() {
+export default function QuizzesPage() {
   const [collapsed, setCollapsed] = React.useState(false);
 
   React.useEffect(() => {

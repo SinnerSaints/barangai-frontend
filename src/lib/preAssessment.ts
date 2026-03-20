@@ -48,6 +48,24 @@ const PRE_ASSESSMENT_PATH = "assessments/";
 const STATUS_CACHE_KEY = "pre_assessment_status";
 const RESULT_CACHE_KEY = "pre_assessment_result";
 
+function getUserScopedCacheKey(baseKey: string) {
+  const userId = localStorage.getItem("user_id");
+  return userId ? `${baseKey}:${userId}` : baseKey;
+}
+
+function readCache<T>(baseKey: string) {
+  const cached = localStorage.getItem(getUserScopedCacheKey(baseKey));
+  return cached ? (JSON.parse(cached) as T) : null;
+}
+
+function writeCache(baseKey: string, value: unknown) {
+  localStorage.setItem(getUserScopedCacheKey(baseKey), JSON.stringify(value));
+}
+
+function removeCache(baseKey: string) {
+  localStorage.removeItem(getUserScopedCacheKey(baseKey));
+}
+
 function getBaseUrl() {
   return API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
 }
@@ -84,14 +102,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export async function fetchAssessmentStatus(useCache = true): Promise<AssessmentStatus> {
   if (useCache) {
-    const cached = localStorage.getItem(STATUS_CACHE_KEY);
-    if (cached) {
-      return JSON.parse(cached) as AssessmentStatus;
-    }
+    const cached = readCache<AssessmentStatus>(STATUS_CACHE_KEY);
+    if (cached) return cached;
   }
 
   const data = await request<AssessmentStatus>("status/");
-  localStorage.setItem(STATUS_CACHE_KEY, JSON.stringify(data));
+  writeCache(STATUS_CACHE_KEY, data);
   return data;
 }
 
@@ -110,33 +126,31 @@ export async function submitPreAssessment(
   });
 
   localStorage.setItem(
-    STATUS_CACHE_KEY,
+    getUserScopedCacheKey(STATUS_CACHE_KEY),
     JSON.stringify({
       completed: true,
       proficiency_level: data.proficiency_level,
     } satisfies AssessmentStatus)
   );
-  localStorage.setItem(RESULT_CACHE_KEY, JSON.stringify(data));
+  writeCache(RESULT_CACHE_KEY, data);
 
   return data;
 }
 
 export async function fetchAssessmentResult(useCache = true): Promise<AssessmentResult> {
   if (useCache) {
-    const cached = localStorage.getItem(RESULT_CACHE_KEY);
-    if (cached) {
-      return JSON.parse(cached) as AssessmentResult;
-    }
+    const cached = readCache<AssessmentResult>(RESULT_CACHE_KEY);
+    if (cached) return cached;
   }
 
   const data = await request<AssessmentResult>("result/");
-  localStorage.setItem(RESULT_CACHE_KEY, JSON.stringify(data));
+  writeCache(RESULT_CACHE_KEY, data);
   return data;
 }
 
 export function clearAssessmentCache() {
-  localStorage.removeItem(STATUS_CACHE_KEY);
-  localStorage.removeItem(RESULT_CACHE_KEY);
+  removeCache(STATUS_CACHE_KEY);
+  removeCache(RESULT_CACHE_KEY);
 }
 
 export function formatProficiencyLevel(level?: string | null) {

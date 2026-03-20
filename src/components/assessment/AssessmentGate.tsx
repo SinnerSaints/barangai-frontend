@@ -25,7 +25,7 @@ export default function AssessmentGate({ title, description, children }: Props) 
       try {
         setLoading(true);
         setError("");
-        const status = await fetchAssessmentStatus(false);
+        const status = await fetchAssessmentStatus();
         setCompleted(Boolean(status.completed));
         setProficiencyLevel(status.proficiency_level);
       } catch (err) {

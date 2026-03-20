@@ -9,33 +9,10 @@ import AssessmentGate from "@/components/assessment/AssessmentGate";
 import Sidebar from "@/components/dashboard/Sidebar";
 import TopBar from "@/components/dashboard/TopBar";
 import { API_BASE_URL } from "@/lib/auth";
+import { LessonRecord, mapLesson, readCachedLessons, writeCachedLessons } from "@/lib/lessonProgress";
 import { useTheme } from "@/context/theme";
 import chatBgLight from "@/assets/img/chatBotBg-white.png";
 import chatBgDark from "@/assets/img/chatBotBg-black.png";
-
-interface Lesson {
-  id: number;
-  title: string;
-  topic: string;
-  content: string;
-  url?: string;
-  created_at: string;
-  progress?: number;
-  total_lessons?: number;
-  total_quizzes?: number;
-}
-
-const mapLesson = (lesson: any, fallbackId: number): Lesson => ({
-  id: lesson.id ?? fallbackId,
-  title: lesson.title ?? lesson.name ?? `Lesson ${fallbackId}`,
-  topic: lesson.topic ?? lesson.category ?? "General",
-  content: lesson.content ?? lesson.description ?? "",
-  url: lesson.url ?? lesson.link ?? undefined,
-  created_at: lesson.created_at ?? lesson.created ?? new Date().toISOString(),
-  progress: typeof lesson.progress === "number" ? lesson.progress : Math.floor(Math.random() * 90) + 5,
-  total_lessons: lesson.total_lessons ?? 12,
-  total_quizzes: lesson.total_quizzes ?? 3,
-});
 
 export default function CourseDetailPage() {
   const params = useParams<{ id: string }>();
@@ -45,7 +22,7 @@ export default function CourseDetailPage() {
 
   const [collapsed, setCollapsed] = useState(false);
   const [query, setQuery] = useState("");
-  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [lesson, setLesson] = useState<LessonRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -68,19 +45,13 @@ export default function CourseDetailPage() {
         return;
       }
 
-      try {
-        const cachedCourses = localStorage.getItem("cached_courses");
-        if (cachedCourses) {
-          const parsed = JSON.parse(cachedCourses);
-          const cachedLesson = Array.isArray(parsed)
-            ? parsed.find((item: Lesson) => Number(item.id) === courseId)
-            : null;
+      let cachedLesson: LessonRecord | null = null;
 
-          if (cachedLesson) {
-            setLesson(cachedLesson);
-            setLoading(false);
-            return;
-          }
+      try {
+        cachedLesson = readCachedLessons().find((item) => Number(item.id) === courseId) ?? null;
+        if (cachedLesson) {
+          setLesson(cachedLesson);
+          setLoading(false);
         }
 
         const token = localStorage.getItem("access_token");
@@ -93,8 +64,17 @@ export default function CourseDetailPage() {
 
         if (response.ok) {
           const data = await response.json();
-          setLesson(mapLesson(data, courseId));
-          setLoading(false);
+          const mappedLesson = mapLesson(data, courseId);
+          const nextLessons = readCachedLessons();
+          const mergedLessons =
+            nextLessons.length === 0
+              ? [mappedLesson]
+              : nextLessons.some((item) => Number(item.id) === courseId)
+                ? nextLessons.map((item) => (Number(item.id) === courseId ? mappedLesson : item))
+                : [...nextLessons, mappedLesson];
+
+          writeCachedLessons(mergedLessons);
+          setLesson(mappedLesson);
           return;
         }
 
@@ -119,11 +99,13 @@ export default function CourseDetailPage() {
           throw new Error("Course not found.");
         }
 
-        localStorage.setItem("cached_courses", JSON.stringify(mappedLessons));
+        writeCachedLessons(mappedLessons);
         setLesson(matchedLesson);
       } catch (err) {
         console.error(err);
-        setError("Unable to load this course right now.");
+        if (!cachedLesson) {
+          setError("Unable to load this course right now.");
+        }
       } finally {
         setLoading(false);
       }
@@ -225,6 +207,14 @@ export default function CourseDetailPage() {
                     <div>
                       <span className="font-semibold">{lesson.progress}%</span> progress
                     </div>
+                    <div>
+                      <span className="font-semibold">{lesson.completed ? "Completed" : "In progress"}</span>
+                    </div>
+                    {typeof lesson.score === "number" && (
+                      <div>
+                        <span className="font-semibold">{lesson.score}%</span> latest score
+                      </div>
+                    )}
                   </div>
                 </div>
 

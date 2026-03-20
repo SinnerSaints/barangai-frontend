@@ -3,18 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { API_BASE_URL } from "@/lib/auth";
+import { LessonRecord, mapLesson, readCachedLessons, writeCachedLessons } from "@/lib/lessonProgress";
 import { BookOpen } from "lucide-react";
-
-interface Lesson {
-  id: number;
-  title: string;
-  topic: string;
-  progress?: number;
-}
 
 export default function DashboardHero() {
   const [entered, setEntered] = useState(false);
-  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [lessons, setLessons] = useState<LessonRecord[]>([]);
   const [userName, setUserName] = useState("User");
 
   useEffect(() => {
@@ -41,6 +35,11 @@ export default function DashboardHero() {
 
   useEffect(() => {
     const fetchLessons = async () => {
+      const cachedLessons = readCachedLessons();
+      if (cachedLessons.length > 0) {
+        setLessons(cachedLessons);
+      }
+
       try {
         const token = localStorage.getItem("access_token");
 
@@ -51,17 +50,10 @@ export default function DashboardHero() {
         });
 
         const data = await response.json();
-
-        setLessons(
-          (data || []).map((l: any, idx: number) => ({
-            id: l.id ?? idx,
-            title: l.title ?? `Lesson ${idx + 1}`,
-            topic: l.topic ?? "General",
-            progress: typeof l.progress === "number"
-              ? l.progress
-              : Math.floor(Math.random() * 80) + 10,
-          }))
-        );
+        const lessonItems = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+        const mappedLessons = lessonItems.map((lesson: any, index: number) => mapLesson(lesson, index + 1));
+        writeCachedLessons(mappedLessons);
+        setLessons(mappedLessons);
 
       } catch (err) {
         console.error(err);

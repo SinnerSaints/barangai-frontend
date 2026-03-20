@@ -6,27 +6,16 @@ import Image from "next/image";
 import { BookOpen, MoreVertical, Calendar, BarChart3 } from "lucide-react";
 import TopBar from "@/components/dashboard/TopBar";
 import { API_BASE_URL } from "@/lib/auth";
+import { LessonRecord, mapLesson, readCachedLessons, writeCachedLessons } from "@/lib/lessonProgress";
 import { useTheme } from "@/context/theme";
 import chatBgLight from "@/assets/img/chatBotBg-white.png";
 import chatBgDark from "@/assets/img/chatBotBg-black.png";
 import React from "react";
 
-interface Lesson {
-  id: number;
-  title: string;
-  topic: string;
-  content: string;
-  url?: string;
-  created_at: string;
-  progress?: number; 
-  total_lessons?: number;
-  total_quizzes?: number;
-}
-
 export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; searchQuery?: string }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [lessons, setLessons] = useState<LessonRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"enrolled" | "completed">("enrolled");
   const [query, setQuery] = React.useState("");
@@ -36,14 +25,13 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
 
   useEffect(() => {
     const fetchLessons = async () => {
-      try {
-        const cachedCourses = localStorage.getItem("cached_courses");
-        if(cachedCourses) {
-          setLessons(JSON.parse(cachedCourses));
-          setLoading(false);
-          return;
-        }
+      const cachedLessons = readCachedLessons();
+      if (cachedLessons.length > 0) {
+        setLessons(cachedLessons);
+        setLoading(false);
+      }
 
+      try {
         const token = localStorage.getItem("access_token");
         const response = await fetch(fetchEndpoint, {
           headers: {
@@ -59,20 +47,10 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
           ? data
           : data.results || [];
 
-        const mapped_lessons = ((data || []).map((l: any, idx: number) => ({
-          id: l.id ?? idx,
-          title: l.title ?? l.name ?? `Lesson ${idx + 1}`,
-          topic: l.topic ?? l.category ?? "General",
-          content: l.content ?? l.description ?? "",
-          url: l.url ?? l.link ?? undefined,
-          created_at: l.created_at ?? l.created ?? new Date().toISOString(),
-          progress: typeof l.progress === 'number' ? l.progress : Math.floor(Math.random() * 90) + 5,
-          total_lessons: l.total_lessons ?? 12,
-          total_quizzes: l.total_quizzes ?? 3,
-        })));
+        const mappedLessons = lessonsArray.map((lesson: any, index: number) => mapLesson(lesson, index + 1));
 
-        localStorage.setItem("cached_courses", JSON.stringify(mapped_lessons));
-        setLessons(mapped_lessons);
+        writeCachedLessons(mappedLessons);
+        setLessons(mappedLessons);
       } catch (err) {
         console.error(err);
       } finally {
@@ -84,12 +62,16 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
   }, [fetchEndpoint]);
 
   const filtered = useMemo(() => {
-    const q = (searchQuery || "").trim().toLowerCase();
+    const q = (query || searchQuery || "").trim().toLowerCase();
     return lessons.filter((l) => {
       if (!q) return true;
       return (l.title || "").toLowerCase().includes(q) || (l.topic || "").toLowerCase().includes(q);
     });
-  }, [lessons, searchQuery]);
+  }, [lessons, query, searchQuery]);
+
+  const enrolledLessons = useMemo(() => filtered.filter((lesson) => !lesson.completed), [filtered]);
+  const completedLessons = useMemo(() => filtered.filter((lesson) => lesson.completed), [filtered]);
+  const visibleLessons = activeTab === "completed" ? completedLessons : enrolledLessons;
 
   if (loading) return (
     <div className="p-10 text-brandGreen font-bold text-center">Loading Courses...</div>
@@ -137,21 +119,23 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
         {/* Tabs */}
         <div className="flex gap-4 items-center mb-6">
           <button onClick={() => setActiveTab('enrolled')} className={`px-4 py-2 rounded-full ${activeTab==='enrolled' ? 'bg-brandGreen/10 text-brandGreen font-semibold' : 'text-gray-500'}`}>
-            Enrolled ({lessons.length})
+            Enrolled ({enrolledLessons.length})
           </button>
           <button onClick={() => setActiveTab('completed')} className={`px-4 py-2 rounded-full ${activeTab==='completed' ? 'bg-brandGreen/10 text-brandGreen font-semibold' : 'text-gray-500'}`}>
-            Completed (0)
+            Completed ({completedLessons.length})
           </button>
         </div>
 
         {/* Courses Grid */}
-        {filtered.length === 0 ? (
+        {visibleLessons.length === 0 ? (
           <div className={`${isDark ? 'text-zinc-300' : 'text-gray-500'} p-12 text-center`}>
-            No courses found. Try a different search or refresh the page.
+            {activeTab === "completed"
+              ? "No completed courses yet. Finish a quiz to mark a lesson as complete."
+              : "No courses found. Try a different search or refresh the page."}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-10">
-            {filtered.map((lesson) => (
+            {visibleLessons.map((lesson) => (
               <article key={lesson.id} className={`flex flex-col overflow-hidden min-h-[360px] rounded-2xl transition-shadow duration-300 group border ${isDark ? 'bg-zinc-900 border-white/6 shadow-sm hover:shadow-md text-white' : 'bg-white border-gray-100 shadow-md hover:shadow-xl text-black'}`}>
                 
                 <div className={`relative h-52 w-full flex items-center justify-center rounded-t-2xl ${isDark ? 'bg-gradient-to-br from-[#143f2f] to-[#0f2b20]' : 'bg-gradient-to-br from-brandGreen/60 to-brandGreen/40'}`}>
@@ -187,6 +171,11 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
                     <div className="flex items-center gap-3">
                       <BarChart3 size={18} className="text-[#9DE16A]" />
                       <span>{lesson.total_quizzes} Quizzes</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={lesson.completed ? "font-semibold text-[#9DE16A]" : ""}>
+                        {lesson.completed ? "Completed" : "In progress"}
+                      </span>
                     </div>
                   </div>
 

@@ -79,13 +79,13 @@ export default function QuizPage() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const [collapsed, setCollapsed] = useState(false);
   const [query, setQuery] = useState("");
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingQuizId, setLoadingQuizId] = useState<number | null>(null);
   const [quizError, setQuizError] = useState("");
   const [selectedQuiz, setSelectedQuiz] = useState<Assessment | null>(null);
+  const [selectedLessonTopic, setSelectedLessonTopic] = useState<string | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, ChoiceKey>>({});
   const [result, setResult] = useState<QuizResult | null>(null);
@@ -125,12 +125,36 @@ export default function QuizPage() {
     fetchAssessments();
   }, [baseUrl]);
 
-  const filteredAssessments = useMemo(() => {
+  const matchingAssessments = useMemo(() => {
     const search = query.trim().toLowerCase();
     return assessments.filter((assessment) =>
       [assessment.title, assessment.topic, assessment.status].join(" ").toLowerCase().includes(search)
     );
   }, [assessments, query]);
+
+  const lessonOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const assessment of matchingAssessments) {
+      const topic = (assessment.topic ?? "").trim() || "General";
+      counts.set(topic, (counts.get(topic) ?? 0) + 1);
+    }
+
+    return Array.from(counts.entries())
+      .map(([topic, quizCount]) => ({ topic, quizCount }))
+      .sort((a, b) => a.topic.localeCompare(b.topic));
+  }, [matchingAssessments]);
+
+  const filteredAssessments = useMemo(() => {
+    // Quizzes remain hidden until the user picks a lesson tile.
+    if (!selectedLessonTopic) return [];
+    return matchingAssessments.filter((assessment) => assessment.topic === selectedLessonTopic);
+  }, [matchingAssessments, selectedLessonTopic]);
+
+  useEffect(() => {
+    if (!selectedLessonTopic) return;
+    const exists = lessonOptions.some((l) => l.topic === selectedLessonTopic);
+    if (!exists) setSelectedLessonTopic(null);
+  }, [lessonOptions, selectedLessonTopic]);
 
   const answeredCount = useMemo(() => {
     if (!selectedQuiz) return 0;
@@ -144,6 +168,12 @@ export default function QuizPage() {
     setAnswers({});
     setResult(null);
     setQuizError("");
+  };
+
+  const selectLesson = (topic: string | null) => {
+    setSelectedLessonTopic(topic);
+    setSelectedQuiz(null);
+    resetQuizState();
   };
 
   const openQuiz = async (assessment: Assessment) => {
@@ -196,6 +226,7 @@ export default function QuizPage() {
         answer,
       ])
     );
+    const answeredCount = Object.keys(formattedAnswers).length;
 
     try {
       const token = localStorage.getItem("access_token");
@@ -215,17 +246,24 @@ export default function QuizPage() {
       }
 
       const data = await res.json();
+      const scorePercent =
+        typeof data.score_percent === "number"
+          ? data.score_percent
+          : typeof data.score === "number"
+            ? data.score
+            : null;
+
       setResult({
-        total_questions: data.total_questions ?? selectedQuiz.total_questions,
-        answered_count: formattedAnswers.length,
+        total_questions: data.total_questions ?? data.total_count ?? selectedQuiz.total_questions,
+        answered_count: answeredCount,
         correct_count: data.correct_count ?? null,
-        score_percent: data.score_percent ?? null,
+        score_percent: scorePercent,
       });
     } catch (err) {
       console.error(err);
       setResult({
         total_questions: selectedQuiz.total_questions,
-        answered_count: formattedAnswers.length,
+        answered_count: answeredCount,
         submitted_offline: true,
       });
       setQuizError("Answers were captured locally, but the backend submit endpoint is unavailable.");
@@ -255,11 +293,11 @@ export default function QuizPage() {
                 <div>
                   <h1 className="text-2xl font-bold">Assessments</h1>
                   <p className={`mt-2 text-sm ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
-                    Open a quiz, answer each question, then submit when you are done.
+                    Pick a lesson first, then choose a quiz to start.
                   </p>
                 </div>
                 <div className={`rounded-full px-4 py-2 text-sm font-semibold ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
-                  {filteredAssessments.length} quizzes
+                  {selectedLessonTopic ? `${filteredAssessments.length} quizzes` : `${lessonOptions.length} lessons`}
                 </div>
               </div>
 
@@ -271,63 +309,114 @@ export default function QuizPage() {
               )}
 
               <div className="mt-6 space-y-4">
-                {loading ? (
-                  <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
-                    Loading quizzes...
+                <div>
+                  <div className={`mb-3 text-xs font-semibold uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>
+                    Lessons
                   </div>
-                ) : filteredAssessments.length === 0 ? (
-                  <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
-                    No quizzes found.
-                  </div>
-                ) : (
-                  filteredAssessments.map((assessment) => {
-                    const isSelected = selectedQuiz?.id === assessment.id;
 
-                    return (
-                      <button
-                        key={assessment.id}
-                        type="button"
-                        onClick={() => openQuiz(assessment)}
-                        className={`w-full rounded-3xl border p-5 text-left transition ${
-                          isSelected
-                            ? isDark
-                              ? "border-accentGreen bg-[#123428]"
-                              : "border-brandGreen bg-brandGreen/5"
-                            : isDark
-                              ? "border-white/10 bg-white/5 hover:bg-white/10"
-                              : "border-gray-200 bg-white hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <div className="text-lg font-semibold">{assessment.title}</div>
-                            <div className={`mt-1 text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>
-                              {assessment.topic}
+                  {loading ? (
+                    <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
+                      Loading lessons and quizzes...
+                    </div>
+                  ) : lessonOptions.length === 0 ? (
+                    <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
+                      No lessons found.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3">
+                      {lessonOptions.map((lesson) => {
+                        const active = selectedLessonTopic === lesson.topic;
+                        return (
+                          <button
+                            key={lesson.topic}
+                            type="button"
+                            onClick={() => selectLesson(lesson.topic)}
+                            className={`rounded-2xl border p-4 text-left transition ${
+                              active
+                                ? isDark
+                                  ? "border-accentGreen bg-[#123428] text-white"
+                                  : "border-brandGreen bg-brandGreen text-white"
+                                : isDark
+                                  ? "border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10"
+                                  : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                            }`}
+                            title={`${lesson.quizCount} quiz(es)`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="text-sm font-semibold leading-5">{lesson.topic}</div>
+                              <div className={`rounded-full px-2 py-0.5 text-xs font-bold ${active ? (isDark ? "bg-accentGreen/20 text-white" : "bg-brandGreen/20 text-white") : isDark ? "bg-white/10 text-zinc-200" : "bg-gray-100 text-gray-700"}`}>
+                                {lesson.quizCount}
+                              </div>
                             </div>
-                          </div>
-                          <div className={`rounded-full px-3 py-1 text-xs font-semibold ${assessment.status.toLowerCase().includes("draft") ? "bg-yellow-100 text-yellow-800" : isDark ? "bg-white/10 text-zinc-200" : "bg-blue-100 text-blue-800"}`}>
-                            {assessment.status}
-                          </div>
-                        </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
 
-                        <div className={`mt-4 grid grid-cols-2 gap-3 text-sm ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
-                          <div className="flex items-center gap-2">
-                            <ClipboardList size={16} className="text-[#9DE16A]" />
-                            <span>{assessment.total_questions} Questions</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Clock3 size={16} className="text-[#9DE16A]" />
-                            <span>{assessment.time_limit ? `${assessment.time_limit} mins` : "No limit"}</span>
-                          </div>
-                        </div>
+                {selectedLessonTopic ? (
+                  loading ? null : filteredAssessments.length === 0 ? (
+                    <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
+                      No quizzes found for this lesson.
+                    </div>
+                  ) : (
+                    <>
+                      <div className={`mb-1 text-xs font-semibold uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>
+                        Quizzes
+                      </div>
+                      {filteredAssessments.map((assessment) => {
+                        const isSelected = selectedQuiz?.id === assessment.id;
 
-                        <div className={`mt-4 inline-flex items-center gap-2 text-sm font-semibold ${isDark ? "text-accentGreen" : "text-brandGreen"}`}>
-                          {loadingQuizId === assessment.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                          {loadingQuizId === assessment.id ? "Opening..." : isSelected ? "Open now" : "Open quiz"}
-                        </div>
-                      </button>
-                    );
-                  })
+                        return (
+                          <button
+                            key={assessment.id}
+                            type="button"
+                            onClick={() => openQuiz(assessment)}
+                            className={`w-full rounded-3xl border p-5 text-left transition ${
+                              isSelected
+                                ? isDark
+                                  ? "border-accentGreen bg-[#123428]"
+                                  : "border-brandGreen bg-brandGreen/5"
+                                : isDark
+                                  ? "border-white/10 bg-white/5 hover:bg-white/10"
+                                  : "border-gray-200 bg-white hover:bg-gray-50"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <div className="text-lg font-semibold">{assessment.title}</div>
+                                <div className={`mt-1 text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>{assessment.topic}</div>
+                              </div>
+                              <div className={`rounded-full px-3 py-1 text-xs font-semibold ${assessment.status.toLowerCase().includes("draft") ? "bg-yellow-100 text-yellow-800" : isDark ? "bg-white/10 text-zinc-200" : "bg-blue-100 text-blue-800"}`}>
+                                {assessment.status}
+                              </div>
+                            </div>
+
+                            <div className={`mt-4 grid grid-cols-2 gap-3 text-sm ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
+                              <div className="flex items-center gap-2">
+                                <ClipboardList size={16} className="text-[#9DE16A]" />
+                                <span>{assessment.total_questions} Questions</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Clock3 size={16} className="text-[#9DE16A]" />
+                                <span>{assessment.time_limit ? `${assessment.time_limit} mins` : "No limit"}</span>
+                              </div>
+                            </div>
+
+                            <div className={`mt-4 inline-flex items-center gap-2 text-sm font-semibold ${isDark ? "text-accentGreen" : "text-brandGreen"}`}>
+                              {loadingQuizId === assessment.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                              {loadingQuizId === assessment.id ? "Opening..." : isSelected ? "Open now" : "Open quiz"}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </>
+                  )
+                ) : (
+                  <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
+                    Select a lesson tile to see the quizzes.
+                  </div>
                 )}
               </div>
             </section>
@@ -341,7 +430,7 @@ export default function QuizPage() {
                     </div>
                     <h2 className="text-2xl font-bold">Choose a quiz to begin</h2>
                     <p className={`mt-3 text-sm leading-7 ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
-                      The selected quiz will open here with progress tracking, question navigation, and answer review.
+                      {selectedLessonTopic ? `Pick a quiz under "${selectedLessonTopic}" to start.` : "Pick a lesson on the left to unlock quizzes."}
                     </p>
                   </div>
                 </div>

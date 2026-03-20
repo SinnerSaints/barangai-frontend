@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
   AlertCircle,
+  BookOpen,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -15,6 +16,13 @@ import {
 } from "lucide-react";
 import TopBar from "@/components/dashboard/TopBar";
 import { API_BASE_URL } from "@/lib/auth";
+import {
+  LessonRecord,
+  mapLesson,
+  readCachedLessons,
+  updateCachedLessonProgress,
+  writeCachedLessons,
+} from "@/lib/lessonProgress";
 import chatBgLight from "@/assets/img/chatBotBg-white.png";
 import chatBgDark from "@/assets/img/chatBotBg-black.png";
 import { useTheme } from "@/context/theme";
@@ -30,6 +38,8 @@ interface Question {
 
 interface Assessment {
   id: number;
+  lessonId?: number;
+  lessonTitle: string;
   title: string;
   topic: string;
   questions: Question[];
@@ -52,9 +62,19 @@ type ChoiceKey = "A" | "B" | "C" | "D";
 
 function mapAssessment(item: any, idx: number): Assessment {
   const questions = Array.isArray(item?.questions) ? item.questions : [];
+  const lessonId =
+    typeof item?.lesson === "object"
+      ? Number(item.lesson?.id)
+      : typeof item?.lesson_id === "number"
+        ? item.lesson_id
+        : typeof item?.lesson === "number"
+          ? item.lesson
+          : undefined;
 
   return {
     id: item?.id ?? idx,
+    lessonId: Number.isFinite(lessonId) ? lessonId : undefined,
+    lessonTitle: item?.lesson?.title ?? item?.lesson_title ?? item?.topic ?? "General",
     title: item?.title ?? `Assessment ${idx + 1}`,
     topic: item?.lesson?.title ?? item?.topic ?? "General",
     questions,
@@ -75,16 +95,38 @@ function getChoices(question: Question) {
   ].filter((choice) => choice.text);
 }
 
+function createFallbackLessons(assessments: Assessment[]): LessonRecord[] {
+  const entries = assessments
+    .filter((assessment) => typeof assessment.lessonId === "number")
+    .map((assessment) => [
+      assessment.lessonId as number,
+      {
+        id: assessment.lessonId as number,
+        title: assessment.lessonTitle,
+        topic: assessment.topic,
+        content: "",
+        created_at: assessment.created_at,
+        progress: 0,
+        completed: false,
+        total_lessons: 1,
+        total_quizzes: assessments.filter((item) => item.lessonId === assessment.lessonId).length,
+      } satisfies LessonRecord,
+    ]);
+
+  return Array.from(new Map(entries).values());
+}
+
 export default function QuizPage() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const [collapsed, setCollapsed] = useState(false);
   const [query, setQuery] = useState("");
+  const [lessons, setLessons] = useState<LessonRecord[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingQuizId, setLoadingQuizId] = useState<number | null>(null);
   const [quizError, setQuizError] = useState("");
+  const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
   const [selectedQuiz, setSelectedQuiz] = useState<Assessment | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, ChoiceKey>>({});
@@ -94,7 +136,12 @@ export default function QuizPage() {
   const baseUrl = API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
 
   useEffect(() => {
-    const fetchAssessments = async () => {
+    const cachedLessons = readCachedLessons();
+    if (cachedLessons.length > 0) {
+      setLessons(cachedLessons);
+    }
+
+    const fetchData = async () => {
       try {
         setLoading(true);
         setQuizError("");
@@ -102,18 +149,32 @@ export default function QuizPage() {
         const token = localStorage.getItem("access_token");
         if (!token) throw new Error("No access token found.");
 
-        const res = await fetch(`${baseUrl}quizzes/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
+        const headers = {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        };
 
-        if (!res.ok) throw new Error("Failed to load quizzes.");
+        const [quizRes, lessonRes] = await Promise.all([
+          fetch(`${baseUrl}quizzes/`, { headers }),
+          fetch(`${baseUrl}lessons/`, { headers }),
+        ]);
 
-        const data = await res.json();
-        const items = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
-        setAssessments(items.map(mapAssessment));
+        if (!quizRes.ok) throw new Error("Failed to load quizzes.");
+
+        const quizData = await quizRes.json();
+        const quizItems = Array.isArray(quizData) ? quizData : Array.isArray(quizData?.results) ? quizData.results : [];
+        const mappedAssessments = quizItems.map(mapAssessment);
+        setAssessments(mappedAssessments);
+
+        if (lessonRes.ok) {
+          const lessonData = await lessonRes.json();
+          const lessonItems = Array.isArray(lessonData) ? lessonData : Array.isArray(lessonData?.results) ? lessonData.results : [];
+          const mappedLessons = lessonItems.map((lesson: any, index: number) => mapLesson(lesson, index + 1));
+          setLessons(mappedLessons);
+          writeCachedLessons(mappedLessons);
+        } else if (cachedLessons.length === 0) {
+          setLessons(createFallbackLessons(mappedAssessments));
+        }
       } catch (err) {
         console.error(err);
         setQuizError("Failed to load quizzes. Check your token or backend.");
@@ -122,15 +183,74 @@ export default function QuizPage() {
       }
     };
 
-    fetchAssessments();
+    void fetchData();
   }, [baseUrl]);
+
+  useEffect(() => {
+    if (selectedLessonId !== null) return;
+
+    const lessonIdsFromQuizzes = assessments
+      .map((assessment) => assessment.lessonId)
+      .filter((lessonId): lessonId is number => Number.isFinite(lessonId));
+
+    const fallbackLessonId =
+      lessons.find((lesson) => lessonIdsFromQuizzes.includes(lesson.id))?.id ??
+      lessonIdsFromQuizzes[0] ??
+      lessons[0]?.id ??
+      null;
+
+    if (fallbackLessonId !== null) {
+      setSelectedLessonId(fallbackLessonId);
+    }
+  }, [assessments, lessons, selectedLessonId]);
 
   const filteredAssessments = useMemo(() => {
     const search = query.trim().toLowerCase();
     return assessments.filter((assessment) =>
-      [assessment.title, assessment.topic, assessment.status].join(" ").toLowerCase().includes(search)
+      [assessment.title, assessment.topic, assessment.lessonTitle, assessment.status]
+        .join(" ")
+        .toLowerCase()
+        .includes(search)
     );
   }, [assessments, query]);
+
+  const availableLessons = useMemo(() => {
+    if (lessons.length > 0) {
+      const lessonIdsWithQuizzes = new Set(
+        filteredAssessments
+          .map((assessment) => assessment.lessonId)
+          .filter((lessonId): lessonId is number => Number.isFinite(lessonId))
+      );
+
+      const filteredLessonItems = lessons.filter((lesson) => lessonIdsWithQuizzes.size === 0 || lessonIdsWithQuizzes.has(lesson.id));
+      if (query.trim()) {
+        const search = query.trim().toLowerCase();
+        return filteredLessonItems.filter((lesson) =>
+          [lesson.title, lesson.topic, lesson.content].join(" ").toLowerCase().includes(search)
+        );
+      }
+
+      return filteredLessonItems;
+    }
+
+    return createFallbackLessons(filteredAssessments);
+  }, [filteredAssessments, lessons, query]);
+
+  const selectedLesson = useMemo(
+    () =>
+      availableLessons.find((lesson) => lesson.id === selectedLessonId) ??
+      lessons.find((lesson) => lesson.id === selectedLessonId) ??
+      null,
+    [availableLessons, lessons, selectedLessonId]
+  );
+
+  const visibleAssessments = useMemo(
+    () =>
+      filteredAssessments.filter((assessment) =>
+        selectedLessonId === null ? true : assessment.lessonId === selectedLessonId
+      ),
+    [filteredAssessments, selectedLessonId]
+  );
 
   const answeredCount = useMemo(() => {
     if (!selectedQuiz) return 0;
@@ -144,6 +264,12 @@ export default function QuizPage() {
     setAnswers({});
     setResult(null);
     setQuizError("");
+  };
+
+  const selectLesson = (lessonId: number) => {
+    setSelectedLessonId(lessonId);
+    setSelectedQuiz(null);
+    resetQuizState();
   };
 
   const openQuiz = async (assessment: Assessment) => {
@@ -191,11 +317,9 @@ export default function QuizPage() {
     setQuizError("");
 
     const formattedAnswers = Object.fromEntries(
-      Object.entries(answers).map(([questionId, answer]) => [
-        questionId,
-        answer,
-      ])
+      Object.entries(answers).map(([questionId, answer]) => [questionId, answer])
     );
+    const totalAnswered = Object.keys(formattedAnswers).length;
 
     try {
       const token = localStorage.getItem("access_token");
@@ -215,17 +339,32 @@ export default function QuizPage() {
       }
 
       const data = await res.json();
+      const scorePercent =
+        typeof data.score_percent === "number"
+          ? data.score_percent
+          : typeof data.score === "number"
+            ? data.score
+            : null;
+
+      if (selectedQuiz.lessonId) {
+        updateCachedLessonProgress(selectedQuiz.lessonId, {
+          completed: true,
+          progress: 100,
+          score: scorePercent ?? undefined,
+        });
+      }
+
       setResult({
-        total_questions: data.total_questions ?? selectedQuiz.total_questions,
-        answered_count: formattedAnswers.length,
+        total_questions: data.total_questions ?? data.total_count ?? selectedQuiz.total_questions,
+        answered_count: totalAnswered,
         correct_count: data.correct_count ?? null,
-        score_percent: data.score_percent ?? null,
+        score_percent: scorePercent,
       });
     } catch (err) {
       console.error(err);
       setResult({
         total_questions: selectedQuiz.total_questions,
-        answered_count: formattedAnswers.length,
+        answered_count: totalAnswered,
         submitted_offline: true,
       });
       setQuizError("Answers were captured locally, but the backend submit endpoint is unavailable.");
@@ -236,7 +375,7 @@ export default function QuizPage() {
 
   return (
     <div className="min-h-screen flex">
-      <main className={`flex-1 p-6 lg:p-10 relative overflow-hidden ${isDark ? "text-white" : "text-black"}`}>
+      <main className={`relative flex-1 overflow-hidden p-6 lg:p-10 ${isDark ? "text-white" : "text-black"}`}>
         <div className="absolute inset-0 z-0">
           <Image
             src={isDark ? chatBgDark : chatBgLight}
@@ -249,17 +388,76 @@ export default function QuizPage() {
         <div className="relative z-10">
           <TopBar searchValue={query} onSearch={setQuery} />
 
-          <div className="mt-6 flex flex-col gap-6 xl:grid xl:grid-cols-[380px_minmax(0,1fr)]">
+          <div className="mt-6 flex flex-col gap-6 xl:grid xl:grid-cols-[390px_minmax(0,1fr)]">
             <section className={`rounded-[2rem] border p-6 shadow-xl ${isDark ? "border-white/10 bg-zinc-950/85" : "border-gray-200 bg-white/90"}`}>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl font-bold">Assessments</h1>
-                  <p className={`mt-2 text-sm ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
-                    Open a quiz, answer each question, then submit when you are done.
-                  </p>
+              <div className={`rounded-[1.75rem] border p-5 ${isDark ? "border-white/10 bg-white/5" : "border-gray-200 bg-[#f6fbf7]"}`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
+                      <BookOpen size={14} />
+                      Step 1
+                    </div>
+                    <h1 className="mt-3 text-2xl font-bold">Choose a lesson</h1>
+                    <p className={`mt-2 text-sm ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
+                      Start with the lesson you want to review, then pick its quiz below.
+                    </p>
+                  </div>
+                  <div className={`rounded-full px-4 py-2 text-sm font-semibold ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
+                    {availableLessons.length} lessons
+                  </div>
                 </div>
-                <div className={`rounded-full px-4 py-2 text-sm font-semibold ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
-                  {filteredAssessments.length} quizzes
+
+                <div className="mt-5 space-y-3">
+                  {loading && availableLessons.length === 0 ? (
+                    <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-black/10 text-zinc-300" : "border-gray-200 bg-white text-gray-600"}`}>
+                      Loading lessons...
+                    </div>
+                  ) : availableLessons.length === 0 ? (
+                    <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-black/10 text-zinc-300" : "border-gray-200 bg-white text-gray-600"}`}>
+                      No lessons with quizzes matched your search.
+                    </div>
+                  ) : (
+                    availableLessons.map((lesson) => {
+                      const isActive = lesson.id === selectedLessonId;
+                      const lessonQuizCount = filteredAssessments.filter((assessment) => assessment.lessonId === lesson.id).length;
+
+                      return (
+                        <button
+                          key={lesson.id}
+                          type="button"
+                          onClick={() => selectLesson(lesson.id)}
+                          className={`w-full rounded-3xl border p-4 text-left transition ${
+                            isActive
+                              ? isDark
+                                ? "border-accentGreen bg-[#123428]"
+                                : "border-brandGreen bg-brandGreen/5"
+                              : isDark
+                                ? "border-white/10 bg-black/10 hover:bg-white/5"
+                                : "border-gray-200 bg-white hover:bg-gray-50"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <div className="text-base font-semibold">{lesson.title}</div>
+                              <div className={`mt-1 text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>
+                                {lesson.topic}
+                              </div>
+                            </div>
+                            <div className={`rounded-full px-3 py-1 text-xs font-semibold ${lesson.completed ? "bg-green-100 text-green-700" : isDark ? "bg-white/10 text-zinc-200" : "bg-gray-100 text-gray-700"}`}>
+                              {lesson.completed ? "Completed" : `${lesson.progress}%`}
+                            </div>
+                          </div>
+
+                          <div className={`mt-4 flex items-center justify-between text-sm ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
+                            <span>{lessonQuizCount} quiz{lessonQuizCount === 1 ? "" : "zes"}</span>
+                            <span className={`font-semibold ${isDark ? "text-accentGreen" : "text-brandGreen"}`}>
+                              {isActive ? "Selected" : "Open lesson"}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
@@ -270,65 +468,89 @@ export default function QuizPage() {
                 </div>
               )}
 
-              <div className="mt-6 space-y-4">
-                {loading ? (
-                  <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
-                    Loading quizzes...
+              <div className="mt-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
+                      <ClipboardList size={14} />
+                      Step 2
+                    </div>
+                    <h2 className="mt-3 text-2xl font-bold">Pick a quiz</h2>
+                    <p className={`mt-2 text-sm ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
+                      {selectedLesson
+                        ? `Available quizzes for ${selectedLesson.title}.`
+                        : "Select a lesson first to see its quizzes."}
+                    </p>
                   </div>
-                ) : filteredAssessments.length === 0 ? (
-                  <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
-                    No quizzes found.
+                  <div className={`rounded-full px-4 py-2 text-sm font-semibold ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
+                    {visibleAssessments.length} quizzes
                   </div>
-                ) : (
-                  filteredAssessments.map((assessment) => {
-                    const isSelected = selectedQuiz?.id === assessment.id;
+                </div>
 
-                    return (
-                      <button
-                        key={assessment.id}
-                        type="button"
-                        onClick={() => openQuiz(assessment)}
-                        className={`w-full rounded-3xl border p-5 text-left transition ${
-                          isSelected
-                            ? isDark
-                              ? "border-accentGreen bg-[#123428]"
-                              : "border-brandGreen bg-brandGreen/5"
-                            : isDark
-                              ? "border-white/10 bg-white/5 hover:bg-white/10"
-                              : "border-gray-200 bg-white hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <div className="text-lg font-semibold">{assessment.title}</div>
-                            <div className={`mt-1 text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>
-                              {assessment.topic}
+                <div className="mt-6 space-y-4">
+                  {loading ? (
+                    <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
+                      Loading quizzes...
+                    </div>
+                  ) : selectedLessonId === null ? (
+                    <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
+                      Choose a lesson to load its quiz list.
+                    </div>
+                  ) : visibleAssessments.length === 0 ? (
+                    <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
+                      No quizzes found for this lesson.
+                    </div>
+                  ) : (
+                    visibleAssessments.map((assessment) => {
+                      const isSelected = selectedQuiz?.id === assessment.id;
+
+                      return (
+                        <button
+                          key={assessment.id}
+                          type="button"
+                          onClick={() => openQuiz(assessment)}
+                          className={`w-full rounded-3xl border p-5 text-left transition ${
+                            isSelected
+                              ? isDark
+                                ? "border-accentGreen bg-[#123428]"
+                                : "border-brandGreen bg-brandGreen/5"
+                              : isDark
+                                ? "border-white/10 bg-white/5 hover:bg-white/10"
+                                : "border-gray-200 bg-white hover:bg-gray-50"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <div className="text-lg font-semibold">{assessment.title}</div>
+                              <div className={`mt-1 text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>
+                                {assessment.topic}
+                              </div>
+                            </div>
+                            <div className={`rounded-full px-3 py-1 text-xs font-semibold ${assessment.status.toLowerCase().includes("draft") ? "bg-yellow-100 text-yellow-800" : isDark ? "bg-white/10 text-zinc-200" : "bg-blue-100 text-blue-800"}`}>
+                              {assessment.status}
                             </div>
                           </div>
-                          <div className={`rounded-full px-3 py-1 text-xs font-semibold ${assessment.status.toLowerCase().includes("draft") ? "bg-yellow-100 text-yellow-800" : isDark ? "bg-white/10 text-zinc-200" : "bg-blue-100 text-blue-800"}`}>
-                            {assessment.status}
-                          </div>
-                        </div>
 
-                        <div className={`mt-4 grid grid-cols-2 gap-3 text-sm ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
-                          <div className="flex items-center gap-2">
-                            <ClipboardList size={16} className="text-[#9DE16A]" />
-                            <span>{assessment.total_questions} Questions</span>
+                          <div className={`mt-4 grid grid-cols-2 gap-3 text-sm ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
+                            <div className="flex items-center gap-2">
+                              <ClipboardList size={16} className="text-[#9DE16A]" />
+                              <span>{assessment.total_questions} Questions</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock3 size={16} className="text-[#9DE16A]" />
+                              <span>{assessment.time_limit ? `${assessment.time_limit} mins` : "No limit"}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Clock3 size={16} className="text-[#9DE16A]" />
-                            <span>{assessment.time_limit ? `${assessment.time_limit} mins` : "No limit"}</span>
-                          </div>
-                        </div>
 
-                        <div className={`mt-4 inline-flex items-center gap-2 text-sm font-semibold ${isDark ? "text-accentGreen" : "text-brandGreen"}`}>
-                          {loadingQuizId === assessment.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                          {loadingQuizId === assessment.id ? "Opening..." : isSelected ? "Open now" : "Open quiz"}
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
+                          <div className={`mt-4 inline-flex items-center gap-2 text-sm font-semibold ${isDark ? "text-accentGreen" : "text-brandGreen"}`}>
+                            {loadingQuizId === assessment.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                            {loadingQuizId === assessment.id ? "Opening..." : isSelected ? "Open now" : "Open quiz"}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             </section>
 
@@ -336,13 +558,26 @@ export default function QuizPage() {
               {!selectedQuiz ? (
                 <div className="flex h-full min-h-[720px] items-center justify-center p-10">
                   <div className="max-w-md text-center">
-                    <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full ${isDark ? "bg-white/10" : "bg-brandGreen/10"}`}>
-                      <ClipboardList size={28} className={isDark ? "text-accentGreen" : "text-brandGreen"} />
+                    <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[1.5rem] ${isDark ? "bg-[#123428]" : "bg-brandGreen/10"}`}>
+                      {selectedLesson ? (
+                        <BookOpen size={30} className={isDark ? "text-accentGreen" : "text-brandGreen"} />
+                      ) : (
+                        <ClipboardList size={30} className={isDark ? "text-accentGreen" : "text-brandGreen"} />
+                      )}
                     </div>
-                    <h2 className="text-2xl font-bold">Choose a quiz to begin</h2>
+                    <h2 className="text-2xl font-bold">
+                      {selectedLesson ? "Choose a quiz to begin" : "Choose a lesson first"}
+                    </h2>
                     <p className={`mt-3 text-sm leading-7 ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
-                      The selected quiz will open here with progress tracking, question navigation, and answer review.
+                      {selectedLesson
+                        ? "Your selected quiz will open here with question navigation, answer review, and submission feedback."
+                        : "Pick a lesson from the left panel first. Its available quizzes will appear immediately below it."}
                     </p>
+                    {selectedLesson && (
+                      <div className={`mt-5 inline-flex rounded-full px-4 py-2 text-sm font-semibold ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
+                        {selectedLesson.title}
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (

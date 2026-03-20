@@ -36,7 +36,7 @@ export default function DashboardPage() {
       try {
         setLoadingStatus(true);
         setStatusError(false);
-        const status = await fetchAssessmentStatus(false);
+        const status = await fetchAssessmentStatus();
         setIsLocked(!status.completed);
       } catch (err) {
         console.error(err);
