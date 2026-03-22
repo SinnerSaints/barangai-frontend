@@ -44,6 +44,15 @@ export interface AssessmentStatus {
   proficiency_level: string | null;
 }
 
+/** Admin list/detail payload — matches Django `AdminAssessmentSerializer`. */
+export interface AdminAssessment {
+  id: number;
+  title: string;
+  description: string;
+  questions: AssessmentQuestion[];
+  created_at: string;
+}
+
 const PRE_ASSESSMENT_PATH = "assessments/";
 const STATUS_CACHE_KEY = "pre_assessment_status";
 const RESULT_CACHE_KEY = "pre_assessment_result";
@@ -82,6 +91,21 @@ function getAuthHeaders() {
   };
 }
 
+function formatRequestError(data: unknown): string {
+  if (data && typeof data === "object" && "detail" in data) {
+    const detail = (data as { detail: unknown }).detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      const first = detail[0];
+      if (first && typeof first === "object" && "message" in first) {
+        return String((first as { message: unknown }).message);
+      }
+      return JSON.stringify(detail);
+    }
+  }
+  return "Pre-assessment request failed.";
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${getBaseUrl()}${PRE_ASSESSMENT_PATH}${path}`, {
     ...init,
@@ -94,7 +118,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(data?.detail || "Pre-assessment request failed.");
+    throw new Error(formatRequestError(data));
   }
 
   return data as T;
@@ -146,6 +170,44 @@ export async function fetchAssessmentResult(useCache = true): Promise<Assessment
   const data = await request<AssessmentResult>("result/");
   writeCache(RESULT_CACHE_KEY, data);
   return data;
+}
+
+/**
+ * Admin: GET assessments/list-assessment/ — returns all assessments with nested questions.
+ * Uses the first assessment (same as user flow: single global pre-assessment).
+ */
+export async function fetchPrimaryAdminAssessment(): Promise<AdminAssessment> {
+  const list = await request<AdminAssessment[]>("list-assessment/");
+  if (!Array.isArray(list) || list.length === 0) {
+    throw new Error("No assessment found. Create one via POST assessments/create/ first.");
+  }
+  const assessment = list[0];
+  const questions = [...(assessment.questions ?? [])].sort(
+    (a, b) => a.order - b.order || a.id - b.id
+  );
+  return { ...assessment, questions };
+}
+
+/**
+ * Admin: PATCH assessments/list-assessment/<id>/
+ * Backend replaces the question set from `questions`; always send the full list so rows are not deleted.
+ */
+export async function patchAdminAssessment(
+  assessmentId: number,
+  body: {
+    title?: string;
+    description?: string;
+    questions: Array<Pick<AssessmentQuestion, "id" | "question_text" | "category" | "order">>;
+  }
+): Promise<AdminAssessment> {
+  const updated = await request<AdminAssessment>(`list-assessment/${assessmentId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+  const questions = [...(updated.questions ?? [])].sort(
+    (a, b) => a.order - b.order || a.id - b.id
+  );
+  return { ...updated, questions };
 }
 
 export function clearAssessmentCache() {

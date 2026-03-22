@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Loader2,
   LockKeyhole,
+  Pencil,
   PlayCircle,
   Send,
   Sparkles,
@@ -24,6 +25,8 @@ import {
   startPreAssessment,
   submitPreAssessment,
 } from "@/lib/preAssessment";
+import { isAdminRole } from "@/lib/roles";
+import { useAuth } from "@/context/auth";
 import { useTheme } from "@/context/theme";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -63,7 +66,14 @@ function groupQuestions(questions: AssessmentQuestion[]) {
 
 export default function Assessment() {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const isDark = theme === "dark";
+
+  const [clientRole, setClientRole] = useState<string | null>(null);
+  useEffect(() => {
+    setClientRole(localStorage.getItem("user_role"));
+  }, [user?.role]);
+  const showAdminEdit = isAdminRole(user?.role ?? clientRole);
 
   const [viewState, setViewState] = useState<ViewState>("idle");
   const [attempt, setAttempt] = useState<AssessmentAttempt | null>(null);
@@ -186,9 +196,21 @@ export default function Assessment() {
     <section className={`relative mt-6 rounded-[2rem] border p-6 shadow-xl lg:p-8 ${isDark ? "border-white/10 bg-zinc-950/85 text-white" : "border-gray-200 bg-white/90 text-[#034440]"}`}>
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-2xl">
-          <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
-            <Sparkles className="h-3.5 w-3.5" />
-            Pre-Assessment
+          <div className="flex flex-wrap items-center gap-3">
+            <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
+              <Sparkles className="h-3.5 w-3.5" />
+              Pre-Assessment
+            </div>
+            {showAdminEdit && (
+              <Link
+                href="/admin/pre-assessment"
+                onClick={() => window.scrollTo({ top: 0 })}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${isDark ? "bg-white/10 text-zinc-200 hover:bg-white/15" : "border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50"}`}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit
+              </Link>
+            )}
           </div>
           <h2 className="mt-4 text-2xl font-bold lg:text-3xl">Measure digital literacy before coursework begins.</h2>
           <p className={`mt-3 max-w-xl text-sm leading-7 ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
