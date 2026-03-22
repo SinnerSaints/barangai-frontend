@@ -232,7 +232,7 @@ export default function QuizPage() {
       const token = localStorage.getItem("access_token");
       if (!token) throw new Error("No access token found.");
 
-      const res = await fetch(`${baseUrl}quizzes/submit/${selectedQuiz.id}/`, {
+      const res = await fetch(`${baseUrl}/quizzes/${selectedQuiz.id}/submit/`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
