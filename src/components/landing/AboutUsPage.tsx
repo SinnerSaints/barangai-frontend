@@ -21,7 +21,7 @@ const teamMembers = [
 export default function AboutUsPage() {
   return (
 
-    <main className="min-h-screen bg-[#05070E] text-white px-6 py-12 md:px-12 lg:px-20">
+    <main className="min-h-screen text-white px-6 py-12 md:px-12 lg:px-20">
       <div className="mx-auto max-w-6xl">
         <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 md:p-12 shadow-[0_10px_40px_rgba(0,0,0,0.35)]">
           <p className="inline-block rounded-full border border-accentGreen/40 bg-accentGreen/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-accentGreen">

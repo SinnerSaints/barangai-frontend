@@ -92,10 +92,4 @@ const Navbar = () => {
   );
 };
 
-export default function Home() {
-  return (
-    <>
-      <Navbar />
-    </>
-  );
-}
+export default Navbar;

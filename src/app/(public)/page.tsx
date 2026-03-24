@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import Navbar from "@/components/landing/Navbar";
 import Hero from "@/components/landing/Hero";
 import Featured from "@/components/landing/Featured";
 import ChatFeature from "@/components/landing/ChatFeature";
-import DarkVeil from "@/components/ui/background/DarkVeil"; 
 import { HiArrowUp } from "react-icons/hi";
 
 // Scroll snap tuning:
@@ -105,20 +103,9 @@ export default function Home() {
   return (
     <div ref={pageRef} className="relative w-full min-h-screen overflow-hidden">
       {/* DarkVeil background */}
-      <div className="absolute top-0 left-0 w-full h-full -z-10 pointer-events-none">
-        <DarkVeil
-          hueShift={51}
-          noiseIntensity={0}
-          scanlineIntensity={0}
-          speed={0.5}
-          scanlineFrequency={0}
-          warpAmount={3}
-        />
-      </div>
 
-      {/* Hero section (includes navbar) */}
+      {/* Hero section */}
       <section data-scroll-section>
-        <Navbar />
         <Hero />
       </section>
 
@@ -131,6 +118,7 @@ export default function Home() {
       <section data-scroll-section>
         <ChatFeature />
       </section>
+
       {/* Scroll To Top Button */}
       {showTop && (
         <button
