@@ -3,21 +3,24 @@ import FeaturedChatBot from "@/components/chatbot/FeaturedChatBot";
 
 export default function ChatFeature() {
   return (
-    <section className="relative chat-feature min-h-screen mt-[100px] flex items-center justify-center">
-      <div className="flex flex-col items-center">
-        {/* "powered by" on top */}
-        <h1 className="absolute font-pattaya text-[40px] text-[#9DE16A] -mt-[25px] mr-[500px] text-stroke text-strokeGreen mb-4">
+    <section className="relative w-full">
+      <div className="mx-auto flex w-full max-w-6xl flex-col items-center px-4 text-center">
+        
+        {/* powered by */}
+        <h2 className="mb-2 font-pattaya text-2xl text-[#9DE16A] text-stroke text-strokeGreen md:text-[32px]">
           powered by
-        </h1>
+        </h2>
 
         {/* Main heading */}
-        <h1 className="font-leagueGothic font-extrabold text-center text-[100px] md:text-[90px] leading-tight text-white">
+        <h1 className="font-leagueGothic text-5xl font-extrabold leading-[0.95] text-white md:text-7xl lg:text-[88px]">
           ARTIFICIAL <span className="text-[#9DE16A]">INTELLIGENCE</span>
         </h1>
-        <div className="w-full h-full max-w-4xl mt-8 rounded-3xl overflow-hidden">
-            <FeaturedChatBot />
+
+        {/* Chatbot */}
+        <div className="mt-6 mb-6 w-full max-w-3xl overflow-hidden rounded-3xl md:mt-8">
+          <FeaturedChatBot />
         </div>
       </div>
     </section>
-  )
+  );
 }

@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import circle from "@/assets/img/eclipse.png";
 import chatBgLight from "@/assets/img/chatBotBg-white.png";
-import { useTheme } from "@/context/theme";
 import ReactMarkdown from "react-markdown";
 
 type ChatMessage = {
@@ -16,9 +15,9 @@ type ChatMessage = {
 
 export default function FeaturedChatBot() {
   return (
-    <main className="relative min-h-screen flex items-center justify-center">
+    <main className="relative w-full overflow-hidden rounded-3xl">
       <BackgroundImage />
-      <div className="relative z-10 w-full max-w-3xl px-4">
+      <div className="relative z-10 w-full max-w-3xl px-4 py-4 md:py-5">
         <ChatSection />
       </div>
     </main>
@@ -134,26 +133,26 @@ function ChatSection() {
 
   return (
     <section>
-      <div className="relative flex flex-col items-center gap-6">
+      <div className="relative flex flex-col items-center gap-4">
 
         {/* Floating animation */}
-        <div className="w-14 h-14 animate-bounce">
-          <Image src={circle} alt="circle" width={56} height={56} />
+        <div className="h-10 w-10 animate-bounce">
+          <Image src={circle} alt="circle" width={40} height={40} />
         </div>
 
-        <h1 className="text-center text-2xl md:text-3xl font-semibold text-black animate-fadeIn">
+        <h1 className="text-center text-xl md:text-2xl font-semibold text-black animate-fadeIn">
           Good morning, {userName}! <br />
           How can I assist you today?
         </h1>
 
         {/* Suggestions */}
         {promptCount < 5 && messages.length === 0 && (
-          <div className="flex flex-wrap justify-center gap-4 mt-2 animate-fadeIn">
+          <div className="mt-1 flex flex-wrap justify-center gap-2 animate-fadeIn">
             {suggestions.map((text, i) => (
               <button
                 key={text}
                 onClick={() => sendMessage(text)}
-                className="bg-gray-100/80 backdrop-blur-md text-black px-4 py-2 rounded-xl shadow-md hover:scale-[1.05] transition text-sm"
+                className="rounded-xl bg-gray-100/80 px-3 py-1.5 text-xs text-black shadow-md backdrop-blur-md transition hover:scale-[1.03]"
               >
                 {text}
               </button>
@@ -162,7 +161,7 @@ function ChatSection() {
         )}
 
         {/* Chat Card */}
-        <div className="relative w-full h-[500px] md:h-[600px] rounded-3xl bg-white/40 backdrop-blur-xl border border-white/30 shadow-2xl overflow-hidden">
+        <div className="relative h-[300px] w-full rounded-3xl border border-white/30 bg-white/40 shadow-2xl backdrop-blur-xl overflow-hidden md:h-[350px]">
 
           {/* Messages */}
           <div className="absolute inset-0 overflow-y-auto p-4 pb-24 flex flex-col gap-4">

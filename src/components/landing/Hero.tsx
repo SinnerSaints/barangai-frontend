@@ -9,7 +9,7 @@ import TextType from "@/components/ui/text/textType";
 export default function Hero() {
   return (
     <section className="hero">
-      <div className="hero-content p-8 md:p-16 min-h-[60vh] flex flex-col justify-center relative z-10 text-center overflow-hidden">
+      <div className="hero-content min-h-[60vh] flex flex-col justify-center relative z-10 text-center overflow-hidden">
         <h1 className="font-league font-extrabold mr-32 text-center text-[100px] md:text-[90px] leading-tight text-white">
           <TextType
             text={[
@@ -59,12 +59,6 @@ export default function Hero() {
           className="w-full h-auto max-h-screen object-cover"
           priority
         /> */}
-        <Link
-          href="/auth">
-          <button className="absolute z-10 -top-8 left-1/2 -translate-x-1/2 font-poppins px-8 py-3 bg-[#FFF] text-[#034440] rounded-full hover:brightness-90 transition shadow-lg">
-            Get Started 
-          </button>
-        </Link>
         <Link
           href="/auth">
           <button className="absolute z-10 -top-8 left-1/2 -translate-x-1/2 font-poppins px-8 py-3 bg-[#FFF] text-[#034440] rounded-full hover:brightness-90 transition shadow-lg">

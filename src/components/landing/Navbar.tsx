@@ -11,7 +11,7 @@ import ProfileMenu from "@/components/ui/ProfileMenu";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const links = ["Home", "Tutorials", "About us", "Contact us"];
+  const links = ["Home", "About us", "Contact us"];
   const auth = useAuth();
   const router = useRouter();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -31,12 +31,12 @@ const Navbar = () => {
       </Link>
 
       {/* Desktop Links */}
-      <ul className="hidden md:flex items-center gap-8 text-[16px] text-white font-inter">
+      <ul className="hidden md:flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2 py-1 text-[16px] text-white font-inter backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
         {links.map((link) => (
           <li key={link}>
             <Link
               href={link === "Contact us" ? "/contact" : "#"}
-              className="px-2 py-1 transition-colors duration-300 hover:text-accentGreen"
+              className="block rounded-full px-4 py-2 text-white/90 transition-all duration-300 hover:bg-white/20 hover:text-accentGreen hover:shadow-[0_0_20px_rgba(157,225,106,0.25)]"
             >
               {link}
             </Link>
@@ -96,21 +96,9 @@ export default function Home() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
-
   return (
     <>
       <Navbar />
-
-      {/* Scroll To Top Button */}
-      {showTop && (
-        <button
-          onClick={scrollToTop}
-          className="fixed bottom-8 right-8 bg-accentGreen text-black p-4 rounded-full shadow-lg hover:-translate-y-1 hover:brightness-90 transition-all duration-300 z-50"
-        >
-          <HiArrowUp size={24} />
-        </button>
-      )}
     </>
   );
 }
