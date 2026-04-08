@@ -24,7 +24,9 @@ export default function PublicLayout({
       </div>
       <Navbar />
       <div className="flex-1 w-full">{children}</div>
-      <Footer />
+      <div className="bg-[#000000]">
+        <Footer />
+      </div>
     </div>
   );
 }
