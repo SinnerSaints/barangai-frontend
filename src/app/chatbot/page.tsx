@@ -4,7 +4,7 @@ import ChatbotPage from "@/components/chatbot/ChatBot";
 import { useTheme } from "@/context/theme";
 import React, { use } from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
-import TopBar from "@/components/dashboard/TopBar";
+import DownloadOverlay from "@/components/chatbot/DownloadOverlay";
 
 export default function Chatbot() {
 
@@ -32,10 +32,11 @@ export default function Chatbot() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex relative">
       <Sidebar collapsed={collapsed} onToggle={toggle} />
-      <main className={`flex-1 p-6 relative overflow-hidden ${isDark ? "text-white" : "text-black"}`}>
+      <main className={`flex-1 p-[30px] relative ${isDark ? "text-white" : "text-black"}`}>
         <ChatbotPage />
+        <DownloadOverlay />
       </main>
     </div>
   );
