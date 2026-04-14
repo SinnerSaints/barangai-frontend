@@ -73,7 +73,7 @@ function ChatSection() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:8000/chat/", {
+      const res = await fetch("http://localhost:8002/chat/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage, user_id: 1 }),
