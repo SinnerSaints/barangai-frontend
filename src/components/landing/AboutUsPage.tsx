@@ -71,8 +71,8 @@ const toolsUsed = [
     category: "Artificial Model",
     items: [
       {
-        name: "Google Gemini",
-        logo: "https://cdn.simpleicons.org/googlegemini/8E75B2",
+        name: "OpenAI",
+        logo: "https://api.iconify.design/simple-icons:openai.svg?color=%23FFFFFF",
       },
       {
         name: "scikit-learn",
