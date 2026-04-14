@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth";
 import { useTheme } from "@/context/theme";
@@ -56,13 +56,101 @@ export default function AuthForm() {
     setLoading(true);
     try {
       await auth.signup(sEmail, sPassword, sFirstName, sLastName, sRole);
-      setMode("login"); // show login form after signup
+      setMode("login");
     } catch (err: any) {
       setError(err?.message || "Signup failed");
     } finally {
       setLoading(false);
     }
   };
+
+  // Google credential handler
+  const handleCredentialResponse = async (response: any) => {
+    const id_token = response?.credential;
+    if (!id_token) {
+      setError("Google sign-in failed: no credential.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/accounts/google-login/";
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_token }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || data.detail || "Google login failed");
+        return;
+      }
+
+      if ((auth as any)?.loginWithTokens) {
+        await (auth as any).loginWithTokens(data.access, data.refresh, data.user);
+      } else if ((auth as any)?.setTokens) {
+        (auth as any).setTokens(data.access, data.refresh);
+        if ((auth as any).setUser && data.user) (auth as any).setUser(data.user);
+      } else {
+        // Save with same keys as regular login
+        localStorage.setItem("access_token", data.access);
+        localStorage.setItem("refresh_token", data.refresh);
+        localStorage.setItem("user_id", data.user.id.toString());
+        localStorage.setItem("user_email", data.user.email);
+        localStorage.setItem("user_role", data.user.role);
+        localStorage.setItem("first_name", data.user.first_name);
+        localStorage.setItem("last_name", data.user.last_name);
+        if (data.user.avatar_url) localStorage.setItem("user_avatar", data.user.avatar_url);
+      }
+
+      router.push("/dashboard");
+    } catch (err) {
+      setError("Network error during Google login");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load Google Identity Services
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if ((window as any).google && (window as any).google.accounts) {
+      try {
+        (window as any).google.accounts.id.renderButton(
+          document.getElementById("googleSignInDiv"),
+          { theme: "outline", size: "large" }
+        );
+      } catch (e) {}
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if ((window as any).google) {
+        (window as any).google.accounts.id.initialize({
+          client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID",
+          callback: handleCredentialResponse,
+        });
+
+        (window as any).google.accounts.id.renderButton(
+          document.getElementById("googleSignInDiv"),
+          { theme: "outline", size: "large" }
+        );
+      }
+    };
+    document.body.appendChild(script);
+    return () => {
+      try {
+        document.body.removeChild(script);
+      } catch (e) {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <BackgroundPaths>
@@ -156,7 +244,6 @@ export default function AuthForm() {
                   </div>
                 </form>
               ) : (
-                // Signup Form
                 <form onSubmit={handleSignup} className="flex flex-col h-full">
                   <div className="space-y-4">
                     <div>
@@ -242,7 +329,8 @@ export default function AuthForm() {
               )}
 
               <div className="mt-auto pt-4 text-center text-sm opacity-70">
-                Or continue with <a href="#" className="text-accentGreen">Google</a>
+                Or continue with
+                <div id="googleSignInDiv" className="mt-3 flex justify-center"></div>
               </div>
             </div>
           </div>

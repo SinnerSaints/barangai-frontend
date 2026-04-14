@@ -16,6 +16,7 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   loading: boolean;
   login: (email: string, password: string, first_name: string, last_name: string, id?: number, role?: string) => Promise<void>;
+  loginWithTokens: (access: string, refresh: string, userData: any) => void;
   signup: (email: string, password: string, first_name: string, last_name: string, role?: string) => Promise<void>;
   updateProfile: (opts: { email?: string; password?: string; avatarFile?: File | null; first_name: string; last_name: string }) => Promise<any>;
   logout: () => void;
@@ -28,23 +29,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // initialize from localStorage if present
     const email = localStorage.getItem("user_email");
     const role = localStorage.getItem("user_role");
     const first_name = localStorage.getItem("first_name");
     const last_name = localStorage.getItem("last_name");
     if (email || role) {
-      setUser({ email: email || undefined, first_name: first_name || "", last_name: last_name || "", role: role || undefined});
+      setUser({ email: email || undefined, first_name: first_name || "", last_name: last_name || "", role: role || undefined });
     }
   }, []);
 
   async function login(email: string, password: string, first_name: string, last_name: string, id?: number, role?: string) {
     setLoading(true);
     try {
-      // apiLogin accepts id and role but they may be optional; pass undefined when not provided
       const raw = await apiLogin(email, password, first_name, last_name, role ?? "");
-      const data: any = raw as any; // backend payload (access, refresh, email, role...)
-      // apiLogin already persists tokens and user_email if provided
+      const data: any = raw as any;
       const uId = data?.id || localStorage.getItem("user_id") || undefined;
       const uEmail = data?.email || data?.user || localStorage.getItem("user_email") || email;
       const uRole = data?.role || localStorage.getItem("user_role") || undefined;
@@ -57,12 +55,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  // ✅ New: called after Google login
+  function loginWithTokens(access: string, refresh: string, userData: any) {
+    localStorage.setItem("access_token", access);
+    localStorage.setItem("refresh_token", refresh);
+    localStorage.setItem("user_id", userData.id?.toString() || "");
+    localStorage.setItem("user_email", userData.email || "");
+    localStorage.setItem("user_role", userData.role || "");
+    localStorage.setItem("first_name", userData.first_name || "");
+    localStorage.setItem("last_name", userData.last_name || "");
+    if (userData.avatar_url) localStorage.setItem("user_avatar", userData.avatar_url);
+
+    setUser({
+      id: userData.id,
+      email: userData.email,
+      role: userData.role,
+      avatar: userData.avatar_url,
+      first_name: userData.first_name || "",
+      last_name: userData.last_name || "",
+    });
+  }
+
   async function signup(email: string, password: string, first_name: string, last_name: string, role?: string) {
     setLoading(true);
     try {
       const raw = await apiSignup(email, password, first_name, last_name, role);
       const data: any = raw as any;
-      // auto-login behavior: if the register endpoint returned tokens, set user
       if (data?.access) {
         const uEmail = data?.email || data?.user || email;
         const uRole = data?.role || undefined;
@@ -83,9 +101,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const email = data?.email || localStorage.getItem("user_email") || undefined;
       const role = data?.role || localStorage.getItem("user_role") || undefined;
       const avatar = data?.avatar || data?.photo || localStorage.getItem("user_avatar") || undefined;
-      const first_name = data?.first_name || localStorage.getItem("first_name")
-      const last_name = data?.last_name || localStorage.getItem("last_name")
-      setUser({ email, role, avatar, first_name, last_name});
+      const first_name = data?.first_name || localStorage.getItem("first_name");
+      const last_name = data?.last_name || localStorage.getItem("last_name");
+      setUser({ email, role, avatar, first_name, last_name });
       return data;
     } finally {
       setLoading(false);
@@ -102,6 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAuthenticated: !!user,
     loading,
     login,
+    loginWithTokens,
     signup,
     updateProfile,
     logout,
