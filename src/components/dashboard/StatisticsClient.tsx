@@ -6,7 +6,7 @@ import TopBar from "@/components/dashboard/TopBar";
 import chatBgLight from "@/assets/img/chatBotBg-white.png";
 import chatBgDark from "@/assets/img/chatBotBg-black.png";
 import { useTheme } from "@/context/theme";
-import { AssessmentStatistics, fetchAssessmentStatistics } from "@/lib/preAssessment";
+import { fetchAssessmentStatistics } from "@/lib/preAssessment";
 import {
   XAxis,
   YAxis,
@@ -21,6 +21,18 @@ import {
   CartesianGrid,
 } from "recharts";
 import { AlertCircle, Loader2 } from "lucide-react";
+
+type DomainStatistics = {
+  pre_mean: number;
+  post_mean: number;
+  pre_proficiency: string;
+  post_proficiency: string;
+};
+
+type AssessmentStatistics = {
+  domains: Record<string, DomainStatistics>;
+  sus_score: number;
+};
 
 const COLORS = ["#ef4444", "#f59e0b", "#eab308", "#22c55e", "#3b82f6"];
 
@@ -224,7 +236,7 @@ export default function StatisticsClient() {
 
               <div className="flex items-baseline gap-2">
                 <div className="text-2xl font-bold mt-2">{s.value}</div>
-                {s.subValue && <div className={`text-sm font-semibold ${(s as any).subColor}`}>{s.subValue}</div>}
+                {s.subValue && s.subColor && <div className={`text-sm font-semibold ${s.subColor}`}>{s.subValue}</div>}
               </div>
 
             </div>
