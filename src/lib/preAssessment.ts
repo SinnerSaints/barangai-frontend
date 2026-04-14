@@ -241,6 +241,12 @@ export async function fetchAssessmentResult(useCache = true): Promise<Assessment
   return data;
 }
 
+/** Admin: GET assessments/statistics/ */
+export async function fetchAssessmentStatistics(): Promise<AssessmentStatistics> {
+  const data = await request<AssessmentStatistics>("statistics/");
+  return data;
+}
+
 function sortQuestions(questions: AssessmentQuestion[] | undefined) {
   return [...(questions ?? [])].sort((a, b) => a.order - b.order || a.id - b.id);
 }
