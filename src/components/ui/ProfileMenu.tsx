@@ -5,6 +5,15 @@ import { HiPencil, HiCog, HiLogout } from "react-icons/hi";
 import { useAuth } from "@/context/auth";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
+import { API_BASE_URL } from "@/lib/auth";
+
+// Helper to handle Django Media URLs vs Blob Previews vs Full URLs
+const getFullImageUrl = (path: string | null) => {
+  if (!path) return null;
+  if (path.startsWith("blob:") || path.startsWith("http")) return path;
+  const base = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+  return `${base}${path}`;
+};
 
 type Props = {
   size?: number; // avatar size in px
@@ -22,12 +31,20 @@ export default function ProfileMenu({ size = 40, dropdownWidth = 176, compact = 
   const [mounted, setMounted] = useState(false);
 
   const avatarUrl = (() => {
-    if (typeof window !== "undefined") {
-      const a = localStorage.getItem("user_avatar");
-      const email = localStorage.getItem("user_email") || "";
-      if (a) return a;
-      if (email) return `https://ui-avatars.com/api/?name=${encodeURIComponent(email)}&background=9DE16A&color=034440&rounded=true&size=128`;
+    if (typeof window === "undefined") return null;
+
+    // Prioritize auth context, then fallback to localStorage
+    const avatarPath = auth.user?.avatar || localStorage.getItem("user_avatar");
+    if (avatarPath) {
+      return getFullImageUrl(avatarPath);
     }
+
+    // Fallback to ui-avatars if no avatar is found
+    const email = auth.user?.email || localStorage.getItem("user_email");
+    if (email) {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(email)}&background=9DE16A&color=034440&rounded=true&size=128`;
+    }
+
     return null;
   })();
 

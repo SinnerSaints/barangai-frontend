@@ -58,8 +58,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const role = localStorage.getItem("user_role");
     const first_name = localStorage.getItem("first_name");
     const last_name = localStorage.getItem("last_name");
+    const avatar = localStorage.getItem("user_avatar");
     if (email || role) {
-      setUser({ email: email || undefined, first_name: first_name || "", last_name: last_name || "", role: role || undefined });
+      setUser({ email: email || undefined, first_name: first_name || "", last_name: last_name || "", role: role || undefined, avatar: avatar || undefined });
     }
   }, []);
 
