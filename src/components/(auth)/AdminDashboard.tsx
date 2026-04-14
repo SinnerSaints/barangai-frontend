@@ -23,7 +23,7 @@ type QuestionInput = {
   option_b: string;
   option_c: string;
   option_d: string;
-  correct_option: string;
+  correct_choice: string;
 };
 
 export default function AdminDashboard() {
@@ -63,7 +63,7 @@ export default function AdminDashboard() {
   const [quizzesList, setQuizzesList] = useState<any[]>([]);
   const [quizTitle, setQuizTitle] = useState("");
   const [quizLessonId, setQuizLessonId] = useState("");
-  const [questions, setQuestions] = useState<QuestionInput[]>([{ question_text: "", option_a: "", option_b: "", option_c: "", option_d: "", correct_option: "A" }]);
+  const [questions, setQuestions] = useState<QuestionInput[]>([{ question_text: "", option_a: "", option_b: "", option_c: "", option_d: "", correct_choice: "A" }]);
   const [creatingQuiz, setCreatingQuiz] = useState(false);
   const [quizMsg, setQuizMsg] = useState("");
   const [adminLessons, setAdminLessons] = useState<any[]>([]);
@@ -186,7 +186,7 @@ export default function AdminDashboard() {
         }
         
         if (activeTab === 'quizzes') {
-          const quizzesRes = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/quizzes/`, { headers });
+          const quizzesRes = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/quizzes/admin/`, { headers });
           if (!quizzesRes.ok) throw new Error('Failed to fetch quizzes');
           const quizzesData = await quizzesRes.json();
           setQuizzesList(Array.isArray(quizzesData) ? quizzesData : quizzesData.results || []);
@@ -299,28 +299,36 @@ export default function AdminDashboard() {
       const payload = {
         title: quizTitle,
         lesson: quizLessonId,
-        questions: questions.map(q => ({
-          text: q.question_text,
-          options: [q.option_a, q.option_b, q.option_c, q.option_d],
-          correct_answer: q.correct_option
-        }))
+        questions: questions
       };
 
-      const res = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/quizzes/`, {
+      const res = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/quizzes/admin/`, {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ detail: 'Failed to create quiz' }));
-        throw new Error(errorData.detail || 'Failed to create quiz');
+        const errorData = await res.json().catch(() => ({ detail: 'Failed to create quiz. The server returned a non-JSON response.' }));
+        let errorMessage = 'Failed to create quiz.';
+        if (typeof errorData === 'object' && errorData !== null) {
+            if (errorData.detail) {
+                errorMessage = `Error: ${errorData.detail}`;
+            } else {
+                const fieldErrors = Object.entries(errorData).map(([field, errors]) => {
+                    const errorString = Array.isArray(errors) ? errors.join(' ') : JSON.stringify(errors);
+                    return `${field}: ${errorString}`;
+                }).join('; ');
+                if (fieldErrors) errorMessage = `Validation failed: ${fieldErrors}`;
+            }
+        }
+        throw new Error(errorMessage);
       }
       setQuizMsg("Quiz created successfully! ✅");
       setQuizTitle("");
       setQuizLessonId("");
-      setQuestions([{ question_text: "", option_a: "", option_b: "", option_c: "", option_d: "", correct_option: "A" }]);
+      setQuestions([{ question_text: "", option_a: "", option_b: "", option_c: "", option_d: "", correct_choice: "A" }]);
       // Refresh quiz list
-      const quizzesRes = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/quizzes/`, { headers });
+      const quizzesRes = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/quizzes/admin/`, { headers });
       const quizzesData = await quizzesRes.json();
       setQuizzesList(Array.isArray(quizzesData) ? quizzesData : quizzesData.results || []);
     } catch (err: any) {
@@ -330,7 +338,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const addQuestion = () => setQuestions([...questions, { question_text: "", option_a: "", option_b: "", option_c: "", option_d: "", correct_option: "A" }]);
+  const addQuestion = () => setQuestions([...questions, { question_text: "", option_a: "", option_b: "", option_c: "", option_d: "", correct_choice: "A" }]);
   const removeQuestion = (idx: number) => setQuestions(questions.filter((_, i) => i !== idx));
   const updateQuestion = (idx: number, field: keyof QuestionInput, value: string) => {
     const newQ = [...questions];
@@ -364,7 +372,7 @@ export default function AdminDashboard() {
     setError(null);
     try {
         const token = await getAccessToken();
-        const res = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/quizzes/${id}/`, {
+        const res = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/quizzes/admin/${id}/`, {
             method: "DELETE",
             headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
@@ -747,7 +755,7 @@ export default function AdminDashboard() {
                         </div>
                         <div className="pt-2">
                           <label className="block text-xs font-semibold mb-1 opacity-70 text-accentGreen">Correct Option</label>
-                          <select value={q.correct_option} onChange={e => updateQuestion(idx, "correct_option", e.target.value)} className={`p-2.5 rounded-lg border outline-none text-sm w-full sm:w-auto min-w-[150px] ${isDark ? "bg-zinc-900 border-white/10 focus:border-accentGreen text-white" : "bg-white border-gray-200 focus:border-brandGreen text-black"}`}>
+                          <select value={q.correct_choice} onChange={e => updateQuestion(idx, "correct_choice", e.target.value)} className={`p-2.5 rounded-lg border outline-none text-sm w-full sm:w-auto min-w-[150px] ${isDark ? "bg-zinc-900 border-white/10 focus:border-accentGreen text-white" : "bg-white border-gray-200 focus:border-brandGreen text-black"}`}>
                             <option value="A">Option A</option>
                             <option value="B">Option B</option>
                             <option value="C">Option C</option>
