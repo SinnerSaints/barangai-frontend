@@ -13,16 +13,21 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    try {
-      const v = localStorage.getItem("theme");
-      return (v as Theme) || "light";
-    } catch {
-      return "light";
-    }
-  });
+  // Important: keep the initial render deterministic between server and client
+  // to avoid hydration mismatches (localStorage isn't available on the server).
+  const [theme, setThemeState] = useState<Theme>("light");
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    try {
+      const v = localStorage.getItem("theme");
+      if (v === "light" || v === "dark") setThemeState(v);
+    } catch {}
+    setReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
     try {
       localStorage.setItem("theme", theme);
     } catch {}
@@ -40,7 +45,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       document.documentElement.style.setProperty("--foreground", theme === "dark" ? "#ededed" : "#171717");
       document.documentElement.style.setProperty("--background", theme === "dark" ? "#0a0a0a" : "#ffffff");
     }
-  }, [theme]);
+  }, [theme, ready]);
 
   const setTheme = (t: Theme) => setThemeState(t);
   const toggle = () => setThemeState((s) => (s === "light" ? "dark" : "light"));

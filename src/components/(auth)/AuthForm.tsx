@@ -6,6 +6,20 @@ import { useAuth } from "@/context/auth";
 import { useTheme } from "@/context/theme";
 import { BackgroundPaths } from "@/components/ui/paths";
 
+function decodeJwtPayload(token: string): any | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    const json = atob(padded);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 export default function AuthForm() {
   const [mode, setMode] = useState<"login" | "signup">("login");
 
@@ -72,6 +86,8 @@ export default function AuthForm() {
       return;
     }
 
+    const tokenClaims = decodeJwtPayload(id_token);
+
     setLoading(true);
     setError(null);
     try {
@@ -89,7 +105,9 @@ export default function AuthForm() {
       }
 
       if ((auth as any)?.loginWithTokens) {
-        await (auth as any).loginWithTokens(data.access, data.refresh, data.user);
+        // Merge ID-token claims so we can populate first/last name even if the backend
+        // returns them under different keys or doesn't include them yet.
+        await (auth as any).loginWithTokens(data.access, data.refresh, { ...(tokenClaims ?? {}), ...(data.user ?? {}) });
       } else if ((auth as any)?.setTokens) {
         (auth as any).setTokens(data.access, data.refresh);
         if ((auth as any).setUser && data.user) (auth as any).setUser(data.user);
@@ -100,9 +118,9 @@ export default function AuthForm() {
         localStorage.setItem("user_id", data.user.id.toString());
         localStorage.setItem("user_email", data.user.email);
         localStorage.setItem("user_role", data.user.role);
-        localStorage.setItem("first_name", data.user.first_name);
-        localStorage.setItem("last_name", data.user.last_name);
-        if (data.user.avatar_url) localStorage.setItem("user_avatar", data.user.avatar_url);
+        localStorage.setItem("first_name", data.user.first_name || tokenClaims?.given_name || "");
+        localStorage.setItem("last_name", data.user.last_name || tokenClaims?.family_name || "");
+        if (data.user.avatar_url || tokenClaims?.picture) localStorage.setItem("user_avatar", data.user.avatar_url || tokenClaims?.picture);
       }
 
       router.push("/dashboard");

@@ -16,6 +16,10 @@ const getFullImageUrl = (path: string | null) => {
   return `${base}${path}`;
 };
 
+const getAvatarPath = (data: any) => {
+  return data?.avatar || data?.avatar_url || data?.photo || data?.picture || null;
+};
+
 export default function ProfilePage() {
   const router = useRouter();
   const { theme } = useTheme();
@@ -43,8 +47,8 @@ export default function ProfilePage() {
     const storedEmail = localStorage.getItem("user_email") || "";
     const storedAvatar = localStorage.getItem("user_avatar");
     const storedRole = localStorage.getItem("user_role");
-    const storedFirstName = localStorage.getItem("user_firstName") || "";
-    const storedLastName = localStorage.getItem("user_lastName") || "";
+    const storedFirstName = localStorage.getItem("first_name") || "";
+    const storedLastName = localStorage.getItem("last_name") || "";
 
     setUser({
       email: storedEmail,
@@ -55,6 +59,8 @@ export default function ProfilePage() {
     });
 
     setEmail(storedEmail);
+    setFirstName(storedFirstName);
+    setLastName(storedLastName);
     if (storedAvatar) setPreview(getFullImageUrl(storedAvatar));
   }, [auth.user]);
 
@@ -67,6 +73,12 @@ export default function ProfilePage() {
   }, [avatarFile]);
 
   const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault(); // Ensure default form submission is prevented
+    if (password && password !== confirm) {
+      setStatus("Passwords do not match.");
+      return;
+    }
+
     // ... existing logic ...
     try {
       setLoading(true);
@@ -79,16 +91,17 @@ export default function ProfilePage() {
       });
 
       // Update LOCAL STORAGE so it persists on refresh
-      if (data.avatar) localStorage.setItem("user_avatar", data.avatar);
+      const avatarPath = getAvatarPath(data);
+      if (avatarPath) localStorage.setItem("user_avatar", avatarPath);
       if (data.email) localStorage.setItem("user_email", data.email);
-      if (data.first_name) localStorage.setItem("user_firstName", data.first_name);
-      if (data.last_name) localStorage.setItem("user_lastName", data.last_name);
+      if (data.first_name) localStorage.setItem("first_name", data.first_name);
+      if (data.last_name) localStorage.setItem("last_name", data.last_name);
 
       // Update LOCAL STATE so the UI changes immediately
       setUser({ 
         ...user, 
         email: data.email, 
-        avatar: data.avatar, // This must match the key returned by your UserSerializer
+        avatar: avatarPath ?? user?.avatar, // Support avatar/avatar_url/photo responses
         first_name: first_name,
         last_name: last_name
       });
@@ -209,7 +222,7 @@ export default function ProfilePage() {
               className={`w-full p-3 rounded border ${
                 isDark ? "bg-black/30 border-white/20" : "bg-white border-gray-300"
               } focus:outline-none focus:ring-2 focus:ring-accentGreen`}
-              placeholder={localStorage.getItem("user_firstName") || ""}
+              placeholder="First Name"
             />
 
             <input 

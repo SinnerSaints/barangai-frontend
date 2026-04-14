@@ -37,10 +37,10 @@ function ChatSection() {
     const storedEmail = localStorage.getItem("user_email");
     const firstName = localStorage.getItem("first_name");
 
-    if (storedEmail) {
-      const name = storedEmail.split("@")[0];
-      setUserName(firstName ?? name);
-    }
+    if (!storedEmail) return;
+    const emailName = storedEmail.split("@")[0];
+    const trimmedFirst = (firstName ?? "").trim();
+    setUserName(trimmedFirst || emailName);
   }, []);
 
   const suggestions = [

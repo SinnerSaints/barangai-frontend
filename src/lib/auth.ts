@@ -9,6 +9,16 @@ type LoginResponse = {
 
 export const API_BASE_URL = "http://127.0.0.1:8000/";
 
+function getAvatarValue(data: any): string | undefined {
+  return (
+    data?.avatar ||
+    data?.avatar_url ||
+    data?.photo ||
+    data?.picture ||
+    undefined
+  );
+}
+
 /**
  * Login helper: Fetches JWT tokens and user profile info.
  */
@@ -116,7 +126,8 @@ export async function updateProfile(opts: {
 
   // Sync updated info
   if (data.email) localStorage.setItem("user_email", data.email);
-  if (data.avatar) localStorage.setItem("user_avatar", data.avatar);
+  const avatar = getAvatarValue(data);
+  if (avatar) localStorage.setItem("user_avatar", avatar);
   if (data.first_name) localStorage.setItem("first_name", data.first_name);
   if (data.last_name) localStorage.setItem("last_name", data.last_name);
 

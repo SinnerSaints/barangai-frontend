@@ -11,6 +11,31 @@ type User = {
   [k: string]: any;
 };
 
+function coerceString(value: any): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function splitFullName(fullName: any): { first_name?: string; last_name?: string } {
+  const name = coerceString(fullName);
+  if (!name) return {};
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return {};
+  if (parts.length === 1) return { first_name: parts[0] };
+  return { first_name: parts[0], last_name: parts.slice(1).join(" ") };
+}
+
+function getAvatarValue(data: any): string | undefined {
+  return (
+    coerceString(data?.avatar) ??
+    coerceString(data?.avatar_url) ??
+    coerceString(data?.photo) ??
+    coerceString(data?.picture) ??
+    undefined
+  );
+}
+
 type AuthContextValue = {
   user: User | null;
   isAuthenticated: boolean;
@@ -47,8 +72,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const uEmail = data?.email || data?.user || localStorage.getItem("user_email") || email;
       const uRole = data?.role || localStorage.getItem("user_role") || undefined;
       const uAvatar = data?.avatar || data?.photo || localStorage.getItem("user_avatar") || undefined;
-      const uFirstName = data?.first_name || data?.user || localStorage.getItem("first_name") || first_name;
-      const uLastName = data?.last_name || data?.user || localStorage.getItem("last_name") || last_name;
+      // NOTE: never fall back to `data.user` for names; many APIs use `user` for email/username.
+      const uFirstName = data?.first_name || localStorage.getItem("first_name") || first_name;
+      const uLastName = data?.last_name || localStorage.getItem("last_name") || last_name;
       setUser({ id: uId, email: uEmail, role: uRole, avatar: uAvatar, first_name: uFirstName, last_name: uLastName });
     } finally {
       setLoading(false);
@@ -57,22 +83,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // ✅ New: called after Google login
   function loginWithTokens(access: string, refresh: string, userData: any) {
+    const maybeUser = userData?.user ?? userData?.profile ?? userData;
+    const fromFullName = splitFullName(maybeUser?.name);
+    const first_name =
+      coerceString(maybeUser?.first_name) ??
+      coerceString(maybeUser?.firstName) ??
+      coerceString(maybeUser?.given_name) ??
+      coerceString(maybeUser?.givenName) ??
+      fromFullName.first_name ??
+      "";
+    const last_name =
+      coerceString(maybeUser?.last_name) ??
+      coerceString(maybeUser?.lastName) ??
+      coerceString(maybeUser?.family_name) ??
+      coerceString(maybeUser?.familyName) ??
+      fromFullName.last_name ??
+      "";
+    const email =
+      coerceString(maybeUser?.email) ??
+      coerceString(maybeUser?.user) ??
+      localStorage.getItem("user_email") ??
+      "";
+    const role =
+      coerceString(maybeUser?.role) ??
+      coerceString(maybeUser?.user_role) ??
+      coerceString(maybeUser?.userRole) ??
+      localStorage.getItem("user_role") ??
+      "";
+    const idRaw =
+      maybeUser?.id ??
+      maybeUser?.user_id ??
+      maybeUser?.userId ??
+      maybeUser?.pk ??
+      localStorage.getItem("user_id") ??
+      "";
+    const id = typeof idRaw === "string" ? idRaw.trim() : idRaw != null ? String(idRaw) : "";
+    const avatar =
+      coerceString(maybeUser?.avatar_url) ??
+      coerceString(maybeUser?.avatar) ??
+      coerceString(maybeUser?.photo) ??
+      coerceString(maybeUser?.picture) ??
+      localStorage.getItem("user_avatar") ??
+      undefined;
+
     localStorage.setItem("access_token", access);
     localStorage.setItem("refresh_token", refresh);
-    localStorage.setItem("user_id", userData.id?.toString() || "");
-    localStorage.setItem("user_email", userData.email || "");
-    localStorage.setItem("user_role", userData.role || "");
-    localStorage.setItem("first_name", userData.first_name || "");
-    localStorage.setItem("last_name", userData.last_name || "");
-    if (userData.avatar_url) localStorage.setItem("user_avatar", userData.avatar_url);
+    if (id) localStorage.setItem("user_id", id);
+    if (email) localStorage.setItem("user_email", email);
+    if (role) localStorage.setItem("user_role", role);
+    localStorage.setItem("first_name", first_name);
+    localStorage.setItem("last_name", last_name);
+    if (avatar) localStorage.setItem("user_avatar", avatar);
 
     setUser({
-      id: userData.id,
-      email: userData.email,
-      role: userData.role,
-      avatar: userData.avatar_url,
-      first_name: userData.first_name || "",
-      last_name: userData.last_name || "",
+      id: id || undefined,
+      email,
+      role: role || undefined,
+      avatar,
+      first_name,
+      last_name,
     });
   }
 
@@ -100,9 +169,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await apiUpdateProfile(opts);
       const email = data?.email || localStorage.getItem("user_email") || undefined;
       const role = data?.role || localStorage.getItem("user_role") || undefined;
-      const avatar = data?.avatar || data?.photo || localStorage.getItem("user_avatar") || undefined;
-      const first_name = data?.first_name || localStorage.getItem("first_name");
-      const last_name = data?.last_name || localStorage.getItem("last_name");
+      const avatar = getAvatarValue(data) || localStorage.getItem("user_avatar") || undefined;
+      const first_name = data?.first_name || localStorage.getItem("first_name") || "";
+      const last_name = data?.last_name || localStorage.getItem("last_name") || "";
       setUser({ email, role, avatar, first_name, last_name });
       return data;
     } finally {
