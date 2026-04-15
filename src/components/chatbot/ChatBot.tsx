@@ -13,6 +13,7 @@ import chatBgDark from "@/assets/img/chatBotBg-black.png";
 import circle from "@/assets/img/eclipse.png";
 import { useTheme } from "@/context/theme";
 import ReactMarkdown from "react-markdown";
+import { OPENAI_API_KEY } from "@/lib/auth";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -172,7 +173,7 @@ function ChatSection() {
     setShowJumpToLatest(false);
 
     try {
-      const res = await fetch("chat/", { // NEXT_PUBLIC_OPENAI_API_URL  here
+      const res = await fetch(`${OPENAI_API_KEY}/chat/`, { // NEXT_PUBLIC_OPENAI_API_URL  here
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

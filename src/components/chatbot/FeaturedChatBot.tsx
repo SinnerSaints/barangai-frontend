@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import circle from "@/assets/img/eclipse.png";
 import chatBgLight from "@/assets/img/chatBotBg-white.png";
 import ReactMarkdown from "react-markdown";
+import { OPENAI_API_KEY } from "@/lib/auth";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -64,6 +65,14 @@ function ChatSection() {
     const userMessage = (prompt ?? message).trim();
     if (!userMessage || loading) return;
 
+    // 1. Get Authentication Details
+    const token = localStorage.getItem("access_token");
+    const userId = localStorage.getItem("user_id");
+
+    // 2. Format URL Safely (removes accidental trailing slashes and adds exactly one /chat/)
+    const cleanBase = OPENAI_API_KEY?.replace(/\/+$/, "") || "";
+    const apiUrl = `${cleanBase}/api/chat/`;
+
     setMessages((prev) => [
       ...prev,
       { role: "user", content: userMessage, time: new Date().toISOString() },
@@ -73,16 +82,31 @@ function ChatSection() {
     setLoading(true);
 
     try {
-      const res = await fetch("/chat/", { // NEXT_PUBLIC_OPENAI_API_URL  here
+      // 3. Make the Request
+      const res = await fetch(apiUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage, user_id: 1 }),
+        mode: "cors", // Explicitly expect CORS
+        headers: { 
+          "Content-Type": "application/json",
+          // Only attach Authorization header if the token exists
+          ...(token && { "Authorization": `Bearer ${token}` })
+        },
+        body: JSON.stringify({ 
+          message: userMessage, 
+          user_id: userId || 1 // Fallback to 1 if no user_id is found
+        }),
       });
 
-      const data = await res.json();
-      const fullText = data.response;
+      if (!res.ok) {
+        // Attempt to parse the backend error, otherwise throw generic
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Server responded with status ${res.status}`);
+      }
 
-      // assistant typing bubble
+      const data = await res.json();
+      const fullText = data.response || "No response text found.";
+
+      // 4. Assistant typing bubble
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: "", time: new Date().toISOString(), typing: true },
@@ -98,7 +122,7 @@ function ChatSection() {
           return updated;
         });
 
-        await new Promise((r) => setTimeout(r, 10));
+        await new Promise((r) => setTimeout(r, 10)); // Typing delay
       }
 
       setMessages((prev) => {
@@ -108,18 +132,19 @@ function ChatSection() {
       });
 
       setPromptCount((prev) => prev + 1);
-    } catch {
+    } catch (err) {
+      console.error("Chat Error:", err);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Error connecting to server.",
+          content: "Sorry, I'm having trouble connecting to the server. Please check your network or login status.",
           time: new Date().toISOString(),
         },
       ]);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const inputWrap =

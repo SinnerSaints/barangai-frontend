@@ -298,11 +298,18 @@ export default function AdminDashboard() {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
       
-      // Map to your backend's expected structure
+      // MINIMAL FIX: Map the UI 'options' to the backend 'choices' and parse ID
       const payload = {
         title: quizTitle,
-        lesson: quizLessonId,
-        questions: questions
+        lesson: parseInt(quizLessonId),
+        questions: questions.map(q => ({
+          question_text: q.question_text,
+          choice_a: q.option_a,
+          choice_b: q.option_b,
+          choice_c: q.option_c,
+          choice_d: q.option_d,
+          correct_choice: q.correct_choice
+        }))
       };
 
       const res = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/quizzes/admin/`, {
