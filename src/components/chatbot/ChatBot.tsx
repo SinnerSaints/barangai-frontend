@@ -172,7 +172,7 @@ function ChatSection() {
     setShowJumpToLatest(false);
 
     try {
-      const res = await fetch("http://localhost:8002/chat/", {
+      const res = await fetch("chat/", { // NEXT_PUBLIC_OPENAI_API_URL  here
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

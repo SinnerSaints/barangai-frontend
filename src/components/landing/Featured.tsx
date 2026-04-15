@@ -84,14 +84,13 @@ export default function Featured() {
   };
 
   return (
-    <section className="w-full h-[1000px] mt-14">
+    <section className="w-full h-full">
       <div className="mx-auto w-full max-w-7xl rounded-[36px] border border-[#9DE16A]/25 bg-[#0B1E1D]/85 px-5 py-10 text-white shadow-[0_25px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl md:px-8 md:py-14">
         <div className="mx-auto inline-flex w-full justify-center">
           <span className="rounded-full border border-[#9DE16A]/40 bg-[#9DE16A]/15 px-4 py-1 text-xs font-semibold text-[#C8F5A8] shadow-sm">
             Explore our most loved lessons
           </span>
-        </div>
-
+        </div> 
         <h1 className="mt-5 text-center font-league text-5xl font-extrabold leading-[0.95] md:text-8xl">
           Learn Skills
           <br />

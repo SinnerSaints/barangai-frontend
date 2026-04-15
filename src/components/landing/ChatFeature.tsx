@@ -3,7 +3,7 @@ import FeaturedChatBot from "@/components/chatbot/FeaturedChatBot";
 
 export default function ChatFeature() {
   return (
-    <section className="relative w-full">
+    <section className="relative min-h-screen w-full">
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center px-4 text-center">
         
         {/* powered by */}
