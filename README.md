@@ -1,17 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BarangAI Frontend
+A modern, AI-powered web dashboard designed to bridge the digital gap in local governance. This interface empowers Barangay officials with intelligent tools, real-time data visualization, and an integrated AI assistant.
 
-## Getting Started
+## Tech Stack
 
-First, run the development server:
+-   **Framework**: Next.js 14+ (App Router)
+-   **Language**: TypeScript
+-   **Styling**: Tailwind CSS
+-   **Animations**: Framer Motion
+-   **Icons/UI**: Lucide React, Custom SVG Motif integration
+-   **Authentication**: JWT (JSON Web Tokens) & Google Identity Services
+-   **State Management**: React Context API
+
+## Features
+
+-   **Intelligent Assistant**: Real-time AI chat interface integrated with the BaranGAI overlay.
+-   **Cultural Motif Integration**: Modern UI design incorporating Filipino elements like Salakot and Barong motifs.
+-   **Adaptive Dashboard**: Role-based access control for Barangay Captains and Officials.
+-   **Glassy Aesthetics**: Custom "Dreamy Green" glassy UI components for a modern feel.
+-   **Multi-language Support**: AI response capabilities in English, Tagalog, and Cebuano.
+
+## Installation & Setup
+
+### 1. Clone Repository
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/fuzziiz/barangai-frontend.git
+cd barangai-frontend
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
