@@ -65,14 +65,6 @@ function ChatSection() {
     const userMessage = (prompt ?? message).trim();
     if (!userMessage || loading) return;
 
-    // 1. Get Authentication Details
-    const token = localStorage.getItem("access_token");
-    const userId = localStorage.getItem("user_id");
-
-    // 2. Format URL Safely (removes accidental trailing slashes and adds exactly one /chat/)
-    const cleanBase = OPENAI_API_KEY?.replace(/\/+$/, "") || "";
-    const apiUrl = `${cleanBase}/api/chat/`;
-
     setMessages((prev) => [
       ...prev,
       { role: "user", content: userMessage, time: new Date().toISOString() },
@@ -82,31 +74,22 @@ function ChatSection() {
     setLoading(true);
 
     try {
-      // 3. Make the Request
-      const res = await fetch(apiUrl, {
+      const res = await fetch(`${OPENAI_API_KEY}/api/chat/`, { 
         method: "POST",
-        mode: "cors", // Explicitly expect CORS
-        headers: { 
-          "Content-Type": "application/json",
-          // Only attach Authorization header if the token exists
-          ...(token && { "Authorization": `Bearer ${token}` })
-        },
-        body: JSON.stringify({ 
-          message: userMessage, 
-          user_id: userId || 1 // Fallback to 1 if no user_id is found
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage, user_id: 1 }),
       });
 
       if (!res.ok) {
-        // Attempt to parse the backend error, otherwise throw generic
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Server responded with status ${res.status}`);
+        throw new Error(`Server Error: ${res.status}`);
       }
 
       const data = await res.json();
-      const fullText = data.response || "No response text found.";
+      
+      // FIX 1: Read 'reply' instead of 'response' and provide a fallback
+      const fullText = data.reply || "No response text found.";
 
-      // 4. Assistant typing bubble
+      // assistant typing bubble
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: "", time: new Date().toISOString(), typing: true },
@@ -122,7 +105,7 @@ function ChatSection() {
           return updated;
         });
 
-        await new Promise((r) => setTimeout(r, 10)); // Typing delay
+        await new Promise((r) => setTimeout(r, 10));
       }
 
       setMessages((prev) => {
@@ -132,17 +115,20 @@ function ChatSection() {
       });
 
       setPromptCount((prev) => prev + 1);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Chat Error:", err);
+      
+      // FIX 2: Print actual errors to the chat bubble
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, I'm having trouble connecting to the server. Please check your network or login status.",
+          content: `Error: ${err.message || "Failed to connect to server."}`,
           time: new Date().toISOString(),
         },
       ]);
     } finally {
+      // FIX 3: Ensure loading is always disabled
       setLoading(false);
     }
   };
@@ -173,7 +159,7 @@ function ChatSection() {
         {/* Suggestions */}
         {promptCount < 5 && messages.length === 0 && (
           <div className="mt-1 flex flex-wrap justify-center gap-2 animate-fadeIn">
-            {suggestions.map((text, i) => (
+            {suggestions.map((text) => (
               <button
                 key={text}
                 onClick={() => sendMessage(text)}

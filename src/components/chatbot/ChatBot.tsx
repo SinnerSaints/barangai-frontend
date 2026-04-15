@@ -173,7 +173,8 @@ function ChatSection() {
     setShowJumpToLatest(false);
 
     try {
-      const res = await fetch(`${OPENAI_API_KEY}/chat/`, { // NEXT_PUBLIC_OPENAI_API_URL  here
+      const baseUrl = OPENAI_API_KEY.replace(/\/$/, "");
+      const res = await fetch(`${baseUrl}/api/chat/`, { // NEXT_PUBLIC_OPENAI_API_URL  here
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -187,7 +188,7 @@ function ChatSection() {
 
       if (!sessionUUID) setSessionUUID(data.session_uuid);
 
-      const fullText = data.response;
+      const fullText = data.reply;
       let currentText = "";
 
       setMessages((prev) => [

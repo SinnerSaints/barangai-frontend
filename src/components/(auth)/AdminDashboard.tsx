@@ -424,7 +424,7 @@ export default function AdminDashboard() {
 
   const addQuestion = () => setQuestions([...questions, { question_text: "", option_a: "", option_b: "", option_c: "", option_d: "", correct_choice: "A" }]);
   const removeQuestion = (idx: number) => setQuestions(questions.filter((_, i) => i !== idx));
-  const updateQuestion = (idx: number, field: keyof QuestionInput, value: string) => {
+  const updateQuestion = (idx: number, field: Exclude<keyof QuestionInput, "id">, value: string) => {
     const newQ = [...questions];
     newQ[idx][field] = value;
     setQuestions(newQ);
