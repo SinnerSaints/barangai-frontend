@@ -51,7 +51,7 @@ export default function Home() {
         <Featured />
       </section>
 
-      <section>
+      <section className="mt-[300px]">
         <ChatFeature />
       </section>
 
