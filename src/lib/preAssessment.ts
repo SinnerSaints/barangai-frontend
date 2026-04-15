@@ -2,6 +2,23 @@
 
 import { API_BASE_URL } from "@/lib/auth";
 
+/** Data for a single skill domain (e.g. "Basic Computer Skills") */
+export interface DomainStats {
+  pre_mean: number;
+  post_mean: number;
+  pre_std_dev: number;
+  post_std_dev: number;
+  pre_proficiency: string;
+  post_proficiency: string;
+}
+
+/** The structure returned by your Django AssessmentStatisticsView */
+export interface AssessmentStatistics {
+  domains: Record<string, DomainStats>;
+  t_test_results: Record<string, number | null>;
+  sus_score: number;
+}
+
 export type AssessmentCategory =
   | "basic_computer"
   | "document_processing"
