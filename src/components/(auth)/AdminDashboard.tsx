@@ -18,6 +18,7 @@ type UserItem = {
 };
 
 type QuestionInput = {
+  id?: number; // Added to support updating existing nested questions
   question_text: string;
   option_a: string;
   option_b: string;
@@ -52,6 +53,7 @@ export default function AdminDashboard() {
 
   // States for Course Management
   const [coursesList, setCoursesList] = useState<any[]>([]);
+  const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
   const [courseThumbnail, setCourseThumbnail] = useState<File | null>(null);
   const [courseTitle, setCourseTitle] = useState("");
   const [courseTopic, setCourseTopic] = useState("");
@@ -61,6 +63,7 @@ export default function AdminDashboard() {
 
   // States for Quiz Management
   const [quizzesList, setQuizzesList] = useState<any[]>([]);
+  const [editingQuizId, setEditingQuizId] = useState<number | null>(null);
   const [quizTitle, setQuizTitle] = useState("");
   const [quizLessonId, setQuizLessonId] = useState("");
   const [questions, setQuestions] = useState<QuestionInput[]>([{ question_text: "", option_a: "", option_b: "", option_c: "", option_d: "", correct_choice: "A" }]);
@@ -77,7 +80,7 @@ export default function AdminDashboard() {
   };
 
   // Fetch users logic
-  const getAccessToken = async () => { // Para ni ug mo refresh ang user sa page di mawala ang token.
+  const getAccessToken = async () => { 
     let token = localStorage.getItem("access_token");
     const refreshToken = localStorage.getItem("refresh_token");
 
@@ -106,15 +109,14 @@ export default function AdminDashboard() {
     setLoading(true);
     setError(null);
     try {
-      // Use the backend user list endpoint as requested. Include auth token if present.
-      const token = await getAccessToken(); // Corrected: Use await here
+      const token = await getAccessToken(); 
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const res = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/accounts/users/`, { headers });
       if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
       const data = await res.json();
-      // Expecting an array of users. Map into the PendingUser shape conservatively.
+      
       if (Array.isArray(data)) {
         const mapped: UserItem[] = data.map((u: any, idx: number) => ({
           id: u.id ?? idx + 1,
@@ -123,39 +125,36 @@ export default function AdminDashboard() {
           role: u.role ?? undefined,
           is_active: u.is_active ?? u.isActive ?? undefined,
           is_approved: u.is_approved ?? u.isApproved ?? undefined,
-          // keep raw for debugging
           ...u,
         }));
 
-  setUsers(mapped);
-        // categorize
+        setUsers(mapped);
         const approved = mapped.filter((x) => {
           if (typeof x.is_active === "boolean") return x.is_active === true;
           if (typeof x.is_approved === "boolean") return x.is_approved === true;
           return false;
         });
         const pending = mapped.filter((x) => !approved.includes(x));
-  setApprovedUsers(approved);
-  setPendingUsers(pending);
-  setLastRefreshed(new Date().toLocaleString());
+        setApprovedUsers(approved);
+        setPendingUsers(pending);
+        setLastRefreshed(new Date().toLocaleString());
       } else {
-    setUsers([]);
-    setApprovedUsers([]);
-    setPendingUsers([]);
-    setLastRefreshed(new Date().toLocaleString());
+        setUsers([]);
+        setApprovedUsers([]);
+        setPendingUsers([]);
+        setLastRefreshed(new Date().toLocaleString());
       }
     } catch (err: any) {
-      // fallback sample data so admin can still use UI while backend is absent
       setError("Unable to load pending users from server — using sample data.");
       const sample = [
         { id: 1, email: "user1@example.com", password: "pass123", role: "CAPTAIN", is_active: false },
         { id: 2, email: "user2@example.com", password: "hunter2", role: "OFFICIALS", is_active: false },
         { id: 3, email: "approved@example.com", password: undefined, role: "CAPTAIN", is_active: true },
       ];
-  setUsers(sample as any);
-  setPendingUsers(sample.filter((s) => !s.is_active));
-  setApprovedUsers(sample.filter((s) => s.is_active));
-  setLastRefreshed(new Date().toLocaleString());
+      setUsers(sample as any);
+      setPendingUsers(sample.filter((s) => !s.is_active));
+      setApprovedUsers(sample.filter((s) => s.is_active));
+      setLastRefreshed(new Date().toLocaleString());
     } finally {
       setLoading(false);
     }
@@ -210,7 +209,6 @@ export default function AdminDashboard() {
     setError(null);
     setLoading(true);
     try {
-      // call the backend user endpoints directly: users/<pk>/approve/ or users/<pk>/delete/
       const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -218,34 +216,45 @@ export default function AdminDashboard() {
       const endpointAction = action === "approve" ? "approve" : "delete";
       const url = `${API_BASE_URL.replace(/\/$/, "")}/accounts/users/${id}/${endpointAction}/`;
 
-      // Some backends expect an empty POST body; others accept JSON. We'll send no body
-      // and rely on the URL+method. If your backend expects JSON, we can send { id } instead.
       const res = await fetch(url, {
         method: action === "approve" ? "PATCH" : "DELETE",
         headers,
       });
 
-      // Helpful logging for debugging
-      // eslint-disable-next-line no-console
-      console.log(`Admin action ${action} ${id} ->`, res.status);
-
       if (!res.ok) {
         const text = await res.text().catch(() => "");
         throw new Error(`Server returned ${res.status} ${text}`);
       }
-
-      // success: refresh the list from server to reflect actual state
       await fetchPending();
     } catch (err: any) {
       setError(`Unable to ${action} user: ${err?.message || err}`);
-      // keep users as-is (no optimistic removal) and ensure list synced
       await fetchPending();
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateCourse = async (e: React.FormEvent) => {
+  /* ================= COURSE LOGIC ================= */
+  const handleStartEditCourse = (course: any) => {
+    setEditingCourseId(course.id);
+    setCourseTitle(course.title || "");
+    setCourseTopic(course.topic || "");
+    setCourseContent(course.content || "");
+    setCourseThumbnail(null);
+    setCourseMsg("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelCourseEdit = () => {
+    setEditingCourseId(null);
+    setCourseTitle("");
+    setCourseTopic("");
+    setCourseContent("");
+    setCourseThumbnail(null);
+    setCourseMsg("");
+  };
+
+  const handleSaveCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreatingCourse(true);
     setCourseMsg("");
@@ -262,98 +271,37 @@ export default function AdminDashboard() {
         formData.append('thumbnail', courseThumbnail);
       }
 
-      const res = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/lessons/`, {
-        method: "POST",
+      const isEditing = editingCourseId !== null;
+      const url = isEditing 
+        ? `${API_BASE_URL.replace(/\/$/, "")}/lessons/${editingCourseId}/`
+        : `${API_BASE_URL.replace(/\/$/, "")}/lessons/`;
+
+      const res = await fetch(url, {
+        method: isEditing ? "PATCH" : "POST",
         headers,
         body: formData,
       });
+      
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ detail: 'Failed to create course' }));
-        throw new Error(errorData.detail || 'Failed to create course');
+        const errorData = await res.json().catch(() => ({ detail: 'Failed to save course' }));
+        throw new Error(errorData.detail || 'Failed to save course');
       }
-      setCourseMsg("Course created successfully! ✅");
-      setCourseTitle("");
-      setCourseTopic("");
-      setCourseContent("");
-      setCourseThumbnail(null);
+
+      setCourseMsg(isEditing ? "Course updated successfully! ✅" : "Course created successfully! ✅");
+      
+      // Reset form if creating, otherwise just cancel edit mode
+      cancelCourseEdit();
+      
       // Refresh course list
-      if (activeTab === 'courses') {
-        const lessonsRes = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/lessons/`, { headers });
-        const lessonsData = await lessonsRes.json();
-        setCoursesList(Array.isArray(lessonsData) ? lessonsData : lessonsData.results || []);
-      }
+      const lessonsRes = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/lessons/`, { headers });
+      const lessonsData = await lessonsRes.json();
+      setCoursesList(Array.isArray(lessonsData) ? lessonsData : lessonsData.results || []);
+      
     } catch (err: any) {
       setCourseMsg("Error: " + err.message);
     } finally {
       setCreatingCourse(false);
     }
-  };
-
-  const handleCreateQuiz = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreatingQuiz(true);
-    setQuizMsg("");
-    try {
-      const token = await getAccessToken();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      
-      // MINIMAL FIX: Map the UI 'options' to the backend 'choices' and parse ID
-      const payload = {
-        title: quizTitle,
-        lesson: parseInt(quizLessonId),
-        questions: questions.map(q => ({
-          question_text: q.question_text,
-          choice_a: q.option_a,
-          choice_b: q.option_b,
-          choice_c: q.option_c,
-          choice_d: q.option_d,
-          correct_choice: q.correct_choice
-        }))
-      };
-
-      const res = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/quizzes/admin/`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ detail: 'Failed to create quiz. The server returned a non-JSON response.' }));
-        let errorMessage = 'Failed to create quiz.';
-        if (typeof errorData === 'object' && errorData !== null) {
-            if (errorData.detail) {
-                errorMessage = `Error: ${errorData.detail}`;
-            } else {
-                const fieldErrors = Object.entries(errorData).map(([field, errors]) => {
-                    const errorString = Array.isArray(errors) ? errors.join(' ') : JSON.stringify(errors);
-                    return `${field}: ${errorString}`;
-                }).join('; ');
-                if (fieldErrors) errorMessage = `Validation failed: ${fieldErrors}`;
-            }
-        }
-        throw new Error(errorMessage);
-      }
-      setQuizMsg("Quiz created successfully! ✅");
-      setQuizTitle("");
-      setQuizLessonId("");
-      setQuestions([{ question_text: "", option_a: "", option_b: "", option_c: "", option_d: "", correct_choice: "A" }]);
-      // Refresh quiz list
-      const quizzesRes = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/quizzes/admin/`, { headers });
-      const quizzesData = await quizzesRes.json();
-      setQuizzesList(Array.isArray(quizzesData) ? quizzesData : quizzesData.results || []);
-    } catch (err: any) {
-      setQuizMsg("Error: " + err.message);
-    } finally {
-      setCreatingQuiz(false);
-    }
-  };
-
-  const addQuestion = () => setQuestions([...questions, { question_text: "", option_a: "", option_b: "", option_c: "", option_d: "", correct_choice: "A" }]);
-  const removeQuestion = (idx: number) => setQuestions(questions.filter((_, i) => i !== idx));
-  const updateQuestion = (idx: number, field: keyof QuestionInput, value: string) => {
-    const newQ = [...questions];
-    newQ[idx][field] = value;
-    setQuestions(newQ);
   };
 
   const handleDeleteCourse = async (id: number) => {
@@ -376,6 +324,112 @@ export default function AdminDashboard() {
     }
   };
 
+
+  /* ================= QUIZ LOGIC ================= */
+  const handleStartEditQuiz = (quiz: any) => {
+    setEditingQuizId(quiz.id);
+    setQuizTitle(quiz.title || "");
+    setQuizLessonId(quiz.lesson ? String(quiz.lesson) : "");
+
+    if (quiz.questions && quiz.questions.length > 0) {
+      setQuestions(quiz.questions.map((q: any) => ({
+        id: q.id,
+        question_text: q.question_text || "",
+        option_a: q.choice_a || q.option_a || "",
+        option_b: q.choice_b || q.option_b || "",
+        option_c: q.choice_c || q.option_c || "",
+        option_d: q.choice_d || q.option_d || "",
+        correct_choice: q.correct_choice || "A"
+      })));
+    } else {
+      setQuestions([{ question_text: "", option_a: "", option_b: "", option_c: "", option_d: "", correct_choice: "A" }]);
+    }
+    
+    setQuizMsg("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelQuizEdit = () => {
+    setEditingQuizId(null);
+    setQuizTitle("");
+    setQuizLessonId("");
+    setQuestions([{ question_text: "", option_a: "", option_b: "", option_c: "", option_d: "", correct_choice: "A" }]);
+    setQuizMsg("");
+  };
+
+  const handleSaveQuiz = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreatingQuiz(true);
+    setQuizMsg("");
+    try {
+      const token = await getAccessToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      
+      const payload = {
+        title: quizTitle,
+        lesson: parseInt(quizLessonId),
+        questions: questions.map(q => ({
+          ...(q.id ? { id: q.id } : {}), // Pass ID if it's an existing question
+          question_text: q.question_text,
+          choice_a: q.option_a,
+          choice_b: q.option_b,
+          choice_c: q.option_c,
+          choice_d: q.option_d,
+          correct_choice: q.correct_choice
+        }))
+      };
+
+      const isEditing = editingQuizId !== null;
+      const url = isEditing 
+        ? `${API_BASE_URL.replace(/\/$/, "")}/quizzes/admin/${editingQuizId}/`
+        : `${API_BASE_URL.replace(/\/$/, "")}/quizzes/admin/`;
+
+      const res = await fetch(url, {
+        method: isEditing ? "PATCH" : "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ detail: 'Failed to save quiz.' }));
+        let errorMessage = 'Failed to save quiz.';
+        if (typeof errorData === 'object' && errorData !== null) {
+            if (errorData.detail) {
+                errorMessage = `Error: ${errorData.detail}`;
+            } else {
+                const fieldErrors = Object.entries(errorData).map(([field, errors]) => {
+                    const errorString = Array.isArray(errors) ? errors.join(' ') : JSON.stringify(errors);
+                    return `${field}: ${errorString}`;
+                }).join('; ');
+                if (fieldErrors) errorMessage = `Validation failed: ${fieldErrors}`;
+            }
+        }
+        throw new Error(errorMessage);
+      }
+
+      setQuizMsg(isEditing ? "Quiz updated successfully! ✅" : "Quiz created successfully! ✅");
+      cancelQuizEdit();
+
+      // Refresh quiz list
+      const quizzesRes = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/quizzes/admin/`, { headers });
+      const quizzesData = await quizzesRes.json();
+      setQuizzesList(Array.isArray(quizzesData) ? quizzesData : quizzesData.results || []);
+    } catch (err: any) {
+      setQuizMsg("Error: " + err.message);
+    } finally {
+      setCreatingQuiz(false);
+    }
+  };
+
+  const addQuestion = () => setQuestions([...questions, { question_text: "", option_a: "", option_b: "", option_c: "", option_d: "", correct_choice: "A" }]);
+  const removeQuestion = (idx: number) => setQuestions(questions.filter((_, i) => i !== idx));
+  const updateQuestion = (idx: number, field: keyof QuestionInput, value: string) => {
+    const newQ = [...questions];
+    newQ[idx][field] = value;
+    setQuestions(newQ);
+  };
+
   const handleDeleteQuiz = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this quiz? This action cannot be undone.")) return;
     setLoading(true);
@@ -395,6 +449,7 @@ export default function AdminDashboard() {
         setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen flex relative">
@@ -463,6 +518,7 @@ export default function AdminDashboard() {
           
           {activeTab === "users" && (
             <>
+              {/* Statistics Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className={`p-6 rounded-2xl border ${isDark ? "bg-zinc-900 border-white/10" : "bg-white border-gray-200 shadow-sm"}`}>
                   <p className={`text-sm font-medium ${isDark ? "text-zinc-400" : "text-gray-500"}`}>Total Users</p>
@@ -483,6 +539,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* Users Tables */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <section className={`rounded-2xl border overflow-hidden ${isDark ? "bg-zinc-900 border-white/10" : "bg-white border-gray-200 shadow-sm"}`}>
                   <div className={`p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${isDark ? "border-white/10" : "border-gray-200"}`}>
@@ -614,12 +671,14 @@ export default function AdminDashboard() {
             <section className={`rounded-2xl border p-6 md:p-8 ${isDark ? "bg-zinc-900 border-white/10" : "bg-white border-gray-200 shadow-sm"}`}>
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h2 className="text-2xl font-bold">Create New Course</h2>
-                  <p className={`mt-1 text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>Add a new lesson/course to the platform.</p>
+                  <h2 className="text-2xl font-bold">{editingCourseId ? "Edit Course" : "Create New Course"}</h2>
+                  <p className={`mt-1 text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>
+                    {editingCourseId ? "Update existing lesson content." : "Add a new lesson/course to the platform."}
+                  </p>
                 </div>
               </div>
 
-              <form onSubmit={handleCreateCourse} className="space-y-6 max-w-3xl">
+              <form onSubmit={handleSaveCourse} className="space-y-6 max-w-3xl">
                 <div>
                   <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-zinc-300" : "text-gray-700"}`}>Course Title</label>
                   <input required value={courseTitle} onChange={e => setCourseTitle(e.target.value)} className={`w-full p-4 rounded-xl border outline-none transition-colors ${isDark ? "bg-black/50 border-white/10 focus:border-accentGreen text-white" : "bg-gray-50 border-gray-200 focus:border-brandGreen text-black"}`} placeholder="e.g. Advanced Spreadsheet Mastery" />
@@ -633,7 +692,9 @@ export default function AdminDashboard() {
                   <textarea required value={courseContent} onChange={e => setCourseContent(e.target.value)} rows={5} className={`w-full p-4 rounded-xl border outline-none transition-colors resize-y ${isDark ? "bg-black/50 border-white/10 focus:border-accentGreen text-white" : "bg-gray-50 border-gray-200 focus:border-brandGreen text-black"}`} placeholder="Detailed description of the course..." />
                 </div>
                 <div>
-                  <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-zinc-300" : "text-gray-700"}`}>Course Thumbnail</label>
+                  <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-zinc-300" : "text-gray-700"}`}>
+                    Course Thumbnail {editingCourseId && <span className="opacity-60 text-xs font-normal ml-2">(Leave empty to keep existing)</span>}
+                  </label>
                   <input 
                       type="file" 
                       accept="image/*"
@@ -648,10 +709,17 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                <button disabled={creatingCourse} type="submit" className={`inline-flex items-center gap-2 px-8 py-4 rounded-full text-sm font-bold transition hover:brightness-95 disabled:opacity-50 ${isDark ? "bg-accentGreen text-black" : "bg-brandGreen text-white"}`}>
-                  {creatingCourse ? <RefreshCw size={18} className="animate-spin" /> : <Plus size={18} />}
-                  Publish Course
-                </button>
+                <div className="flex gap-4">
+                  <button disabled={creatingCourse} type="submit" className={`inline-flex items-center gap-2 px-8 py-4 rounded-full text-sm font-bold transition hover:brightness-95 disabled:opacity-50 ${isDark ? "bg-accentGreen text-black" : "bg-brandGreen text-white"}`}>
+                    {creatingCourse ? <RefreshCw size={18} className="animate-spin" /> : (editingCourseId ? <Check size={18} /> : <Plus size={18} />)}
+                    {editingCourseId ? "Update Course" : "Publish Course"}
+                  </button>
+                  {editingCourseId && (
+                    <button type="button" onClick={cancelCourseEdit} className={`inline-flex items-center gap-2 px-6 py-4 rounded-full text-sm font-bold transition disabled:opacity-50 ${isDark ? "bg-zinc-800 hover:bg-zinc-700 text-white" : "bg-gray-200 hover:bg-gray-300 text-black"}`}>
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </form>
 
               {/* Course List */}
@@ -678,7 +746,7 @@ export default function AdminDashboard() {
                             <td className="px-6 py-4 text-sm font-medium">{course.title}</td>
                             <td className="px-6 py-4 text-sm">{course.topic}</td>
                             <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
-                              <button className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition ${isDark ? "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}>
+                              <button onClick={() => handleStartEditCourse(course)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition ${isDark ? "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}>
                                 <Pencil size={14} /> Edit
                               </button>
                               <button onClick={() => handleDeleteCourse(course.id)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition ${isDark ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-red-100 text-red-700 hover:bg-red-200"}`}>
@@ -703,12 +771,14 @@ export default function AdminDashboard() {
             <section className={`rounded-2xl border p-6 md:p-8 ${isDark ? "bg-zinc-900 border-white/10" : "bg-white border-gray-200 shadow-sm"}`}>
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h2 className="text-2xl font-bold">Create New Quiz</h2>
-                  <p className={`mt-1 text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>Build an interactive quiz and attach it to a course.</p>
+                  <h2 className="text-2xl font-bold">{editingQuizId ? "Edit Quiz" : "Create New Quiz"}</h2>
+                  <p className={`mt-1 text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>
+                    {editingQuizId ? "Update existing quiz questions and details." : "Build an interactive quiz and attach it to a course."}
+                  </p>
                 </div>
               </div>
 
-              <form onSubmit={handleCreateQuiz} className="space-y-8 max-w-4xl">
+              <form onSubmit={handleSaveQuiz} className="space-y-8 max-w-4xl">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className={`block text-sm font-semibold mb-2 ${isDark ? "text-zinc-300" : "text-gray-700"}`}>Quiz Title</label>
@@ -783,10 +853,17 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                <button disabled={creatingQuiz} type="submit" className={`inline-flex items-center gap-2 px-8 py-4 rounded-full text-sm font-bold transition hover:brightness-95 disabled:opacity-50 ${isDark ? "bg-accentGreen text-black" : "bg-brandGreen text-white"}`}>
-                  {creatingQuiz ? <RefreshCw size={18} className="animate-spin" /> : <Plus size={18} />}
-                  Publish Quiz
-                </button>
+                <div className="flex gap-4">
+                  <button disabled={creatingQuiz} type="submit" className={`inline-flex items-center gap-2 px-8 py-4 rounded-full text-sm font-bold transition hover:brightness-95 disabled:opacity-50 ${isDark ? "bg-accentGreen text-black" : "bg-brandGreen text-white"}`}>
+                    {creatingQuiz ? <RefreshCw size={18} className="animate-spin" /> : (editingQuizId ? <Check size={18} /> : <Plus size={18} />)}
+                    {editingQuizId ? "Update Quiz" : "Publish Quiz"}
+                  </button>
+                  {editingQuizId && (
+                    <button type="button" onClick={cancelQuizEdit} className={`inline-flex items-center gap-2 px-6 py-4 rounded-full text-sm font-bold transition disabled:opacity-50 ${isDark ? "bg-zinc-800 hover:bg-zinc-700 text-white" : "bg-gray-200 hover:bg-gray-300 text-black"}`}>
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </form>
 
               {/* Quiz List */}
@@ -813,7 +890,7 @@ export default function AdminDashboard() {
                             <td className="px-6 py-4 text-sm font-medium">{quiz.title}</td>
                             <td className="px-6 py-4 text-sm">{adminLessons.find(l => l.id === quiz.lesson)?.title || `Lesson ID: ${quiz.lesson}`}</td>
                             <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
-                              <button className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition ${isDark ? "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}>
+                              <button onClick={() => handleStartEditQuiz(quiz)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition ${isDark ? "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}>
                                 <Pencil size={14} /> Edit
                               </button>
                               <button onClick={() => handleDeleteQuiz(quiz.id)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition ${isDark ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-red-100 text-red-700 hover:bg-red-200"}`}>
