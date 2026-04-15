@@ -107,7 +107,7 @@ export default function AdminDashboard() {
     setError(null);
     try {
       // Use the backend user list endpoint as requested. Include auth token if present.
-      const token = await getAccessToken();
+      const token = await getAccessToken(); // Corrected: Use await here
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -172,7 +172,10 @@ export default function AdminDashboard() {
       setError(null);
       try {
         const token = await getAccessToken();
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        };
 
         if (activeTab === 'courses' || activeTab === 'quizzes') {
           const lessonsRes = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/lessons/`, { headers });

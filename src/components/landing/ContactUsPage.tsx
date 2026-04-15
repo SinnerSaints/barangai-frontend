@@ -55,7 +55,7 @@ export default function ContactUsPage() {
                     <div className="rounded-lg p-3 bg-accentGreen text-black inline-flex"><Mail className="w-5 h-5" /></div>
                     <div>
                       <div className="text-sm font-medium">Email</div>
-                      <div className="text-xs text-white/60">support@barangai.org</div>
+                      <div className="text-xs text-white/60">neilandreibona@gmail.com</div>
                     </div>
                   </div>
 
@@ -63,7 +63,7 @@ export default function ContactUsPage() {
                     <div className="rounded-lg p-3 bg-accentGreen text-black inline-flex"><Phone className="w-5 h-5" /></div>
                     <div>
                       <div className="text-sm font-medium">Phone</div>
-                      <div className="text-xs text-white/60">+63 912 345 6789</div>
+                      <div className="text-xs text-white/60">+63 916 544 8035</div>
                     </div>
                   </div>
 
@@ -71,14 +71,14 @@ export default function ContactUsPage() {
                     <div className="rounded-lg p-3 bg-accentGreen text-black inline-flex"><MapPin className="w-5 h-5" /></div>
                     <div>
                       <div className="text-sm font-medium">Office</div>
-                      <div className="text-xs text-white/60">University of Cebu — IT Lab</div>
+                      <div className="text-xs text-white/60">University of Cebu — CSPS</div>
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-8 border-t border-white/6 pt-6">
                   <h4 className="text-sm font-semibold">Hours</h4>
-                  <div className="mt-2 text-xs text-white/60">Mon — Fri: 9:00AM – 5:00PM</div>
+                  <div className="mt-2 text-xs text-white/60">Mon — Fri: 12:00AM – 3:00PM</div>
                 </div>
               </div>
 
