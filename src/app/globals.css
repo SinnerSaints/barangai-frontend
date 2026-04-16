@@ -19,6 +19,17 @@
   --font-leagueGothic: "League Gothic", sans-serif;
   --font-manrope: "Manrope", sans-serif;
   --font-pattaya: "Pattaya", sans-serif;
+
+  /* Profile menu palette (light mode) */
+  --menu-surface: #f8fbff;
+  --menu-fg: #0f172a;
+  --menu-fg-subtle: #475569;
+  --menu-border: #cfd9e7;
+  --menu-muted: #eaf1fb;
+  --menu-accent: #5227ff;
+  --menu-danger: #c92020;
+  --menu-layer-1: #c9b7de;
+  --menu-layer-2: #6a46ff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -27,11 +38,22 @@
     --foreground: #ededed;
     --brandGreen: #060606;
     --brandGreen-rgb: 6 6 6;
+
+    /* Profile menu palette (dark mode) */
+    --menu-surface: #0f1218;
+    --menu-fg: #e5edf7;
+    --menu-fg-subtle: #a8b6c9;
+    --menu-border: #263041;
+    --menu-muted: #161d28;
+    --menu-accent: #9de16a;
+    --menu-danger: #ff7272;
+    --menu-layer-1: #1f2f24;
+    --menu-layer-2: #034440;
   }
 }
 
 body {
-  background-color: transparent;
+  background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-inter); /* Default font */
 }

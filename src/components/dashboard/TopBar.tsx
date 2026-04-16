@@ -1,6 +1,6 @@
 "use client";
 
-import { HiSearch, HiSun, HiMoon } from "react-icons/hi";
+import { HiSearch } from "react-icons/hi";
 import { useState } from "react";
 import ProfileMenu from "@/components/ui/ProfileMenu";
 import { useTheme } from "@/context/theme";
@@ -14,7 +14,6 @@ type Props = {
 };
 
 export default function TopBar({ hideSearch = false, searchValue, onSearch }: Props) {
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [internalQuery, setInternalQuery] = useState("");
   const { theme, toggle } = useTheme();
   const isDark = theme === "dark";
@@ -54,10 +53,38 @@ export default function TopBar({ hideSearch = false, searchValue, onSearch }: Pr
           <button
             aria-label="Toggle theme"
             onClick={toggle}
-            className={isDark ? "inline-flex items-center justify-center w-9 h-9 rounded-full bg-white/5 border border-white/10 text-white/90 hover:bg-white/10 transition" : "inline-flex items-center justify-center w-9 h-9 rounded-full bg-white/80 border border-black/10 text-black/90 hover:brightness-95 transition"}
+            className="group inline-flex items-center gap-2 rounded-full px-2 py-1 transition"
             title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
           >
-            {theme === "light" ? <HiMoon className="w-4 h-4" /> : <HiSun className="w-4 h-4" />}
+            <span
+              className={`text-sm font-semibold transition ${
+                isDark ? "text-zinc-400 group-hover:text-zinc-200" : "text-[#1f2a44]"
+              }`}
+            >
+              Light
+            </span>
+            <span
+              className={`relative inline-flex h-9 w-20 items-center rounded-full border px-1 transition ${
+                isDark
+                  ? "border-[#2f3a2f] bg-[#034440]"
+                  : "border-[#7fb85a] bg-[#9DE16A]"
+              }`}
+            >
+              <span
+                className={`h-7 w-7 rounded-full shadow-[0_2px_10px_rgba(0,0,0,0.2)] transition-transform duration-300 ${
+                  isDark ? "translate-x-10 bg-[#9DE16A]" : "translate-x-0 bg-white"
+                }`}
+              />
+              <span className="pointer-events-none absolute right-4 top-2 h-1.5 w-1.5 rounded-full bg-white/80" />
+              <span className="pointer-events-none absolute right-2.5 top-4 h-1.5 w-1.5 rounded-full bg-white/60" />
+            </span>
+            <span
+              className={`text-sm font-semibold transition ${
+                isDark ? "text-[#9DE16A]" : "text-zinc-400 group-hover:text-zinc-600"
+              }`}
+            >
+              Dark
+            </span>
           </button>
           <ProfileMenu compact />
         </div>
