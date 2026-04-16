@@ -421,7 +421,7 @@ export default function QuizPage() {
               </div>
             </section>
 
-            <section className={`min-h-[720px] rounded-[2rem] border shadow-xl ${isDark ? "border-white/10 bg-zinc-950/90" : "border-gray-200 bg-white/90"}`}>
+            <section className={`self-start sticky top-6 min-h-[720px] rounded-[2rem] border shadow-xl ${isDark ? "border-white/10 bg-zinc-950/90" : "border-gray-200 bg-white/90"}`}>
               {!selectedQuiz ? (
                 <div className="flex h-full min-h-[720px] items-center justify-center p-10">
                   <div className="max-w-md text-center">
