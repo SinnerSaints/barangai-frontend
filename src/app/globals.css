@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;700&family=League+Gothic&family=League+Spartan:wght@400;700&family=Manrope:wght@400;700&family=Pattaya&family=Poppins:wght@400;700&family=Sonsie+One&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,13 +9,16 @@
   --foreground: #171717;
   --brandGreen: #ffffff;
   --brandGreen-rgb: 255 255 255;
-}
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Font Variables - Case Sensitive! */
+  --font-league: "League Spartan", sans-serif;
+  --font-sonsie: "Sonsie One", sans-serif;
+  --font-poppins: "Poppins", sans-serif;
+  --font-inter: "Inter", sans-serif;
+  --font-archivoBlack: "Archivo Black", sans-serif;
+  --font-leagueGothic: "League Gothic", sans-serif;
+  --font-manrope: "Manrope", sans-serif;
+  --font-pattaya: "Pattaya", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -26,48 +31,22 @@
 }
 
 body {
-  /* Allow Tailwind background utility classes (eg. bg-brandGreen) to control
-     the page background. The project previously forced a background via
-     `var(--background)`, which can make the page appear black in dark mode
-     and override Tailwind classes. Use transparent background here and keep
-     the foreground (text) color and font. */
   background-color: transparent;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter); /* Default font */
 }
 
+/* Custom Utilities */
 .stroke-text {
   -webkit-text-stroke: 2px #8be36a;
 }
 
-/* Ensure any 'outline' utility used in the markup doesn't add a solid
-   background behind inline text. This explicitly keeps the fill transparent
-   and uses the element's current color for text fill. */
 .outline {
   background-color: transparent;
   -webkit-text-fill-color: currentColor;
 }
 
-:root {
-  --font-league: "League Spartan", sans-serif;
-  --font-sonsie: "Sonsie One", sans-serif;
-  --font-poppins: "Poppins", sans-serif;
-  --font-inter: "Inter", sans-serif;
-  --font-archivoBlack: "Archivo Black", sans-serif;
-  --font-leagueGothic: "League Gothic", sans-serif;
-  --font-manrope: "Manrope", sans-serif;
-  --font-pattaya: "Pattaya", sans-serif;
-}
-
-.stroke-9DDE78 {
-  color: transparent;               /* make fill transparent */
-  -webkit-text-stroke: 2px #9DDE78; /* stroke color and width */
-  -moz-text-stroke: 2px #9DDE78;    /* Firefox support */
-}
-
-/* Dash panel transition used when switching between Login / Signup.
-   Two panels slide in from the sides (dashed edges) then slide out to
-   reveal the destination content. */
+/* Dash panel animations */
 .dash-panels {
   position: fixed;
   inset: 0;
@@ -83,54 +62,18 @@ body {
   align-items: center;
   justify-content: center;
 }
-.dash-panel.left {
-  transform: translateX(-100%);
-  border-right: 6px dashed rgba(157,225,106,0.9); /* stroke/accent */
-}
-.dash-panel.right {
-  transform: translateX(100%);
-  border-left: 6px dashed rgba(157,225,106,0.9);
-}
+.dash-panel.left { transform: translateX(-100%); border-right: 6px dashed rgba(157,225,106,0.9); }
+.dash-panel.right { transform: translateX(100%); border-left: 6px dashed rgba(157,225,106,0.9); }
 
-@keyframes dashInLeft {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0%); }
-}
-@keyframes dashInRight {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0%); }
-}
-@keyframes dashOutLeft {
-  from { transform: translateX(0%); }
-  to { transform: translateX(-100%); }
-}
-@keyframes dashOutRight {
-  from { transform: translateX(0%); }
-  to { transform: translateX(100%); }
-}
+@keyframes dashInLeft { from { transform: translateX(-100%); } to { transform: translateX(0%); } }
+@keyframes dashInRight { from { transform: translateX(100%); } to { transform: translateX(0%); } }
+@keyframes dashOutLeft { from { transform: translateX(0%); } to { transform: translateX(-100%); } }
+@keyframes dashOutRight { from { transform: translateX(0%); } to { transform: translateX(100%); } }
 
-.dash-in .dash-panel.left {
-  animation: dashInLeft 300ms forwards cubic-bezier(.2,.9,.2,1);
-}
-.dash-in .dash-panel.right {
-  animation: dashInRight 300ms forwards cubic-bezier(.2,.9,.2,1);
-}
-
-.dash-out .dash-panel.left {
-  animation: dashOutLeft 300ms forwards cubic-bezier(.2,.9,.2,1);
-}
-.dash-out .dash-panel.right {
-  animation: dashOutRight 300ms forwards cubic-bezier(.2,.9,.2,1);
-}
-
-@keyframes chatEnter {
-  from { transform: translateY(12px) scale(.995); opacity: 0; }
-  to   { transform: translateY(0) scale(1); opacity: 1; }
-}
-
-.chat-enter {
-  animation: chatEnter 420ms cubic-bezier(.2,.9,.2,1) both;
-}
+.dash-in .dash-panel.left { animation: dashInLeft 300ms forwards cubic-bezier(.2,.9,.2,1); }
+.dash-in .dash-panel.right { animation: dashInRight 300ms forwards cubic-bezier(.2,.9,.2,1); }
+.dash-out .dash-panel.left { animation: dashOutLeft 300ms forwards cubic-bezier(.2,.9,.2,1); }
+.dash-out .dash-panel.right { animation: dashOutRight 300ms forwards cubic-bezier(.2,.9,.2,1); }
 
 @keyframes buttonEnter {
   from { transform: translateY(8px) scale(.995); opacity: 0; }
@@ -140,7 +83,5 @@ body {
 
 .stagger-child {
   opacity: 0;
-  transform: translateY(8px) scale(.995);
   animation: buttonEnter 420ms cubic-bezier(.2,.9,.2,1) both;
 }
-
