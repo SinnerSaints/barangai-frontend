@@ -68,10 +68,6 @@ export default function DashboardPage() {
       <Sidebar collapsed={collapsed} onToggle={toggle} />
 
       <main className={`relative flex-1 overflow-hidden p-6 ${isDark ? "text-white" : "text-black" }`}>
-        <div className="absolute inset-0 z-0">
-          <Image src={isDark ? chatBgDark : chatBgLight} alt="background" fill className="object-cover opacity-95" />
-        </div>
-
         <div
           aria-hidden={showLockOverlay}
           className={`relative z-10 mx-auto max-w-[1200px] transition ${showLockOverlay ? "pointer-events-none select-none blur-md" : ""}`}

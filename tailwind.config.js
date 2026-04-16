@@ -11,6 +11,8 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        background: "rgb(var(--background-rgb) / <alpha-value>)",
+        foreground: "rgb(var(--foreground-rgb) / <alpha-value>)",
         // Use CSS variables so light/dark theme can switch at runtime.
         // Also supports Tailwind opacity variants like `bg-brandGreen/10`.
         brandGreen: "rgb(var(--brandGreen-rgb) / <alpha-value>)",

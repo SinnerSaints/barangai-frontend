@@ -63,7 +63,7 @@ export default function DownloadOverlay() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const downloadUrl = "https://download.com/chatbot";
+  const downloadUrl = "https://github.com/SinnerSaints/barangai-overlay-app/releases/download/v0.2.0-beta/BarangAI.exe";
 
   return (
     <>

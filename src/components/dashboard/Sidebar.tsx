@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { HiHome, HiChat, HiBookOpen, HiClipboardList, HiChartBar, HiCog, HiMenu } from "react-icons/hi";
 import ProfileMenu from "@/components/ui/ProfileMenu";
+import { useTheme } from "@/context/theme";
 
 type Props = {
   collapsed?: boolean;
@@ -15,6 +16,9 @@ export default function Sidebar({ collapsed = false, onToggle }: Props) {
   const pathname = usePathname() || "/";
   const isControlled = typeof onToggle === "function";
   const [internalCollapsed, setInternalCollapsed] = useState<boolean>(collapsed);
+  
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
 
   // initialize internal state from localStorage when uncontrolled
   useEffect(() => {
@@ -59,16 +63,20 @@ export default function Sidebar({ collapsed = false, onToggle }: Props) {
 
   return (
     <aside
-      className={`hidden md:flex flex-col text-white gap-6 transition-[width] duration-300 ${effectiveCollapsed ? "w-20" : "w-64"} my-4 ml-4 h-[calc(100vh-2rem)] rounded-2xl bg-[#034440]/20 backdrop-blur-xl border border-white/15 shadow-2xl shadow-black/20 p-4`}
+      className={`hidden md:flex flex-col gap-6 transition-[width] duration-300 ${effectiveCollapsed ? "w-20" : "w-64"} my-4 ml-4 h-[calc(100vh-2rem)] rounded-2xl backdrop-blur-xl border shadow-2xl p-4 ${
+        isDark 
+          ? "bg-[#034440]/20 border-white/15 shadow-black/20 text-white" 
+          : "bg-white/80 border-gray-200 shadow-black/5 text-[#034440]"
+      }`}
     >
-      <div className="flex items-center gap-3 px-2 pb-2 border-b border-white/10">
+      <div className={`flex items-center gap-3 px-2 pb-2 border-b ${isDark ? "border-white/10" : "border-gray-200"}`}>
         {/* hamburger in header (replaces logo) */}
-        <button onClick={handleToggle} className="text-white p-1">
+        <button onClick={handleToggle} className={`p-1 ${isDark ? "text-white" : "text-[#034440]"}`}>
           <HiMenu className="w-6 h-6" />
         </button>
         {!effectiveCollapsed && (
           <Link href="/" className="text-lg font-bold">
-            Barang<span className="text-accentGreen">AI</span>
+            Barang<span className={isDark ? "text-accentGreen" : "text-brandGreen"}>AI</span>
           </Link>
         )}
       </div>
@@ -85,28 +93,26 @@ export default function Sidebar({ collapsed = false, onToggle }: Props) {
                     effectiveCollapsed ? "justify-center" : ""
                   } ${
                     active
-                      ? effectiveCollapsed
+                      ? isDark
                         ? "bg-accentGreen/25 border border-accentGreen/30"
-                        : "bg-accentGreen/25 border border-accentGreen/30"
-                      : effectiveCollapsed
-                        ? "bg-transparent border border-transparent"
-                        : "bg-transparent border border-transparent"
-                  } hover:bg-white/10`}
+                        : "bg-brandGreen/10 border border-brandGreen/20"
+                      : "bg-transparent border border-transparent"
+                  } ${isDark ? "hover:bg-white/10" : "hover:bg-gray-100"}`}
                 >
                   {/* icon: when collapsed and active, icon gets accent color; when expanded, icon/text turn white and row gets accent background */}
                   <it.icon
                     className={`w-5 h-5 transition-transform duration-150 ${
                       effectiveCollapsed
                         ? active
-                          ? "text-accentGreen scale-110"
-                          : "text-[#AFAFAF]"
+                          ? isDark ? "text-accentGreen scale-110" : "text-brandGreen scale-110"
+                          : isDark ? "text-[#AFAFAF]" : "text-gray-400"
                         : active
-                          ? "text-white"
-                          : "text-[#AFAFAF]"
+                          ? isDark ? "text-white" : "text-brandGreen"
+                          : isDark ? "text-[#AFAFAF]" : "text-gray-400"
                     }`}
                   />
                   {!effectiveCollapsed && (
-                    <span className={`text-sm ${active ? "text-white" : "text-[#AFAFAF]"}`}>{it.label}</span>
+                    <span className={`text-sm ${active ? (isDark ? "text-white" : "text-[#034440] font-semibold") : (isDark ? "text-[#AFAFAF]" : "text-gray-500")}`}>{it.label}</span>
                   )}
                 </Link>
               </li>

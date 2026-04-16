@@ -37,13 +37,19 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Theme-aware CSS variables so Tailwind utilities (e.g. `bg-brandGreen`)
       // can react to runtime theme toggles.
       const isDark = theme === "dark";
-      document.documentElement.style.setProperty("--brandGreen", isDark ? "#060606" : "#ffffff");
+      // `brandGreen` should be a brand color, not a background.
+      // Use a dark green for light mode, and a light green for dark mode.
+      document.documentElement.style.setProperty("--brandGreen", isDark ? "#9CE067" : "#034440");
       document.documentElement.style.setProperty(
         "--brandGreen-rgb",
-        isDark ? "6 6 6" : "255 255 255"
+        isDark ? "156 225 103" : "3 68 64"
       );
+
+      // Set foreground and background colors for use with `bg-background`, etc.
       document.documentElement.style.setProperty("--foreground", theme === "dark" ? "#ededed" : "#171717");
+      document.documentElement.style.setProperty("--foreground-rgb", theme === "dark" ? "237 237 237" : "23 23 23");
       document.documentElement.style.setProperty("--background", theme === "dark" ? "#0a0a0a" : "#ffffff");
+      document.documentElement.style.setProperty("--background-rgb", theme === "dark" ? "10 10 10" : "255 255 255");
     }
   }, [theme, ready]);
 
