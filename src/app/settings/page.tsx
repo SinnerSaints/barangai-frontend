@@ -78,7 +78,7 @@ export default function SettingsPage() {
     <div className="min-h-screen flex">
       <Sidebar collapsed={sidebarCollapsed} onToggle={handleSidebarToggle} />
 
-      <main className={`flex-1 p-6 ${isDark ? "text-white bg-black/90" : "text-black bg-gray-50"}`}>
+      <main className={"flex-1 p-6"}>
         <div className="max-w-[1200px] mx-auto">
           <TopBar hideSearch />
           <SettingsContent
