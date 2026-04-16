@@ -3,6 +3,8 @@
 import React from "react";
 import { DownloadCloud } from "lucide-react";
 import { useTheme } from "@/context/theme";
+import Image from "next/image";
+import icon from "@/assets/img/icon.png";
 
 export default function DownloadPromo() {
   const { theme } = useTheme();
@@ -24,14 +26,19 @@ export default function DownloadPromo() {
     <section className={`w-full rounded-2xl p-5 mb-6 shadow-lg border ${isDark ? 'bg-zinc-900 border-white/6 text-white' : 'bg-white border-gray-100 text-black'}`}>
       <div className="flex items-start gap-4">
         <div className="flex-shrink-0">
-          <div className="h-14 w-14 flex items-center justify-center rounded-xl bg-accentGreen text-black font-bold text-lg">AI</div>
+            <Image 
+              src={icon}
+              alt="ai icon"
+              height={50}
+              width={50}
+            />
         </div>
 
         <div className="flex-1">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h3 className="text-lg font-semibold">Download Overlay Chatbot</h3>
-              <p className="mt-1 text-sm text-gray-400">Install the lightweight overlay chatbot to get BarangAI help while browsing. Works across pages and stays accessible as a small ad.</p>
+              <p className="mt-1 text-sm text-gray-400">Install the lightweight overlay chatbot to get BarangAI help while browsing. Works across pages and applications!</p>
             </div>
 
             <div className="flex items-center gap-2">
