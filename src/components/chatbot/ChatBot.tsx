@@ -157,7 +157,7 @@ function ChatSection() {
 
     try {
       const baseUrl = OPENAI_API_KEY.replace(/\/$/, "");
-      const res = await fetch(`${baseUrl}/api/chat/`, {
+      const res = await fetch(`${baseUrl}/chat/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -177,7 +177,7 @@ function ChatSection() {
         setSessionUUID(crypto.randomUUID());
       }
 
-      const fullText = data.reply || "No response received.";
+      const fullText = data.response || "No response received.";
       let currentText = "";
 
       setMessages((prev) => [

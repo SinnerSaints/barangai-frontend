@@ -74,7 +74,7 @@ function ChatSection() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${OPENAI_API_KEY}/api/chat/`, { 
+      const res = await fetch(`${OPENAI_API_KEY}/chat/`, { 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage, user_id: 1 }),
