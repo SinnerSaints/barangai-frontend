@@ -93,7 +93,7 @@ const ParticleCard: React.FC<{
   disableAnimations = false,
   style,
   particleCount = DEFAULT_PARTICLE_COUNT,
-  glowColor = "16, 185, 129", // Emerald 500
+  glowColor = "180, 237, 124", 
   enableTilt = true,
   clickEffect = true,
 }) => {
@@ -280,7 +280,7 @@ const GlobalSpotlight: React.FC<{
   gridRef: React.RefObject<HTMLDivElement | null>;
   disableAnimations?: boolean;
   glowColor?: string;
-}> = ({ gridRef, disableAnimations = false, glowColor = "16, 185, 129" }) => {
+}> = ({ gridRef, disableAnimations = false, glowColor = "180, 237, 124" }) => {
   const spotlightRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -376,18 +376,20 @@ const GlobalSpotlight: React.FC<{
 };
 
 // --- MAIN STATISTICS COMPONENT ---
-const COLORS = ["#10b981", "#34d399", "#059669", "#0ea5e9", "#6366f1"];
+const COLORS = ["#B4ED7C", "#86C750", "#5A9B29", "#3E7416", "#E2F6C8"];
 
-const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-  improving: { label: "Improving", color: "text-emerald-500", bg: "bg-emerald-500/10" },
-  steady: { label: "Steady", color: "text-amber-500", bg: "bg-amber-500/10" },
-  needs_support: { label: "Needs Support", color: "text-rose-500", bg: "bg-rose-500/10" },
+const statusConfig: Record<string, { label: string; colorDark: string; colorLight: string; bgDark: string; bgLight: string }> = {
+  improving: { label: "Improving", colorDark: "text-[#B4ED7C]", colorLight: "text-[#3E7416]", bgDark: "bg-[#B4ED7C]/10", bgLight: "bg-[#B4ED7C]/30" },
+  steady: { label: "Steady", colorDark: "text-amber-400", colorLight: "text-amber-600", bgDark: "bg-amber-400/10", bgLight: "bg-amber-500/20" },
+  needs_support: { label: "Needs Support", colorDark: "text-rose-400", colorLight: "text-rose-600", bgDark: "bg-rose-400/10", bgLight: "bg-rose-500/20" },
 };
 
 export default function StatisticsClient() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const glowColor = "16, 185, 129"; // Emerald matching our palette
+  
+  // Use a slightly darker green for the hover glow in light mode to ensure it's visible on white
+  const glowColor = isDark ? "180, 237, 124" : "90, 155, 41"; 
 
   const bentoGridRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -428,14 +430,15 @@ export default function StatisticsClient() {
     const lesson = reportData.lesson_progress;
     const quiz = reportData.quiz_progress;
 
+    // Added dynamic light/dark colors to icons and text so they are legible on white
     return [
-      { id: 1, label: "Completed Lessons", value: `${lesson.completed_lessons}/${lesson.total_lessons}`, icon: BookOpen, color: "text-emerald-500" },
-      { id: 2, label: "Lesson Completion", value: `${lesson.completion_rate_percent.toFixed(1)}%`, icon: CheckCircle, color: "text-teal-500" },
-      { id: 3, label: "Quiz Attempts", value: quiz.total_attempts, icon: Target, color: "text-cyan-500" },
-      { id: 4, label: "Average Quiz Score", value: `${quiz.average_score.toFixed(1)}%`, icon: Brain, color: "text-blue-500" },
-      { id: 5, label: "Score Growth", value: `${quiz.score_growth >= 0 ? "+" : ""}${quiz.score_growth}%`, icon: TrendingUp, color: quiz.score_growth >= 0 ? "text-emerald-500" : "text-rose-500" },
+      { id: 1, label: "Completed Lessons", value: `${lesson.completed_lessons}/${lesson.total_lessons}`, icon: BookOpen, color: isDark ? "text-[#B4ED7C]" : "text-[#5A9B29]" },
+      { id: 2, label: "Lesson Completion", value: `${lesson.completion_rate_percent.toFixed(1)}%`, icon: CheckCircle, color: isDark ? "text-[#97D960]" : "text-[#3E7416]" },
+      { id: 3, label: "Quiz Attempts", value: quiz.total_attempts, icon: Target, color: isDark ? "text-[#E2F6C8]" : "text-[#1A322D]" },
+      { id: 4, label: "Average Quiz Score", value: `${quiz.average_score.toFixed(1)}%`, icon: Brain, color: isDark ? "text-white" : "text-slate-800" },
+      { id: 5, label: "Score Growth", value: `${quiz.score_growth >= 0 ? "+" : ""}${quiz.score_growth}%`, icon: TrendingUp, color: quiz.score_growth >= 0 ? (isDark ? "text-[#B4ED7C]" : "text-[#5A9B29]") : (isDark ? "text-rose-400" : "text-rose-600") },
     ];
-  }, [reportData]);
+  }, [reportData, isDark]);
 
   const topicGrowthChart = useMemo(() => {
     if (!growthData) return [];
@@ -464,14 +467,12 @@ export default function StatisticsClient() {
 
   const status = reportData ? statusConfig[reportData.overall_report.status] : null;
 
-  const mainBgClasses = isDark
-    ? "bg-gray-950 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-900/20 via-gray-950 to-gray-950 text-white"
-    : "bg-slate-50 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-100/50 via-slate-50 to-teal-50/50 text-slate-900";
+  const mainBgClasses = isDark ? "text-white bg-transparent" : "text-slate-900 bg-transparent";
 
   const glassCardClasses = `backdrop-blur-xl border rounded-2xl shadow-lg transition-all duration-300 ${
     isDark
-      ? "bg-white/[0.03] border-white/10 shadow-black/40 hover:bg-white/[0.05]"
-      : "bg-white/60 border-white/40 shadow-emerald-900/5 hover:bg-white/80"
+      ? "bg-[#1A322D]/40 border-white/10 shadow-black/40 hover:bg-[#1A322D]/60"
+      : "bg-white border-[#1A322D]/10 shadow-[#1A322D]/5 hover:bg-white/90"
   }`;
 
   if (loading) {
@@ -480,7 +481,7 @@ export default function StatisticsClient() {
         <div className="max-w-7xl mx-auto relative z-10">
           <TopBar />
           <div className="flex items-center justify-center h-[calc(100vh-200px)]">
-            <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
+            <Loader2 className={`w-10 h-10 animate-spin ${isDark ? "text-[#B4ED7C]" : "text-[#5A9B29]"}`} />
           </div>
         </div>
       </main>
@@ -503,7 +504,6 @@ export default function StatisticsClient() {
 
   return (
     <main className={`flex-1 min-h-screen p-6 relative overflow-hidden ${mainBgClasses}`}>
-      {/* Magic Bento CSS Injection integrated with Theme */}
       <style>{`
         .bento-section {
           --glow-x: 50%;
@@ -521,14 +521,13 @@ export default function StatisticsClient() {
         }
         @media (min-width: 1024px) {
           .bento-grid { grid-template-columns: repeat(3, 1fr); }
-          /* Make the 4th item (Average Quiz Score) span 2 columns for a compact rectangle */
           .bento-grid > .bento-card:nth-child(4) { grid-column: span 2; }
         }
         .bento-card::after {
           content: '';
           position: absolute;
           inset: 0;
-          padding: 2px; /* Border thickness */
+          padding: 2px;
           background: radial-gradient(var(--glow-radius) circle at var(--glow-x) var(--glow-y),
               rgba(${glowColor}, calc(var(--glow-intensity) * 0.8)) 0%,
               rgba(${glowColor}, calc(var(--glow-intensity) * 0.2)) 40%,
@@ -544,7 +543,7 @@ export default function StatisticsClient() {
           z-index: 1;
         }
         .bento-card:hover {
-          box-shadow: 0 4px 20px rgba(16, 185, 129, 0.1), 0 0 30px rgba(${glowColor}, 0.15);
+          box-shadow: 0 4px 20px rgba(${glowColor}, 0.1), 0 0 30px rgba(${glowColor}, 0.15);
         }
         .particle::before {
           content: '';
@@ -562,7 +561,7 @@ export default function StatisticsClient() {
         <TopBar />
         
         <div className="pt-4">
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-500 to-teal-400">
+          <h1 className={`text-3xl md:text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r ${isDark ? "from-[#B4ED7C] to-[#E2F6C8]" : "from-[#3E7416] to-[#5A9B29]"}`}>
             Training Progress & Impact
           </h1>
           <p className={`mt-2 max-w-3xl text-lg ${isDark ? "text-zinc-400" : "text-slate-600"}`}>
@@ -576,7 +575,7 @@ export default function StatisticsClient() {
             <ParticleCard
               key={s.id}
               className={`bento-card flex flex-col justify-between p-6 rounded-[20px] backdrop-blur-xl border border-solid transition-colors duration-300 ${
-                isDark ? "bg-[#120F17]/40 border-white/10" : "bg-white/60 border-emerald-900/10"
+                isDark ? "bg-[#1A322D]/40 border-white/10" : "bg-white border-[#1A322D]/10"
               }`}
               disableAnimations={isMobile}
               glowColor={glowColor}
@@ -586,7 +585,7 @@ export default function StatisticsClient() {
                 <span className={`text-sm font-semibold tracking-wide ${isDark ? "text-zinc-400" : "text-slate-500"}`}>
                   {s.label}
                 </span>
-                <div className={`p-2 rounded-xl backdrop-blur-md ${isDark ? "bg-white/5" : "bg-emerald-500/10"}`}>
+                <div className={`p-2 rounded-xl backdrop-blur-md ${isDark ? "bg-white/5" : "bg-[#B4ED7C]/30"}`}>
                   <s.icon className={`w-5 h-5 ${s.color}`} />
                 </div>
               </div>
@@ -610,7 +609,7 @@ export default function StatisticsClient() {
                   <Tooltip
                     cursor={{ fill: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)" }}
                     contentStyle={{
-                      backgroundColor: isDark ? "rgba(24, 24, 27, 0.8)" : "rgba(255, 255, 255, 0.8)",
+                      backgroundColor: isDark ? "rgba(26, 50, 45, 0.9)" : "rgba(255, 255, 255, 0.9)",
                       backdropFilter: "blur(12px)",
                       borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
                       borderRadius: "1rem",
@@ -618,9 +617,9 @@ export default function StatisticsClient() {
                     }}
                   />
                   <Legend wrapperStyle={{ paddingTop: "20px", fontSize: "13px" }} iconType="circle" />
-                  <Bar dataKey="Baseline Score" fill="#34d399" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                  <Bar dataKey="Average Score" fill="#0ea5e9" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                  <Bar dataKey="Best Score" fill="#10b981" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="Baseline Score" fill="#5A9B29" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="Average Score" fill="#86C750" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="Best Score" fill="#B4ED7C" radius={[6, 6, 0, 0]} maxBarSize={40} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -628,10 +627,10 @@ export default function StatisticsClient() {
 
           {reportData && status && (
             <div className={`${glassCardClasses} p-8 flex flex-col items-center justify-center text-center relative overflow-hidden`}>
-              <div className={`absolute inset-0 opacity-20 blur-3xl rounded-full scale-150 ${status.bg}`} />
+              <div className={`absolute inset-0 opacity-20 blur-3xl rounded-full scale-150 ${isDark ? status.bgDark : status.bgLight}`} />
               <h2 className="text-lg font-bold mb-4 relative z-10">Overall Progress Report</h2>
-              <div className={`inline-flex items-center justify-center px-4 py-2 rounded-full mb-6 ${status.bg} border ${isDark ? "border-white/10" : "border-black/5"} relative z-10`}>
-                <span className={`text-xl font-bold ${status.color}`}>{status.label}</span>
+              <div className={`inline-flex items-center justify-center px-4 py-2 rounded-full mb-6 ${isDark ? status.bgDark : status.bgLight} border ${isDark ? "border-white/10" : "border-black/5"} relative z-10`}>
+                <span className={`text-xl font-bold ${isDark ? status.colorDark : status.colorLight}`}>{status.label}</span>
               </div>
               <p className={`text-base leading-relaxed relative z-10 ${isDark ? "text-zinc-300" : "text-slate-600"}`}>
                 {reportData.overall_report.insight}
@@ -645,14 +644,14 @@ export default function StatisticsClient() {
             <h2 className="text-lg font-bold mb-6">Topic Accuracy Distribution</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="flex flex-col items-center">
-                <h3 className={`text-sm font-semibold mb-4 px-3 py-1 rounded-full ${isDark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-100 text-emerald-700"}`}>Top Strengths</h3>
+                <h3 className={`text-sm font-semibold mb-4 px-3 py-1 rounded-full ${isDark ? "bg-[#B4ED7C]/10 text-[#B4ED7C]" : "bg-[#B4ED7C]/30 text-[#3E7416]"}`}>Top Strengths</h3>
                 <div className="w-full h-[200px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={strengthsData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={70} stroke="none">
                         {strengthsData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                       </Pie>
-                      <Tooltip contentStyle={{ borderRadius: '0.75rem', border: 'none', backgroundColor: isDark ? 'rgba(24, 24, 27, 0.9)' : 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(8px)' }} />
+                      <Tooltip contentStyle={{ borderRadius: '0.75rem', border: 'none', backgroundColor: isDark ? 'rgba(26, 50, 45, 0.9)' : 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(8px)' }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -665,7 +664,7 @@ export default function StatisticsClient() {
                       <Pie data={weaknessData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={70} stroke="none">
                         {weaknessData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                       </Pie>
-                      <Tooltip contentStyle={{ borderRadius: '0.75rem', border: 'none', backgroundColor: isDark ? 'rgba(24, 24, 27, 0.9)' : 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(8px)' }} />
+                      <Tooltip contentStyle={{ borderRadius: '0.75rem', border: 'none', backgroundColor: isDark ? 'rgba(26, 50, 45, 0.9)' : 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(8px)' }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -680,16 +679,16 @@ export default function StatisticsClient() {
             <div className="space-y-4">
               {latestAttempts.length > 0 ? (
                 latestAttempts.map((attempt) => (
-                  <div key={attempt.attempt_id} className={`group flex items-center justify-between p-4 rounded-xl transition-all duration-200 border ${isDark ? "bg-white/[0.02] border-white/5 hover:bg-white/[0.06] hover:border-white/10" : "bg-white/40 border-white/50 hover:bg-white/80 hover:shadow-sm"}`}>
+                  <div key={attempt.attempt_id} className={`group flex items-center justify-between p-4 rounded-xl transition-all duration-200 border ${isDark ? "bg-white/[0.02] border-white/5 hover:bg-white/[0.06] hover:border-white/10" : "bg-[#1A322D]/5 border-white/50 hover:bg-[#1A322D]/10 hover:shadow-sm"}`}>
                     <div>
                       <div className="font-semibold text-base mb-1">{attempt.lesson_title}</div>
                       <div className={`text-sm flex items-center gap-2 ${isDark ? "text-zinc-400" : "text-slate-500"}`}>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span className={`w-2 h-2 rounded-full ${isDark ? "bg-[#B4ED7C]" : "bg-[#5A9B29]"}`}></span>
                         {attempt.topic}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-xl font-bold text-emerald-500">{attempt.score}%</div>
+                      <div className={`text-xl font-bold ${isDark ? "text-[#B4ED7C]" : "text-[#5A9B29]"}`}>{attempt.score}%</div>
                       <div className={`text-xs mt-1 ${isDark ? "text-zinc-500" : "text-slate-400"}`}>
                         {attempt.correct_count}/{attempt.total_questions} correct
                       </div>
@@ -697,7 +696,7 @@ export default function StatisticsClient() {
                   </div>
                 ))
               ) : (
-                <div className={`text-center py-10 rounded-xl border border-dashed ${isDark ? "border-white/10 text-zinc-500" : "border-slate-300 text-slate-500"}`}>
+                <div className={`text-center py-10 rounded-xl border border-dashed ${isDark ? "border-white/10 text-zinc-500" : "border-[#1A322D]/30 text-slate-500"}`}>
                   <Target className="w-10 h-10 mx-auto mb-3 opacity-50" />
                   <p>No quiz attempts yet. Complete a quiz to start your growth timeline.</p>
                 </div>
