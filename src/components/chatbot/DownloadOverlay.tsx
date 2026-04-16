@@ -1,29 +1,38 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useTheme } from "@/context/theme";
 
 export default function DownloadOverlay() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const [modalOpen, setModalOpen] = React.useState<boolean>(() => {
+  // 1. Safe default states for the server build
+  const [mounted, setMounted] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [minimized, setMinimized] = useState(false);
+
+  // 2. ONLY check localStorage once the browser has loaded the component
+  useEffect(() => {
+    setMounted(true); // Tells Next.js we are safely in the browser
+    
     try {
       const s = localStorage.getItem("download_chatbot_state");
-      // if user previously dismissed fully, don't open modal
-      return s !== "closed" && s !== "minimized" ? true : false;
+      if (s === "closed") {
+        setModalOpen(false);
+        setMinimized(false);
+      } else if (s === "minimized") {
+        setModalOpen(false);
+        setMinimized(true);
+      } else {
+        // If no state or unrecognized, open the modal
+        setModalOpen(true);
+        setMinimized(false);
+      }
     } catch {
-      return true;
+      setModalOpen(true);
     }
-  });
-
-  const [minimized, setMinimized] = React.useState<boolean>(() => {
-    try {
-      return localStorage.getItem("download_chatbot_state") === "minimized";
-    } catch {
-      return false;
-    }
-  });
+  }, []);
 
   const closeToAd = () => {
     setModalOpen(false);
@@ -49,13 +58,8 @@ export default function DownloadOverlay() {
     } catch {}
   };
 
-  // If modalOpen is true, ensure minimized false
-  React.useEffect(() => {
-    if (modalOpen) setMinimized(false);
-  }, [modalOpen]);
-
   // simple keyboard shortcut: Esc closes to ad
-  React.useEffect(() => {
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeToAd();
     };
@@ -64,6 +68,9 @@ export default function DownloadOverlay() {
   }, []);
 
   const downloadUrl = "https://github.com/SinnerSaints/barangai-overlay-app/releases/download/v0.2.0-beta/BarangAI.exe";
+
+  // Prevent hydration UI glitches by rendering nothing on the server
+  if (!mounted) return null;
 
   return (
     <>
