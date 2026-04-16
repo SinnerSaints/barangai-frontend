@@ -2,8 +2,13 @@
 
 import { HiSearch } from "react-icons/hi";
 import { useState } from "react";
-import ProfileMenu from "@/components/ui/ProfileMenu";
+import dynamic from "next/dynamic";
 import { useTheme } from "@/context/theme";
+
+// Safely import the ProfileMenu only on the client side to prevent Vercel SSR crashes
+const ProfileMenu = dynamic(() => import("@/components/ui/ProfileMenu"), {
+  ssr: false,
+});
 
 type Props = {
   hideSearch?: boolean;
