@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import TopBar from "@/components/dashboard/TopBar";
-import chatBgLight from "@/assets/img/chatBotBg-white.png";
-import chatBgDark from "@/assets/img/chatBotBg-black.png";
 import { useTheme } from "@/context/theme";
 import { fetchAssessmentStatistics } from "@/lib/preAssessment";
 import {
@@ -160,9 +158,6 @@ export default function StatisticsClient() {
   if (loading) {
     return (
       <main className={`flex-1 p-6 relative overflow-hidden ${isDark ? "text-white" : "text-black"}`}>
-        <div className="absolute inset-0 z-0">
-          <Image src={isDark ? chatBgDark : chatBgLight} alt="background" fill className="object-cover opacity-95" />
-        </div>
         <div className="max-w-7xl mx-auto relative z-10">
           <TopBar />
           <div className="flex items-center justify-center h-[calc(100vh-200px)]">
@@ -176,9 +171,6 @@ export default function StatisticsClient() {
   if (error) {
     return (
       <main className={`flex-1 p-6 relative overflow-hidden ${isDark ? "text-white" : "text-black"}`}>
-        <div className="absolute inset-0 z-0">
-          <Image src={isDark ? chatBgDark : chatBgLight} alt="background" fill className="object-cover opacity-95" />
-        </div>
         <div className="max-w-7xl mx-auto relative z-10">
           <TopBar />
           <div className={`mt-6 flex items-start gap-3 p-4 rounded-2xl border text-sm ${isDark ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-red-50 border-red-200 text-red-600"}`}>
@@ -197,18 +189,8 @@ export default function StatisticsClient() {
       }`}
     >
       {/* Background */}
-      <div className="absolute inset-0 z-0">
-        <Image
-          src={isDark ? chatBgDark : chatBgLight}
-          alt="background"
-          fill
-          className="object-cover opacity-95"
-        />
-      </div>
-
       <div className="max-w-7xl mx-auto relative z-10">
         <TopBar />
-
         <h1 className="text-3xl font-bold mt-6">Training Progress & Impact</h1>
         <p
           className={`mt-1 max-w-3xl ${isDark ? "text-zinc-400" : "text-gray-600"}`}

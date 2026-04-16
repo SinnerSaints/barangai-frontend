@@ -4,13 +4,10 @@ import React from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import AssessmentGate from "@/components/assessment/AssessmentGate";
 import CoursesClient from "@/components/courses/CoursesClient";
-import { useTheme } from "@/context/theme";
 
 export default function CoursesPage() {
   const [collapsed, setCollapsed] = React.useState(false);
   const [query, setQuery] = React.useState("");
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
 
   // initialize collapsed state from localStorage on mount
   React.useEffect(() => {

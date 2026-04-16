@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useParams } from "next/navigation";
 import { ArrowLeft, BookOpen, Calendar, ExternalLink } from "lucide-react";
 import AssessmentGate from "@/components/assessment/AssessmentGate";
@@ -11,8 +10,6 @@ import TopBar from "@/components/dashboard/TopBar";
 import { API_BASE_URL } from "@/lib/auth";
 import { LessonRecord, mapLesson, readCachedLessons, writeCachedLessons } from "@/lib/lessonProgress";
 import { useTheme } from "@/context/theme";
-import chatBgLight from "@/assets/img/chatBotBg-white.png";
-import chatBgDark from "@/assets/img/chatBotBg-black.png";
 
 export default function CourseDetailPage() {
   const params = useParams<{ id: string }>();
@@ -133,14 +130,6 @@ export default function CourseDetailPage() {
     <div className="min-h-screen flex">
       <Sidebar collapsed={collapsed} onToggle={toggle} />
       <main className={`flex-1 p-8 lg:p-12 relative overflow-hidden ${isDark ? "text-white" : "text-black"}`}>
-        <div className="absolute inset-0 z-0">
-          <Image
-            src={isDark ? chatBgDark : chatBgLight}
-            alt="background"
-            fill
-            className="object-cover opacity-95"
-          />
-        </div>
 
         <div className="relative z-10 flex h-full min-h-screen flex-col">
           <AssessmentGate

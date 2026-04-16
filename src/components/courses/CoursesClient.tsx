@@ -8,8 +8,6 @@ import TopBar from "@/components/dashboard/TopBar";
 import { API_BASE_URL } from "@/lib/auth";
 import { LessonRecord, mapLesson, readCachedLessons, writeCachedLessons } from "@/lib/lessonProgress";
 import { useTheme } from "@/context/theme";
-import chatBgLight from "@/assets/img/chatBotBg-white.png";
-import chatBgDark from "@/assets/img/chatBotBg-black.png";
 import React from "react";
 
 export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; searchQuery?: string }) {
@@ -83,20 +81,8 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
         isDark ? "text-white" : "text-black"
       }`}
     >
-      {/* ✅ BACKGROUND */}
-      <div className="absolute inset-0 z-0">
-        <Image
-          src={isDark ? chatBgDark : chatBgLight}
-          alt="background"
-          fill
-          className="object-cover opacity-95"
-        />
-      </div>
-
       <div className="relative z-10">
-
         <TopBar searchValue={query} onSearch={setQuery} />
-
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 mt-6">
           <div>
@@ -105,7 +91,6 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
               Continue learning where you left off.
             </p>
           </div>
-
           <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="hidden md:block">
               <select value={activeTab} onChange={(e) => setActiveTab(e.target.value as any)} className="p-2 rounded border">
