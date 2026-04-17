@@ -157,14 +157,20 @@ function ChatSection() {
 
     try {
       const baseUrl = OPENAI_API_KEY.replace(/\/$/, "");
+
+      const payload = {
+        message: userMessage,
+        user_id: localStorage.getItem("user_id"),
+        session_uuid: sessionUUID, // Send existing ID or null for new chat
+        user_name: userName,
+        preferred_language: "Default",
+        screenshot: null
+      }
+
       const res = await fetch(`${baseUrl}/chat/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMessage,
-          user_id: 1,
-          session_uuid: sessionUUID, // Send existing ID or null for new chat
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
