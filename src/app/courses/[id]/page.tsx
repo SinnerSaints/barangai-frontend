@@ -211,7 +211,7 @@ export default function CourseDetailPage() {
 
             <div className="mt-6 mb-6 flex items-center justify-between gap-4">
               <Link
-                href="/courses"
+                href="/topic"
                 className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
                   isDark
                     ? "bg-white/10 text-white"
@@ -219,7 +219,7 @@ export default function CourseDetailPage() {
                 }`}
               >
                 <ArrowLeft size={16} />
-                Back to Courses
+                Back to Lessons
               </Link>
 
               <div className="flex gap-3">

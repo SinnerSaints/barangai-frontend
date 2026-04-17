@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { BookOpen, MoreVertical, Calendar, BarChart3 } from "lucide-react";
+import { BookOpen, ChevronRight } from "lucide-react";
 import TopBar from "@/components/dashboard/TopBar";
 import { API_BASE_URL } from "@/lib/auth";
 import { LessonRecord, mapLesson, readCachedLessons, writeCachedLessons } from "@/lib/lessonProgress";
@@ -107,9 +107,36 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
     });
   }, [lessons, query, searchQuery]);
 
-  const enrolledLessons = useMemo(() => filtered.filter((lesson) => !lesson.completed), [filtered]);
-  const completedLessons = useMemo(() => filtered.filter((lesson) => lesson.completed), [filtered]);
-  const visibleLessons = activeTab === "completed" ? completedLessons : enrolledLessons;
+  const groupedByTopic = useMemo(() => {
+    const grouped = new Map<string, LessonRecord[]>();
+    for (const lesson of filtered) {
+      const topic = (lesson.topic || "General").trim() || "General";
+      const existing = grouped.get(topic) ?? [];
+      existing.push(lesson);
+      grouped.set(topic, existing);
+    }
+    return Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [filtered]);
+
+  const topicGroups = useMemo(
+    () =>
+      groupedByTopic.map(([topic, topicLessons]) => {
+        const completedCount = topicLessons.filter((lesson) => lesson.completed).length;
+        const isTopicCompleted = topicLessons.length > 0 && completedCount === topicLessons.length;
+        return { topic, topicLessons, completedCount, isTopicCompleted };
+      }),
+    [groupedByTopic]
+  );
+
+  const enrolledTopicGroups = useMemo(
+    () => topicGroups.filter((group) => !group.isTopicCompleted),
+    [topicGroups]
+  );
+  const completedTopicGroups = useMemo(
+    () => topicGroups.filter((group) => group.isTopicCompleted),
+    [topicGroups]
+  );
+  const visibleTopicGroups = activeTab === "completed" ? completedTopicGroups : enrolledTopicGroups;
 
   if (loading) return (
     <div className="flex items-center justify-center h-full p-10 text-brandGreen font-medium">
@@ -144,7 +171,7 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
                   : `text-zinc-500 hover:text-zinc-700 ${isDark ? 'hover:text-zinc-300' : ''}`
               }`}
             >
-              Enrolled ({enrolledLessons.length})
+              Enrolled ({enrolledTopicGroups.length})
             </button>
             <button 
               onClick={() => setActiveTab('completed')} 
@@ -154,165 +181,80 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
                   : `text-zinc-500 hover:text-zinc-700 ${isDark ? 'hover:text-zinc-300' : ''}`
               }`}
             >
-              Completed ({completedLessons.length})
+              Completed ({completedTopicGroups.length})
             </button>
           </div>
         </div>
 
-        {/* Courses Grid */}
-        {visibleLessons.length === 0 ? (
+        {/* Topic List */}
+        {visibleTopicGroups.length === 0 ? (
           <div className={`p-12 text-center rounded-xl border border-dashed ${isDark ? 'border-zinc-800 text-zinc-500' : 'border-zinc-200 text-zinc-500'}`}>
             {activeTab === "completed"
               ? "No completed courses yet. Finish a quiz to mark a lesson as complete."
               : "No courses found. Try a different search or refresh the page."}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {visibleLessons.map((lesson) => (
-              <article 
-                key={lesson.id} 
-                className={`flex flex-col p-5 rounded-2xl transition-all duration-200 border hover:-translate-y-1 ${
-                  isDark 
-                    ? 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700 hover:shadow-lg hover:shadow-black/20' 
-                    : 'bg-white border-zinc-200 hover:border-zinc-300 hover:shadow-xl hover:shadow-zinc-200/40'
-                }`}
-              >
-                {/* Topic banner */}
-                <div className="relative -mx-5 -mt-5 mb-4 overflow-hidden rounded-t-2xl h-2.5">
-                  <div
-                    className={`h-full w-full bg-gradient-to-r ${getTopicColors(lesson.topic).banner}`}
-                  />
-                </div>
+          <div className="space-y-4">
+            {visibleTopicGroups.map(({ topic, topicLessons, completedCount }) => {
+              const topicProgress = topicLessons.length
+                ? Math.round(topicLessons.reduce((sum, lesson) => sum + lesson.progress, 0) / topicLessons.length)
+                : 0;
+              const completedInTopic = completedCount;
 
-                {/* Card Top: Icon & Topic */}
-                <div className="flex justify-between items-start mb-4">
-                  <div className={`p-2.5 rounded-xl ${isDark ? 'bg-zinc-800 text-accentGreen' : 'bg-green-50 text-brandGreen'}`}>
-                    <BookOpen size={20} strokeWidth={2.5} />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`px-2.5 py-1 text-[10px] uppercase tracking-wider font-bold rounded-md ${getTopicColors(lesson.topic).pill}`}
-                    >
-                      {lesson.topic}
-                    </span>
-                    <button className={`p-1 rounded-md transition-colors ${isDark ? 'text-zinc-500 hover:bg-zinc-800' : 'text-zinc-400 hover:bg-zinc-100'}`}>
-                      <MoreVertical size={16} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Card Body: Title */}
-                <div className="flex-1 mb-4">
-                  <h3 className={`font-semibold text-lg leading-tight line-clamp-2 mb-1.5 ${isDark ? 'text-zinc-100' : 'text-zinc-900'}`}>
-                    {lesson.title}
-                  </h3>
-                  <div className="mt-1 text-xs font-medium">
-                    {lesson.completed ? (
-                      <span className={isDark ? "text-accentGreen" : "text-emerald-600"}>
-                        Completed
-                      </span>
-                    ) : lesson.progress > 0 ? (
-                      <span className={isDark ? "text-zinc-400" : "text-zinc-500"}>
-                        In progress
-                      </span>
-                    ) : (
-                      <span className={isDark ? "text-zinc-500" : "text-zinc-400"}>
-                        Not started
-                      </span>
-                    )}
-                    {typeof lesson.score === "number" && (
-                      <span className={`ml-2 ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                        • Last score{" "}
-                        <span className={isDark ? "text-accentGreen" : "text-emerald-600"}>
-                          {lesson.score}%
-                        </span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Metadata: Lessons & Quizzes */}
-                <div className={`flex items-center justify-between text-xs font-medium mb-4 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <BookOpen size={14} className={isDark ? "text-accentGreen" : "text-brandGreen"} />
-                      <span>{lesson.total_lessons} Lessons</span>
+              return (
+                <section
+                  key={topic}
+                  className={`overflow-hidden rounded-2xl border ${isDark ? "border-zinc-800 bg-zinc-900/40" : "border-zinc-200 bg-white"}`}
+                >
+                  <div className={`h-1.5 w-full bg-gradient-to-r ${getTopicColors(topic).banner}`} />
+                  <div className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left ${isDark ? "hover:bg-zinc-800/50" : "hover:bg-zinc-50"} rounded-2xl`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`p-2 rounded-lg ${isDark ? "bg-zinc-800 text-accentGreen" : "bg-green-50 text-brandGreen"}`}>
+                        <BookOpen size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-sm md:text-base font-semibold truncate">{topic}</h3>
+                        <p className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                          {topicLessons.length} lesson{topicLessons.length > 1 ? "s" : ""} • {completedInTopic}/{topicLessons.length} completed • {topicProgress}% progress
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <BarChart3 size={14} className={isDark ? "text-accentGreen" : "text-brandGreen"} />
-                      <span>{lesson.total_quizzes} Quizzes</span>
-                    </div>
-                  </div>
-                  <div className={`hidden sm:flex items-center gap-1.5 ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
-                    <Calendar size={12} />
-                    <span>
-                      {new Date(lesson.created_at).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Progress & Actions */}
-                <div className="mt-auto space-y-3">
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className={`text-xs font-medium ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Progress</span>
-                      <span className={`text-xs font-bold ${isDark ? 'text-accentGreen' : 'text-brandGreen'}`}>
-                        {lesson.progress}%
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="w-20">
+                        <div className={`h-1.5 w-full rounded-full overflow-hidden ${isDark ? "bg-zinc-800" : "bg-zinc-200"}`}>
+                          <div
+                            className={`h-full rounded-full ${isDark ? "bg-accentGreen" : "bg-brandGreen"}`}
+                            style={{ width: `${topicProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className={`text-[11px] font-semibold ${isDark ? "text-zinc-300" : "text-zinc-600"}`}>
+                        {topicProgress}%
                       </span>
-                    </div>
-                    <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
-                      <div 
-                        className={`h-full rounded-full ${isDark ? 'bg-accentGreen' : 'bg-brandGreen'}`}
-                        style={{ width: `${lesson.progress}%` }} 
-                      />
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1">
-                    <div className={`flex items-center gap-1.5 text-[11px] ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
-                      <Calendar size={11} />
-                      <span>
-                        {new Date(lesson.created_at).toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </span>
-                    </div>
-
-                    <div className="flex gap-2">
-                      {lesson.total_quizzes > 0 && (
-                        <Link
-                          href={`/courses/${lesson.id}#quizzes`}
-                          className={`px-3 py-1 text-xs font-semibold rounded-full border ${
-                            isDark
-                              ? "border-accentGreen/60 text-accentGreen hover:bg-accentGreen/10"
-                              : "border-brandGreen/50 text-brandGreen hover:bg-brandGreen/10"
-                          } transition-colors`}
-                        >
-                          Quizzes
-                        </Link>
-                      )}
+                  <div className={`border-t px-4 py-3 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                        Open this course page to browse all lessons.
+                      </p>
                       <Link
-                        href={`/courses/${lesson.id}`}
-                        className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-colors ${
-                          isDark 
-                            ? "bg-accentGreen text-zinc-900 hover:bg-accentGreen/90" 
+                        href={`/courses/topic/${encodeURIComponent(topic)}`}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          isDark
+                            ? "bg-accentGreen text-zinc-900 hover:bg-accentGreen/90"
                             : "bg-brandGreen text-white hover:bg-brandGreen/90"
                         }`}
                       >
-                        Open
+                        View Lessons
+                        <ChevronRight size={14} />
                       </Link>
                     </div>
                   </div>
-                </div>
-
-              </article>
-            ))}
+                </section>
+              );
+            })}
           </div>
         )}
       </div>
