@@ -6,6 +6,7 @@ import {
   FolderOpen,
   MessageSquarePlus,
   Search as SearchIcon,
+  Trash2,
 } from "lucide-react";
 import TopBar from "@/components/dashboard/TopBar";
 import chatBgLight from "@/assets/img/chatBotBg-white.png";
@@ -65,40 +66,67 @@ function ChatSection() {
   const isNearBottomRef = useRef(true);
   const scrollIdleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [isWaitingForAI, setIsWaitingForAI] = useState(false);
+
   // 1. LOAD HISTORY & USER ON MOUNT
   useEffect(() => {
+    const userId = localStorage.getItem("user_id");
     const storedEmail = localStorage.getItem("user_email");
     const firstName = localStorage.getItem("first_name");
+
     if (storedEmail) {
       const emailName = storedEmail.split("@")[0];
       setUserName((firstName ?? "").trim() || emailName);
     }
 
-    const savedHistory = localStorage.getItem("barangai_chat_history");
-    if (savedHistory) {
-      try {
-        const parsed = JSON.parse(savedHistory);
-        setHistory(parsed);
-        
-        // Auto-load the most recent chat if it exists
-        if (parsed.length > 0) {
-          const latest = parsed[0];
-          setMessages(latest.messages);
-          setSessionUUID(latest.id);
-          setHasStartedChat(true);
-        }
-      } catch (e) {
-        console.error("Failed to parse history", e);
+    const fetchHistoryFromDB = async () => {
+      if (!userId) {
+        setEntered(true); 
+        return;
       }
-    }
-    
-    setEntered(true);
-  }, []);
+      
+      try {
+        const baseUrl = OPENAI_API_KEY.replace(/\/$/, "");
+        const res = await fetch(`${baseUrl}/sessions/?user_id=${userId}`);
+        
+        if (!res.ok) throw new Error("Backend not responding");
+
+        const sessionList = await res.json();
+        
+        if (Array.isArray(sessionList) && sessionList.length > 0) {
+          setHistory(sessionList.map((s: any) => ({
+            id: s.session_uuid,
+            title: s.dialogue_state?.current_topic || "Previous Chat",
+            messages: [], 
+            lastUpdated: s.created_at
+          })));
+
+          // Auto-load latest session messages
+          const latestUUID = sessionList[0].session_uuid;
+          const msgRes = await fetch(`${baseUrl}/sessions/${latestUUID}/messages`);
+          const messageHistory = await msgRes.json();
+          
+          if (Array.isArray(messageHistory)) {
+            setMessages(messageHistory);
+            setSessionUUID(latestUUID);
+            setHasStartedChat(true);
+          }
+        }
+      } catch (error) {
+        console.error("History fetch failed:", error);
+      } finally {
+        // makes the "opacity-0" go away
+        setEntered(true); 
+      }
+    };
+
+    fetchHistoryFromDB();
+  }, []); // Empty dependency array so it only runs once on mount
 
   // 2. SAVE HISTORY WHENEVER MESSAGES CHANGE
   useEffect(() => {
     if (sessionUUID && messages.length > 0) {
-      const updatedHistory = history.filter(s => s.id !== sessionUUID);
+      const otherSessions = history.filter(s => s.id !== sessionUUID);
       const currentSession = history.find(s => s.id === sessionUUID) || {
         id: sessionUUID,
         title: messages[0].content.substring(0, 30),
@@ -112,11 +140,14 @@ function ChatSection() {
         lastUpdated: new Date().toISOString()
       };
 
-      const finalHistory = [newSessionEntry, ...updatedHistory];
+      // This reorders the list: Current session goes to index 0
+      const finalHistory = [newSessionEntry, ...otherSessions];
       setHistory(finalHistory);
+      // You can keep the localStorage sync if you want a fallback, 
+      // but the DB is now your primary source.
       localStorage.setItem("barangai_chat_history", JSON.stringify(finalHistory));
     }
-  }, [messages]);
+  }, [messages, sessionUUID]);
 
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
@@ -154,6 +185,9 @@ function ChatSection() {
     setMessages((prev) => [...prev, newMsg]);
     setMessage("");
     setLoading(true);
+    
+    // NEW: Trigger the typing indicator
+    setIsWaitingForAI(true); 
 
     try {
       const baseUrl = OPENAI_API_KEY.replace(/\/$/, "");
@@ -161,7 +195,7 @@ function ChatSection() {
       const payload = {
         message: userMessage,
         user_id: localStorage.getItem("user_id"),
-        session_uuid: sessionUUID, // Send existing ID or null for new chat
+        session_uuid: sessionUUID,
         user_name: userName,
         preferred_language: "Default",
         screenshot: null
@@ -174,6 +208,9 @@ function ChatSection() {
       });
 
       const data = await res.json();
+
+      // Turn off the typing indicator because we got the data
+      setIsWaitingForAI(false);
 
       // If this was a new chat, the backend should return a session_uuid
       if (!sessionUUID && data.session_uuid) {
@@ -223,10 +260,48 @@ function ChatSection() {
     setMessage("");
   };
 
-  const loadChat = (session: ChatSession) => {
-    setSessionUUID(session.id);
-    setMessages(session.messages);
-    setHasStartedChat(true);
+  const loadChat = async (session: ChatSession) => {
+    setLoading(true);
+    setMessages([]); 
+    
+    try {
+      const baseUrl = OPENAI_API_KEY.replace(/\/$/, "");
+      const res = await fetch(`${baseUrl}/sessions/${session.id}/messages`);
+      const messageHistory = await res.json();
+      
+      if (Array.isArray(messageHistory)) {
+        setMessages(messageHistory);
+        setSessionUUID(session.id);
+        setHasStartedChat(true);
+
+        setTimeout(() => scrollToBottom("auto"), 50); 
+      }
+    } catch (e) {
+      console.error("Error loading chat:", e);
+    } finally {
+      setLoading(false);
+      setIsWaitingForAI(false);
+    }
+  };
+
+  const deleteSession = async (e: React.MouseEvent, idToDelete: string) => {
+    e.stopPropagation();
+
+    setHistory((prev) => prev.filter((session) => session.id !== idToDelete));
+
+    if (sessionUUID === idToDelete) {
+      startNewChat();
+    }
+
+    try {
+      const baseUrl = OPENAI_API_KEY.replace(/\/$/, "");
+      await fetch(`${baseUrl}/sessions/${idToDelete}`, {
+        method: "DELETE",
+      });
+    } catch (error) {
+      console.error("Failed to delete session:", error);
+      // Optional: You could fetch history again here if the delete failed to revert the UI
+    }
   };
 
   const filteredHistory = history.filter(item => 
@@ -246,136 +321,186 @@ function ChatSection() {
   const newChatButtonClass = isDark ? "flex items-center gap-3 text-sm rounded-xl px-3 py-2.5 transition bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25" : "flex items-center gap-3 text-sm rounded-xl px-3 py-2.5 transition bg-emerald-50 text-emerald-700 hover:bg-emerald-100";
 
   return (
-    <section className={`${entered ? "chat-enter" : "opacity-0"} mt-4`}>
-      {!isChatMode ? (
-        <div className="flex flex-col items-center gap-6 mt-8">
-          <div className="w-12 h-12 md:w-14 md:h-14">
-            <Image src={circle} alt="circle" width={56} height={56} className="object-cover" />
+    <>
+      {/* Loading screen if mo open sa chatbot para dili black screen ra makit, ilisi lang pre if batian ka, plain ra pud kaayo hahaha */}
+        {!entered && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center animate-pulse">
+            <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4 shadow-lg"></div>
+            <p className={`text-sm font-semibold tracking-wide ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
+              Starting BarangAI...
+            </p>
           </div>
-          <h1 className={headingClass}>Good morning, {userName}!<br />Can I help you with anything?</h1>
-          <p className={paraClass}>choose a prompt below or<br />write your own to start using the chatbot.</p>
-          <div className="flex flex-wrap justify-center gap-4 mt-2">
-            {["Make a report for my current progress", "Show me my completed tutorials", "Suggest next steps", "Recommend community projects"].map((text, i) => (
-              <button key={text} className={btnClass} style={{ animationDelay: `${i * 80}ms` }} onClick={() => sendMessage(text)}>{text}</button>
-            ))}
-          </div>
-          <div className="w-full max-w-[680px]">
-            <div className={inputWrap}>
-              <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder="How may I help you today?" className={inputClass} />
-              <button onClick={() => sendMessage()} disabled={loading || !message.trim()} className={sendButtonClass}>↗</button>
+      )}
+      <section className={`${entered ? "chat-enter" : "opacity-0"} mt-4`}>
+        {!isChatMode ? (
+          <div className="flex flex-col items-center gap-6 mt-8">
+            <div className="w-12 h-12 md:w-14 md:h-14">
+              <Image src={circle} alt="circle" width={56} height={56} className="object-cover" />
             </div>
-          </div>
-          {/* History List for Mobile/Initial view */}
-          {history.length > 0 && (
-             <div className="mt-4 w-full max-w-[680px]">
-               <p className="text-xs font-semibold uppercase opacity-50 mb-2">Recent chats</p>
-               <div className="flex gap-2 overflow-x-auto pb-2">
-                 {history.slice(0,3).map(chat => (
-                   <button key={chat.id} onClick={() => loadChat(chat)} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs whitespace-nowrap">{chat.title}</button>
-                 ))}
-               </div>
-             </div>
-          )}
-        </div>
-      ) : (
-        <div className="h-[calc(100vh-132px)] grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] gap-4 lg:gap-6 mt-2">
-          <aside className={`hidden lg:flex flex-col pr-4 border-r ${isDark ? "border-white/10" : "border-black/15"}`}>
-            <button onClick={startNewChat} className={newChatButtonClass}>
-              <MessageSquarePlus size={18} /> New chat
-            </button>
-            <button className={`mt-1 flex items-center gap-3 text-sm rounded-xl px-3 py-2.5 transition ${isDark ? "hover:bg-white/10" : "hover:bg-black/5"}`}>
-              <FolderOpen size={18} /> Uploads
-            </button>
-            <div className="mt-5 relative">
-              <SearchIcon size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-400" : "text-gray-500"}`} />
-              <input 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search Chats" 
-                className={`w-full rounded-xl border pl-9 pr-3 py-2 text-sm outline-none ${isDark ? "bg-white/5 border-white/15 text-gray-200" : "bg-white/85 border-black/20 text-gray-800"}`} 
-              />
-            </div>
-            <div className="mt-4 space-y-1 overflow-y-auto pr-1 chat-scroll-area">
-              {filteredHistory.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => loadChat(item)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm truncate transition ${
-                    sessionUUID === item.id
-                      ? isDark ? "bg-white/10 text-white" : "bg-[#e6ebf5] text-[#1c2b57]"
-                      : isDark ? "text-gray-300 hover:bg-white/5" : "text-gray-700 hover:bg-black/5"
-                  }`}
-                >
-                  {item.title}
-                </button>
+            <h1 className={headingClass}>Good morning, {userName}!<br />Can I help you with anything?</h1>
+            <p className={paraClass}>choose a prompt below or<br />write your own to start using the chatbot.</p>
+            <div className="flex flex-wrap justify-center gap-4 mt-2">
+              {["Make a report for my current progress", "Show me my completed tutorials", "Suggest next steps", "Recommend community projects"].map((text, i) => (
+                <button key={text} className={btnClass} style={{ animationDelay: `${i * 80}ms` }} onClick={() => sendMessage(text)}>{text}</button>
               ))}
             </div>
-          </aside>
-
-          <main className="relative min-h-0 flex flex-col">
-            <div ref={scrollContainerRef} onScroll={handleScroll} className="chat-scroll-area flex-1 overflow-y-auto px-2 md:px-5 pb-28 scroll-smooth">
-              <div className="max-w-3xl mx-auto w-full pt-3 space-y-5">
-                {messages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fadeIn`}>
-                    <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm shadow ${msg.role === "user" ? (isDark ? "bg-[#608247] text-white" : "bg-[#9DE16A] text-black") : (isDark ? "bg-white/10 text-gray-200" : "bg-gray-200 text-black")}`}>
-                      <ReactMarkdown
-                        components={{
-                          // Style standard paragraphs
-                          p: ({ node, ...props }) => <p className="mb-2 leading-relaxed last:mb-0" {...props} />,
-                          
-                          // Style bullet and numbered lists
-                          ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-2 space-y-1" {...props} />,
-                          ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-2 space-y-1" {...props} />,
-                          
-                          // Style headings
-                          h1: ({ node, ...props }) => <h1 className="text-xl font-bold mb-2 mt-4" {...props} />,
-                          h2: ({ node, ...props }) => <h2 className="text-lg font-bold mb-2 mt-3" {...props} />,
-                          h3: ({ node, ...props }) => <h3 className="text-base font-bold mb-2 mt-2" {...props} />,
-                          
-                          // Style links
-                          a: ({ node, ...props }) => <a className="underline underline-offset-2 hover:opacity-80 transition-opacity" target="_blank" rel="noopener noreferrer" {...props} />,
-                          
-                          // Style bold text
-                          strong: ({ node, ...props }) => <strong className="font-bold" {...props} />,
-
-                          // Style code (handles both inline `code` and multi-line ```code blocks```)
-                          code: ({ node, inline, className, children, ...props }: any) => {
-                            return inline ? (
-                              <code className="bg-black/10 dark:bg-white/10 rounded px-1.5 py-0.5 text-sm font-mono" {...props}>
-                                {children}
-                              </code>
-                            ) : (
-                              <div className="bg-black/20 dark:bg-black/40 rounded-lg p-3 my-2 overflow-x-auto text-sm font-mono border border-black/10 dark:border-white/10">
-                                <code {...props}>{children}</code>
-                              </div>
-                            );
-                          }
-                        }}
-                      >
-                        {msg.content}
-                      </ReactMarkdown>
-                      {msg.typing && <span className="ml-1 animate-pulse">|</span>}
-                      <div className="text-[10px] opacity-60 mt-1">{new Date(msg.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
-                    </div>
-                  </div>
-                ))}
-                {loading && <div className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>BarangAI is typing...</div>}
-                <div ref={messagesEndRef} />
+            <div className="w-full max-w-[680px]">
+              <div className={inputWrap}>
+                <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder="How may I help you today?" className={inputClass} />
+                <button onClick={() => sendMessage()} disabled={loading || !message.trim()} className={sendButtonClass}>↗</button>
               </div>
             </div>
-
-            <div className="absolute bottom-3 left-0 right-0 px-2 md:px-5">
-              <div className="max-w-3xl mx-auto">
-                <div className={inputWrap}>
-                  <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder="How may I help you today?" className={inputClass} />
-                  <button onClick={() => sendMessage()} disabled={loading || !message.trim()} className={sendButtonClass}>↗</button>
+            {/* History List for Mobile/Initial view */}
+            {history.length > 0 && (
+              <div className="mt-4 w-full max-w-[680px]">
+                <p className="text-xs font-semibold uppercase opacity-50 mb-2">Recent chats</p>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {history.slice(0,3).map(chat => (
+                    <button key={chat.id} onClick={() => loadChat(chat)} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs whitespace-nowrap">{chat.title}</button>
+                  ))}
                 </div>
               </div>
-            </div>
-          </main>
-        </div>
-      )}
-    </section>
+            )}
+          </div>
+        ) : (
+          <div className="h-[calc(100vh-132px)] grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] gap-4 lg:gap-6 mt-2">
+            <aside className={`hidden lg:flex flex-col pr-4 border-r h-full max-h-[calc(100vh-160px)] ${isDark ? "border-white/10" : "border-black/15"}`}>
+              <button onClick={startNewChat} className={newChatButtonClass}>
+                <MessageSquarePlus size={18} /> New chat
+              </button>
+              <button className={`mt-1 flex items-center gap-3 text-sm rounded-xl px-3 py-2.5 transition ${isDark ? "hover:bg-white/10" : "hover:bg-black/5"}`}>
+                <FolderOpen size={18} /> Uploads
+              </button>
+              <div className="mt-5 relative">
+                <SearchIcon size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-400" : "text-gray-500"}`} />
+                <input 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search Chats" 
+                  className={`w-full rounded-xl border pl-9 pr-3 py-2 text-sm outline-none ${isDark ? "bg-white/5 border-white/15 text-gray-200" : "bg-white/85 border-black/20 text-gray-800"}`} 
+                />
+              </div>
+              <div className="mt-4 flex-1 overflow-y-auto chat-scroll-area pr-2">
+                {filteredHistory
+                  .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
+                  .map((item) => {
+                    const isActive = sessionUUID === item.id;
+
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => loadChat(item)}
+                        /* Add 'group relative' to the parent button */
+                        className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group relative flex items-center justify-between ${
+                          isActive 
+                            ? (isDark 
+                                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-lg" 
+                                : "bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-sm")
+                            : (isDark 
+                                ? "text-gray-400 hover:bg-white/5 border border-transparent" 
+                                : "text-gray-600 hover:bg-black/5 border border-transparent")
+                        }`}
+                        >
+                        {/* Title Container - added pr-8 so text doesn't overlap the trash icon */}
+                        <div className="flex items-center gap-2 truncate pr-8">
+                          {isActive && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0 animate-pulse" />}
+                          <span className="truncate">{item.title}</span>
+                        </div>
+
+                        {/* The Delete Button - Absolutely positioned to the right */}
+                        <div
+                          onClick={(e) => deleteSession(e, item.id)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-red-500/20 text-red-400 hover:text-red-500 transition-all z-10"
+                          title="Delete Chat"
+                        >
+                          <Trash2 size={16} />
+                        </div>
+                      </button>
+                    );
+                })}
+              </div>
+            </aside>
+
+            <main className="relative flex flex-col h-full min-h-0 overflow-hidden">
+              <div ref={scrollContainerRef} className="chat-scroll-area flex-1 overflow-y-auto px-2 md:px-5 pb-40">
+                <div className="max-w-3xl mx-auto w-full pt-3 space-y-5">
+                  {/* LOADING SCREEN WHEN OPENING A CHAT SESSION */}
+                  {loading && !isWaitingForAI && messages.length === 0 && (
+                    <div className="flex flex-col items-center justify-center mt-32 opacity-80 animate-fadeIn">
+                      <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3 shadow-sm"></div>
+                      <div className={`text-sm font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                        Loading conversation...
+                      </div>
+                    </div>
+                  )}
+
+                  {messages.map((msg, i) => (
+                    <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fadeIn`}>
+                      <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm shadow ${msg.role === "user" ? (isDark ? "bg-[#608247] text-white" : "bg-[#9DE16A] text-black") : (isDark ? "bg-white/10 text-gray-200" : "bg-gray-200 text-black")}`}>
+                        <ReactMarkdown
+                          components={{
+                            // Style standard paragraphs
+                            p: ({ node, ...props }) => <p className="mb-2 leading-relaxed last:mb-0" {...props} />,
+                            
+                            // Style bullet and numbered lists
+                            ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-2 space-y-1" {...props} />,
+                            ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-2 space-y-1" {...props} />,
+                            
+                            // Style headings
+                            h1: ({ node, ...props }) => <h1 className="text-xl font-bold mb-2 mt-4" {...props} />,
+                            h2: ({ node, ...props }) => <h2 className="text-lg font-bold mb-2 mt-3" {...props} />,
+                            h3: ({ node, ...props }) => <h3 className="text-base font-bold mb-2 mt-2" {...props} />,
+                            
+                            // Style links
+                            a: ({ node, ...props }) => <a className="underline underline-offset-2 hover:opacity-80 transition-opacity" target="_blank" rel="noopener noreferrer" {...props} />,
+                            
+                            // Style bold text
+                            strong: ({ node, ...props }) => <strong className="font-bold" {...props} />,
+
+                            // Style code (handles both inline `code` and multi-line ```code blocks```)
+                            code: ({ node, inline, className, children, ...props }: any) => {
+                              return inline ? (
+                                <code className="bg-black/10 dark:bg-white/10 rounded px-1.5 py-0.5 text-sm font-mono" {...props}>
+                                  {children}
+                                </code>
+                              ) : (
+                                <div className="bg-black/20 dark:bg-black/40 rounded-lg p-3 my-2 overflow-x-auto text-sm font-mono border border-black/10 dark:border-white/10">
+                                  <code {...props}>{children}</code>
+                                </div>
+                              );
+                            }
+                          }}
+                        >
+                          {msg.content}
+                        </ReactMarkdown>
+                        {msg.typing && <span className="ml-1 animate-pulse">|</span>}
+                        <div className="text-[10px] opacity-60 mt-1">{new Date(msg.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {isWaitingForAI && (
+                    <div className={`text-sm animate-pulse ml-4 ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
+                      BarangAI is typing...
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} className="h-20 w-full" />
+                </div>
+              </div>
+              
+              {/* INPUT BOX */}
+              <div className="absolute bottom-3 left-0 right-0 px-2 md:px-5 bg-transparent">
+                <div className="max-w-3xl mx-auto">
+                  <div className={inputWrap}>
+                    <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder="How may I help you today?" className={inputClass} />
+                    <button onClick={() => sendMessage()} disabled={loading || !message.trim()} className={sendButtonClass}>↗</button>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+        )}
+      </section>
+    </>
   );
 }
 
