@@ -312,7 +312,42 @@ function ChatSection() {
                 {messages.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fadeIn`}>
                     <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm shadow ${msg.role === "user" ? (isDark ? "bg-[#608247] text-white" : "bg-[#9DE16A] text-black") : (isDark ? "bg-white/10 text-gray-200" : "bg-gray-200 text-black")}`}>
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown
+                        components={{
+                          // Style standard paragraphs
+                          p: ({ node, ...props }) => <p className="mb-2 leading-relaxed last:mb-0" {...props} />,
+                          
+                          // Style bullet and numbered lists
+                          ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-2 space-y-1" {...props} />,
+                          ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-2 space-y-1" {...props} />,
+                          
+                          // Style headings
+                          h1: ({ node, ...props }) => <h1 className="text-xl font-bold mb-2 mt-4" {...props} />,
+                          h2: ({ node, ...props }) => <h2 className="text-lg font-bold mb-2 mt-3" {...props} />,
+                          h3: ({ node, ...props }) => <h3 className="text-base font-bold mb-2 mt-2" {...props} />,
+                          
+                          // Style links
+                          a: ({ node, ...props }) => <a className="underline underline-offset-2 hover:opacity-80 transition-opacity" target="_blank" rel="noopener noreferrer" {...props} />,
+                          
+                          // Style bold text
+                          strong: ({ node, ...props }) => <strong className="font-bold" {...props} />,
+
+                          // Style code (handles both inline `code` and multi-line ```code blocks```)
+                          code: ({ node, inline, className, children, ...props }: any) => {
+                            return inline ? (
+                              <code className="bg-black/10 dark:bg-white/10 rounded px-1.5 py-0.5 text-sm font-mono" {...props}>
+                                {children}
+                              </code>
+                            ) : (
+                              <div className="bg-black/20 dark:bg-black/40 rounded-lg p-3 my-2 overflow-x-auto text-sm font-mono border border-black/10 dark:border-white/10">
+                                <code {...props}>{children}</code>
+                              </div>
+                            );
+                          }
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
                       {msg.typing && <span className="ml-1 animate-pulse">|</span>}
                       <div className="text-[10px] opacity-60 mt-1">{new Date(msg.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
                     </div>
