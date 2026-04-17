@@ -17,7 +17,7 @@ export default function ChatFeature() {
         </h1>
 
         {/* Chatbot */}
-        <div className="mt-6 mb-6 w-full max-w-3xl overflow-hidden rounded-3xl md:mt-8">
+        <div className="mt-6 mb-[200px] w-full max-w-3xl overflow-hidden rounded-3xl md:mt-8">
           <FeaturedChatBot />
         </div>
       </div>

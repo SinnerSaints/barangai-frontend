@@ -10,6 +10,7 @@ import {
   Circle,
   ClipboardList,
   Clock3,
+  Dot,
   Loader2,
   Send,
 } from "lucide-react";
@@ -49,6 +50,13 @@ interface QuizResult {
 }
 
 type ChoiceKey = "A" | "B" | "C" | "D";
+type QuizCompletionFilter = "all" | "pending" | "completed";
+type QuizProgressState = {
+  completed: boolean;
+  score?: number | null;
+  attempts: number;
+  last_accessed?: string;
+};
 
 function mapAssessment(item: any, idx: number): Assessment {
   const questions = Array.isArray(item?.questions) ? item.questions : [];
@@ -90,6 +98,8 @@ export default function QuizPage() {
   const [answers, setAnswers] = useState<Record<number, ChoiceKey>>({});
   const [result, setResult] = useState<QuizResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [progressByQuizId, setProgressByQuizId] = useState<Record<number, QuizProgressState>>({});
+  const [quizCompletionFilter, setQuizCompletionFilter] = useState<QuizCompletionFilter>("all");
 
   const baseUrl = API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
 
@@ -113,7 +123,46 @@ export default function QuizPage() {
 
         const data = await res.json();
         const items = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
-        setAssessments(items.map(mapAssessment));
+        const mappedAssessments: Assessment[] = items.map((item: any, idx: number) =>
+          mapAssessment(item, idx)
+        );
+        setAssessments(mappedAssessments);
+
+        const progressEntries = await Promise.all(
+          mappedAssessments.map(async (assessment) => {
+            try {
+              const progressRes = await fetch(`${baseUrl}quizzes/${assessment.id}/progress/`, {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+              });
+
+              if (!progressRes.ok) return null;
+
+              const progress = await progressRes.json();
+              return [
+                assessment.id,
+                {
+                  completed: Boolean(progress?.completed),
+                  score: typeof progress?.score === "number" ? progress.score : null,
+                  attempts: Number(progress?.attempts ?? 0),
+                  last_accessed: progress?.last_accessed,
+                } satisfies QuizProgressState,
+              ] as const;
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        const nextProgress: Record<number, QuizProgressState> = {};
+        for (const entry of progressEntries) {
+          if (!entry) continue;
+          const [quizId, progress] = entry;
+          nextProgress[quizId] = progress;
+        }
+        setProgressByQuizId(nextProgress);
       } catch (err) {
         console.error(err);
         setQuizError("Failed to load quizzes. Check your token or backend.");
@@ -149,6 +198,19 @@ export default function QuizPage() {
     return matchingAssessments.filter((assessment) => assessment.topic === selectedLessonTopic);
   }, [matchingAssessments, selectedLessonTopic]);
 
+  const displayedAssessments = useMemo(() => {
+    if (quizCompletionFilter === "all") return filteredAssessments;
+    return filteredAssessments.filter((assessment) => {
+      const isCompleted = Boolean(progressByQuizId[assessment.id]?.completed);
+      return quizCompletionFilter === "completed" ? isCompleted : !isCompleted;
+    });
+  }, [filteredAssessments, progressByQuizId, quizCompletionFilter]);
+
+  const completedCount = useMemo(
+    () => filteredAssessments.filter((assessment) => Boolean(progressByQuizId[assessment.id]?.completed)).length,
+    [filteredAssessments, progressByQuizId]
+  );
+
   useEffect(() => {
     if (!selectedLessonTopic) return;
     const exists = lessonOptions.some((l) => l.topic === selectedLessonTopic);
@@ -159,6 +221,9 @@ export default function QuizPage() {
     if (!selectedQuiz) return 0;
     return selectedQuiz.questions.filter((question) => Boolean(answers[question.id])).length;
   }, [answers, selectedQuiz]);
+  const completionPercent = selectedQuiz?.total_questions
+    ? Math.round((answeredCount / selectedQuiz.total_questions) * 100)
+    : 0;
 
   const currentQuestion = selectedQuiz?.questions[currentQuestionIndex] ?? null;
 
@@ -171,6 +236,7 @@ export default function QuizPage() {
 
   const selectLesson = (topic: string | null) => {
     setSelectedLessonTopic(topic);
+    setQuizCompletionFilter("all");
     setSelectedQuiz(null);
     resetQuizState();
   };
@@ -258,6 +324,15 @@ export default function QuizPage() {
         correct_count: data.correct_count ?? null,
         score_percent: scorePercent,
       });
+      setProgressByQuizId((current) => ({
+        ...current,
+        [selectedQuiz.id]: {
+          completed: true,
+          score: scorePercent,
+          attempts: Number(data.attempts ?? current[selectedQuiz.id]?.attempts ?? 0),
+          last_accessed: current[selectedQuiz.id]?.last_accessed,
+        },
+      }));
     } catch (err) {
       console.error(err);
       setResult({
@@ -272,58 +347,46 @@ export default function QuizPage() {
   };
 
   return (
-    <div className="h-screen flex overflow-hidden">
-      <main className={`flex-1 flex flex-col p-4 lg:p-6 relative overflow-hidden ${isDark ? "text-white" : "text-black"}`}>
+    <div className="h-screen overflow-hidden">
+      <main className={`relative flex h-full flex-col p-4 lg:p-5 ${isDark ? "text-zinc-100" : "text-zinc-900"}`}>
         <div className="absolute inset-0 z-0">
-          <Image
-            src={isDark ? chatBgDark : chatBgLight}
-            alt="background"
-            fill
-            className="object-cover opacity-95"
-          />
+          <Image src={isDark ? chatBgDark : chatBgLight} alt="background" fill className="object-cover opacity-60" />
         </div>
 
-        <div className="relative z-10 flex flex-col h-full min-h-0">
+        <div className="relative z-10 flex h-full min-h-0 flex-col">
           <TopBar searchValue={query} onSearch={setQuery} />
 
-          <div className="mt-4 flex-1 min-h-0 flex flex-col gap-4 xl:grid xl:grid-cols-[340px_minmax(0,1fr)]">
-            {/* LEFT SIDEBAR: ASSESSMENTS LIST */}
-            <section className={`flex flex-col min-h-0 rounded-[2rem] border p-5 shadow-xl ${isDark ? "border-white/10 bg-zinc-950/85" : "border-gray-200 bg-white/90"}`}>
-              <div className="flex items-start justify-between gap-4 shrink-0">
-                <div>
-                  <h1 className="text-xl font-bold">Assessments</h1>
-                  <p className={`mt-1 text-xs ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
-                    Pick a lesson first, then a quiz.
-                  </p>
-                </div>
-                <div className={`rounded-full px-3 py-1.5 text-xs font-semibold bg-textGreen/60 text-white ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
-                  {selectedLessonTopic ? `${filteredAssessments.length} quizzes` : `${lessonOptions.length} lessons`}
-                </div>
+          <div className="mt-3 grid min-h-0 flex-1 gap-3 xl:grid-cols-[300px_minmax(0,1fr)]">
+            <section className={`flex min-h-0 flex-col rounded-xl border p-3 ${isDark ? "border-zinc-800 bg-zinc-900/80" : "border-zinc-200 bg-white/90"}`}>
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-base font-semibold">Quizzes</h2>
+                <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"}`}>
+                  {selectedLessonTopic ? `${displayedAssessments.length}/${filteredAssessments.length}` : `${lessonOptions.length} lessons`}
+                </span>
               </div>
 
               {quizError && (
-                <div className={`mt-4 flex items-start gap-2 rounded-xl px-3 py-2 text-xs shrink-0 ${isDark ? "bg-red-500/10 text-red-200" : "bg-red-50 text-red-700"}`}>
-                  <AlertCircle size={16} className="shrink-0" />
+                <div className={`mb-2 flex items-start gap-2 rounded-lg px-2.5 py-2 text-xs ${isDark ? "bg-red-500/10 text-red-200" : "bg-red-50 text-red-700"}`}>
+                  <AlertCircle size={14} className="mt-0.5 shrink-0" />
                   <span>{quizError}</span>
                 </div>
               )}
 
-              <div className="mt-5 flex-1 overflow-y-auto pr-2 space-y-4 scrollbar-thin">
+              <div className="min-h-0 flex-1 overflow-y-auto space-y-3 pr-1">
                 <div>
-                  <div className={`mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>
+                  <p className={`mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
                     Lessons
-                  </div>
-
+                  </p>
                   {loading ? (
-                    <div className={`rounded-xl border px-3 py-4 text-xs ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
+                    <div className={`rounded-lg border px-3 py-3 text-xs ${isDark ? "border-zinc-800 bg-zinc-900 text-zinc-300" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
                       Loading lessons...
                     </div>
                   ) : lessonOptions.length === 0 ? (
-                    <div className={`rounded-xl border px-3 py-4 text-xs ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
+                    <div className={`rounded-lg border px-3 py-3 text-xs ${isDark ? "border-zinc-800 bg-zinc-900 text-zinc-300" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
                       No lessons found.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
                       {lessonOptions.map((lesson) => {
                         const active = selectedLessonTopic === lesson.topic;
                         return (
@@ -331,22 +394,21 @@ export default function QuizPage() {
                             key={lesson.topic}
                             type="button"
                             onClick={() => selectLesson(lesson.topic)}
-                            className={`rounded-xl border p-3 text-left transition ${
+                            className={`w-full rounded-lg border px-3 py-2 text-left text-xs font-semibold transition ${
                               active
                                 ? isDark
-                                  ? "border-accentGreen bg-[#123428] text-white"
-                                  : "border-brandGreen bg-brandGreen text-white"
+                                  ? "border-accentGreen/60 bg-accentGreen/15"
+                                  : "border-brandGreen bg-brandGreen/10"
                                 : isDark
-                                  ? "border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10"
-                                  : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                                  ? "border-zinc-800 bg-zinc-900 hover:bg-zinc-800/80"
+                                  : "border-zinc-200 bg-white hover:bg-zinc-50"
                             }`}
-                            title={`${lesson.quizCount} quiz(es)`}
                           >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="text-xs font-semibold leading-tight">{lesson.topic}</div>
-                              <div className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${active ? (isDark ? "bg-accentGreen/20 text-white" : "bg-brandGreen/20 text-white") : isDark ? "bg-white/10 text-zinc-200" : "bg-gray-100 text-gray-700"}`}>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate">{lesson.topic}</span>
+                              <span className={`rounded-md px-1.5 py-0.5 text-[10px] ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"}`}>
                                 {lesson.quizCount}
-                              </div>
+                              </span>
                             </div>
                           </button>
                         );
@@ -355,145 +417,140 @@ export default function QuizPage() {
                   )}
                 </div>
 
-                {selectedLessonTopic && (
-                  loading ? null : filteredAssessments.length === 0 ? (
-                    <div className={`rounded-xl border px-3 py-4 text-xs ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
-                      No quizzes found.
+                {selectedLessonTopic && !loading && (
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <p className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
+                        Quiz List
+                      </p>
+                      <span className={`text-[11px] ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>{completedCount} completed</span>
                     </div>
-                  ) : (
-                    <div className="pb-4">
-                      <div className={`mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>
-                        Quizzes
-                      </div>
-                      <div className="space-y-2">
-                        {filteredAssessments.map((assessment) => {
-                          const isSelected = selectedQuiz?.id === assessment.id;
 
+                    <div className="mb-2 grid grid-cols-3 gap-1">
+                      {[
+                        { key: "all", label: "All" },
+                        { key: "pending", label: "Pending" },
+                        { key: "completed", label: "Done" },
+                      ].map((filter) => (
+                        <button
+                          key={filter.key}
+                          type="button"
+                          onClick={() => setQuizCompletionFilter(filter.key as QuizCompletionFilter)}
+                          className={`rounded-md px-2 py-1 text-[11px] font-semibold ${
+                            quizCompletionFilter === filter.key
+                              ? isDark
+                                ? "bg-accentGreen text-black"
+                                : "bg-brandGreen text-white"
+                              : isDark
+                                ? "bg-zinc-800 text-zinc-300"
+                                : "bg-zinc-100 text-zinc-600"
+                          }`}
+                        >
+                          {filter.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {displayedAssessments.length === 0 ? (
+                      <div className={`rounded-lg border px-3 py-3 text-xs ${isDark ? "border-zinc-800 bg-zinc-900 text-zinc-300" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
+                        No quizzes for this filter.
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {displayedAssessments.map((assessment) => {
+                          const isSelected = selectedQuiz?.id === assessment.id;
+                          const isCompleted = Boolean(progressByQuizId[assessment.id]?.completed);
                           return (
                             <button
                               key={assessment.id}
                               type="button"
                               onClick={() => openQuiz(assessment)}
-                              className={`w-full rounded-2xl border p-4 text-left transition ${
+                              className={`w-full rounded-lg border px-3 py-2 text-left transition ${
                                 isSelected
                                   ? isDark
-                                    ? "border-accentGreen bg-[#123428]"
-                                    : "border-brandGreen bg-brandGreen/5"
+                                    ? "border-accentGreen/60 bg-accentGreen/15"
+                                    : "border-brandGreen bg-brandGreen/10"
                                   : isDark
-                                    ? "border-white/10 bg-white/5 hover:bg-white/10"
-                                    : "border-gray-200 bg-white hover:bg-gray-50"
+                                    ? "border-zinc-800 bg-zinc-900 hover:bg-zinc-800/80"
+                                    : "border-zinc-200 bg-white hover:bg-zinc-50"
                               }`}
                             >
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <div className="text-sm font-semibold">{assessment.title}</div>
-                                  <div className={`mt-0.5 text-xs ${isDark ? "text-zinc-400" : "text-gray-500"}`}>{assessment.topic}</div>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold">{assessment.title}</p>
+                                  <p className={`mt-0.5 text-[11px] ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                                    {assessment.total_questions} questions • {assessment.time_limit ? `${assessment.time_limit}m` : "No limit"}
+                                  </p>
                                 </div>
-                                <div className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${assessment.status.toLowerCase().includes("draft") ? "bg-yellow-100 text-yellow-800" : isDark ? "bg-white/10 text-zinc-200" : "bg-blue-100 text-blue-800"}`}>
-                                  {assessment.status}
-                                </div>
-                              </div>
-
-                              <div className={`mt-3 flex items-center gap-4 text-xs ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
-                                <div className="flex items-center gap-1.5">
-                                  <ClipboardList size={14} className="text-[#9DE16A]" />
-                                  <span>{assessment.total_questions} Qs</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <Clock3 size={14} className="text-[#9DE16A]" />
-                                  <span>{assessment.time_limit ? `${assessment.time_limit}m` : "No limit"}</span>
-                                </div>
-                              </div>
-
-                              <div className={`mt-3 inline-flex items-center gap-1.5 text-xs font-semibold ${isDark ? "text-accentGreen" : "text-brandGreen"}`}>
-                                {loadingQuizId === assessment.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                                {loadingQuizId === assessment.id ? "Opening..." : isSelected ? "Open now" : "Open quiz"}
+                                {loadingQuizId === assessment.id ? (
+                                  <Loader2 size={14} className="mt-0.5 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 size={14} className={`mt-0.5 ${isCompleted ? "text-[#9DE16A]" : isDark ? "text-zinc-500" : "text-zinc-300"}`} />
+                                )}
                               </div>
                             </button>
                           );
                         })}
                       </div>
-                    </div>
-                  )
+                    )}
+                  </div>
                 )}
               </div>
             </section>
 
-            {/* RIGHT SIDEBAR: QUIZ AREA */}
-            <section className={`flex flex-col min-h-0 rounded-[2rem] border shadow-xl ${isDark ? "border-white/10 bg-zinc-950/90" : "border-gray-200 bg-white/90"}`}>
+            <section className={`min-h-0 rounded-xl border ${isDark ? "border-zinc-800 bg-zinc-900/80" : "border-zinc-200 bg-white/90"}`}>
               {!selectedQuiz ? (
                 <div className="flex h-full items-center justify-center p-8">
-                  <div className="max-w-sm text-center">
-                    <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${isDark ? "bg-white/10" : "bg-textGreen/10"}`}>
-                      <ClipboardList size={24} className={isDark ? "text-accentGreen" : "text-textGreen"} />
-                    </div>
-                    <h2 className="text-xl font-bold">Choose a quiz to begin</h2>
-                    <p className={`mt-2 text-sm ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
-                      {selectedLessonTopic ? `Pick a quiz under "${selectedLessonTopic}" to start.` : "Pick a lesson on the left to unlock quizzes."}
-                    </p>
+                  <div className="text-center">
+                    <ClipboardList size={24} className={`mx-auto ${isDark ? "text-accentGreen" : "text-brandGreen"}`} />
+                    <p className={`mt-3 text-sm ${isDark ? "text-zinc-300" : "text-zinc-600"}`}>Select a quiz from the left panel.</p>
                   </div>
                 </div>
               ) : (
-                <div className="flex h-full flex-col min-h-0">
-                  {/* HEADER */}
-                  <div className={`shrink-0 border-b px-5 py-4 lg:px-6 ${isDark ? "border-white/10" : "border-gray-200"}`}>
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
-                        <div className={`mb-2 inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
-                          {selectedQuiz.topic}
-                        </div>
-                        <h2 className="text-2xl font-bold">{selectedQuiz.title}</h2>
-                        <p className={`mt-1 text-xs ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
-                          {answeredCount} of {selectedQuiz.total_questions} questions answered
+                <div className="flex h-full min-h-0 flex-col">
+                  <div className={`border-b px-4 py-3 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className={`text-[11px] font-semibold uppercase tracking-wide ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>{selectedQuiz.topic}</p>
+                        <h3 className="truncate text-lg font-bold">{selectedQuiz.title}</h3>
+                        <p className={`mt-0.5 text-xs ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
+                          {answeredCount}/{selectedQuiz.total_questions} answered • {progressByQuizId[selectedQuiz.id]?.completed ? "Completed" : "In progress"}
                         </p>
                       </div>
-
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className={`rounded-xl px-3 py-2 text-center ${isDark ? "bg-white/5" : "bg-gray-50"}`}>
-                          <div className={`text-[10px] uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>Qs</div>
-                          <div className="mt-1 text-lg font-bold">{selectedQuiz.total_questions}</div>
-                        </div>
-                        <div className={`rounded-xl px-3 py-2 text-center ${isDark ? "bg-white/5" : "bg-gray-50"}`}>
-                          <div className={`text-[10px] uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>Ans</div>
-                          <div className="mt-1 text-lg font-bold">{answeredCount}</div>
-                        </div>
-                        <div className={`rounded-xl px-3 py-2 text-center ${isDark ? "bg-white/5" : "bg-gray-50"}`}>
-                          <div className={`text-[10px] uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>Try</div>
-                          <div className="mt-1 text-lg font-bold">{selectedQuiz.total_attempts}</div>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-700"}`}>
+                          Try {progressByQuizId[selectedQuiz.id]?.attempts ?? selectedQuiz.total_attempts}
+                        </span>
+                        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-700"}`}>
+                          {completionPercent}%
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* MAIN QUIZ CONTENT */}
-                  <div className="flex-1 flex min-h-0 flex-col lg:flex-row">
-                    {/* QUESTION NAV SIDEBAR */}
-                    <aside className={`shrink-0 border-b p-4 lg:w-48 lg:border-b-0 lg:border-r lg:overflow-y-auto ${isDark ? "border-white/10" : "border-gray-200"}`}>
-                      <div className={`mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>
-                        Questions
-                      </div>
-                      <div className="grid grid-cols-5 gap-2 lg:grid-cols-3">
+                  <div className="grid min-h-0 flex-1 lg:grid-cols-[140px_minmax(0,1fr)]">
+                    <aside className={`border-b p-3 lg:border-b-0 lg:border-r ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
+                      <div className="grid grid-cols-5 gap-1 lg:grid-cols-3">
                         {selectedQuiz.questions.map((question, index) => {
                           const answered = Boolean(answers[question.id]);
                           const active = index === currentQuestionIndex;
-
                           return (
                             <button
                               key={question.id}
                               type="button"
                               onClick={() => setCurrentQuestionIndex(index)}
-                              className={`flex h-10 items-center justify-center rounded-xl border text-sm font-semibold transition ${
+                              className={`h-8 rounded-md border text-xs font-semibold ${
                                 active
                                   ? isDark
-                                    ? "border-accentGreen bg-[#123428] text-white"
-                                    : "border-brandGreen bg-brandGreen text-white"
+                                    ? "border-accentGreen/70 bg-accentGreen/15"
+                                    : "border-brandGreen bg-brandGreen/10"
                                   : answered
                                     ? isDark
-                                      ? "border-white/10 bg-white/10 text-zinc-100"
-                                      : "border-gray-200 bg-green-50 text-green-700"
+                                      ? "border-zinc-700 bg-zinc-800"
+                                      : "border-zinc-200 bg-green-50 text-green-700"
                                     : isDark
-                                      ? "border-white/10 bg-transparent text-zinc-400"
-                                      : "border-gray-200 bg-transparent text-gray-500"
+                                      ? "border-zinc-800 bg-zinc-900 text-zinc-400"
+                                      : "border-zinc-200 bg-white text-zinc-500"
                               }`}
                             >
                               {index + 1}
@@ -503,126 +560,112 @@ export default function QuizPage() {
                       </div>
                     </aside>
 
-                    {/* QUESTION DISPLAY & FOOTER */}
-                    <div className="flex-1 flex flex-col min-h-0 relative">
-                      {/* SCROLLABLE QUESTION AREA */}
-                      <div className="flex-1 overflow-y-auto px-5 py-5 lg:px-8">
+                    <div className="flex min-h-0 flex-col">
+                      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6">
                         {currentQuestion ? (
-                          <div className="max-w-3xl mx-auto">
-                            <div className={`mb-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ${isDark ? "bg-white/10 text-zinc-300" : "bg-gray-100 text-gray-600"}`}>
-                              {answers[currentQuestion.id] ? <CheckCircle2 size={14} className="text-[#9DE16A]" /> : <Circle size={14} />}
+                          <div className="mx-auto max-w-2xl">
+                            <div className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"}`}>
+                              {answers[currentQuestion.id] ? <CheckCircle2 size={12} className="text-[#9DE16A]" /> : <Circle size={12} />}
                               Question {currentQuestionIndex + 1}
                             </div>
 
-                            <h3 className="text-xl font-bold leading-relaxed">{currentQuestion.question_text}</h3>
+                            <h4 className="mt-3 text-lg font-semibold leading-relaxed">{currentQuestion.question_text}</h4>
 
-                            <div className="mt-6 space-y-3">
+                            <div className="mt-4 space-y-2">
                               {getChoices(currentQuestion).map((choice) => {
                                 const selected = answers[currentQuestion.id] === choice.key;
-
                                 return (
                                   <button
                                     key={choice.key}
                                     type="button"
                                     onClick={() => selectAnswer(currentQuestion.id, choice.key)}
-                                    className={`flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition ${
+                                    className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left ${
                                       selected
                                         ? isDark
-                                          ? "border-accentGreen bg-[#123428]"
-                                          : "border-brandGreen bg-brandGreen/5"
+                                          ? "border-accentGreen/70 bg-accentGreen/15"
+                                          : "border-brandGreen bg-brandGreen/10"
                                         : isDark
-                                          ? "border-white/10 bg-white/5 hover:bg-white/10"
-                                          : "border-gray-200 bg-white hover:bg-gray-50"
+                                          ? "border-zinc-800 bg-zinc-900 hover:bg-zinc-800/80"
+                                          : "border-zinc-200 bg-white hover:bg-zinc-50"
                                     }`}
                                   >
-                                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
+                                    <span className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold ${
                                       selected
                                         ? isDark
                                           ? "border-accentGreen bg-accentGreen text-black"
                                           : "border-brandGreen bg-brandGreen text-white"
                                         : isDark
-                                          ? "border-white/15 text-zinc-400"
-                                          : "border-gray-300 text-gray-500"
+                                          ? "border-zinc-700 text-zinc-400"
+                                          : "border-zinc-300 text-zinc-500"
                                     }`}>
                                       {choice.key}
-                                    </div>
-                                    <div className="flex-1 text-sm leading-snug">{choice.text}</div>
+                                    </span>
+                                    <span className="flex-1 text-sm">{choice.text}</span>
+                                    {selected ? (
+                                      <CheckCircle2 size={15} className="text-[#9DE16A]" />
+                                    ) : (
+                                      <Dot size={18} className={isDark ? "text-zinc-500" : "text-zinc-300"} />
+                                    )}
                                   </button>
                                 );
                               })}
                             </div>
                           </div>
                         ) : (
-                          <div className={`text-sm ${isDark ? "text-zinc-400" : "text-gray-600"}`}>No questions found for this quiz.</div>
+                          <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>No questions found for this quiz.</p>
                         )}
                       </div>
 
-                      {/* PINNED FOOTER CONTROLS */}
-                      <div className={`shrink-0 flex flex-col gap-3 border-t px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-8 ${isDark ? "border-white/10 bg-zinc-950" : "border-gray-200 bg-white"}`}>
-                        <div className={`text-xs ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
-                          Review every question before submitting.
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2.5">
+                      <div className={`flex flex-wrap items-center justify-between gap-2 border-t px-4 py-3 ${isDark ? "border-zinc-800 bg-zinc-900/90" : "border-zinc-200 bg-white/90"}`}>
+                        <p className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>{completionPercent}% complete</p>
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => setCurrentQuestionIndex((index) => Math.max(0, index - 1))}
                             disabled={currentQuestionIndex === 0}
-                            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${isDark ? "bg-white/10 text-white hover:bg-white/20" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                            className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${isDark ? "bg-zinc-800 hover:bg-zinc-700" : "bg-zinc-100 hover:bg-zinc-200"}`}
                           >
-                            <ChevronLeft size={16} />
-                            Previous
+                            <ChevronLeft size={14} />
+                            Prev
                           </button>
-
                           <button
                             type="button"
-                            onClick={() =>
-                              setCurrentQuestionIndex((index) =>
-                                Math.min(selectedQuiz.questions.length - 1, index + 1)
-                              )
-                            }
+                            onClick={() => setCurrentQuestionIndex((index) => Math.min(selectedQuiz.questions.length - 1, index + 1))}
                             disabled={currentQuestionIndex >= selectedQuiz.questions.length - 1}
-                            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${isDark ? "bg-white/10 text-white hover:bg-white/20" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+                            className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${isDark ? "bg-zinc-800 hover:bg-zinc-700" : "bg-zinc-100 hover:bg-zinc-200"}`}
                           >
                             Next
-                            <ChevronRight size={16} />
+                            <ChevronRight size={14} />
                           </button>
-
                           <button
                             type="button"
                             onClick={submitQuiz}
                             disabled={submitting || selectedQuiz.questions.length === 0}
-                            className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                            className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
                               isDark ? "bg-accentGreen text-black hover:bg-[#8CD559]" : "bg-brandGreen text-white hover:bg-brandGreen/90"
                             }`}
                           >
-                            {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                            {submitting ? "Submitting..." : "Submit Quiz"}
+                            {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                            {submitting ? "Submitting..." : "Submit"}
                           </button>
                         </div>
                       </div>
-
-                      {/* RESULT NOTIFICATION (Overlays on bottom if present) */}
-                      {result && (
-                        <div className={`absolute bottom-20 left-6 right-6 lg:left-8 lg:right-8 rounded-2xl border p-4 shadow-2xl ${isDark ? "border-white/10 bg-zinc-900" : "border-gray-200 bg-white"}`}>
-                          <div className="flex items-start gap-3">
-                            <CheckCircle2 className="mt-0.5 text-[#9DE16A]" size={18} />
-                            <div>
-                              <h4 className="text-base font-bold">Submission recorded</h4>
-                              <div className={`mt-1 text-xs leading-relaxed ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
-                                <div>Answered: {result.answered_count} of {result.total_questions}</div>
-                                {typeof result.correct_count === "number" && <div>Correct: {result.correct_count}</div>}
-                                {typeof result.score_percent === "number" && <div>Score: {result.score_percent}%</div>}
-                                {result.submitted_offline && (
-                                  <div className="mt-1 text-yellow-500">Answers captured locally (backend unavailable).</div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
+
+                  {result && (
+                    <div className={`mx-4 mb-4 rounded-lg border px-3 py-2 text-xs ${isDark ? "border-zinc-800 bg-zinc-900" : "border-zinc-200 bg-zinc-50"}`}>
+                      <p className="font-semibold">Submission recorded</p>
+                      <p className={`mt-1 ${isDark ? "text-zinc-300" : "text-zinc-600"}`}>
+                        Answered {result.answered_count}/{result.total_questions}
+                        {typeof result.correct_count === "number" ? ` • Correct ${result.correct_count}` : ""}
+                        {typeof result.score_percent === "number" ? ` • Score ${result.score_percent}%` : ""}
+                      </p>
+                      {result.submitted_offline && (
+                        <p className="mt-1 text-yellow-500">Answers captured locally (backend unavailable).</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </section>
