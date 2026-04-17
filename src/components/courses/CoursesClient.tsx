@@ -60,6 +60,7 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
 
   const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL : `${API_BASE_URL}/`;
   const fetchEndpoint = apiUrl || `${baseUrl}lessons/`;
+  const LESSONS_FETCHED_FLAG_KEY = "lessons_fetched_once";
 
   useEffect(() => {
     const fetchLessons = async () => {
@@ -67,6 +68,7 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
       if (cachedLessons.length > 0) {
         setLessons(cachedLessons);
         setLoading(false);
+        return;
       }
 
       try {
@@ -88,6 +90,7 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
         const mappedLessons = lessonsArray.map((lesson: any, index: number) => mapLesson(lesson, index + 1));
 
         writeCachedLessons(mappedLessons);
+        localStorage.setItem(LESSONS_FETCHED_FLAG_KEY, "true");
         setLessons(mappedLessons);
       } catch (err) {
         console.error(err);
@@ -95,6 +98,13 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
         setLoading(false);
       }
     };
+
+    const hasFetchedOnce = localStorage.getItem(LESSONS_FETCHED_FLAG_KEY) === "true";
+    if (hasFetchedOnce && readCachedLessons().length > 0) {
+      setLessons(readCachedLessons());
+      setLoading(false);
+      return;
+    }
 
     fetchLessons();
   }, [fetchEndpoint]);

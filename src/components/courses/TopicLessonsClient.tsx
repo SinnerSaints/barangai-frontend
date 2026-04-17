@@ -25,13 +25,18 @@ export default function TopicLessonsClient({ topic }: { topic: string }) {
   const [lessons, setLessons] = useState<LessonRecord[]>([]);
 
   const baseUrl = API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
+  const LESSONS_FETCHED_FLAG_KEY = "lessons_fetched_once";
 
   useEffect(() => {
     const fetchLessons = async () => {
       try {
         setLoading(true);
         const cached = readCachedLessons();
-        if (cached.length > 0) setLessons(cached);
+        if (cached.length > 0) {
+          setLessons(cached);
+          setLoading(false);
+          return;
+        }
 
         const token = localStorage.getItem("access_token");
         const response = await fetch(`${baseUrl}lessons/`, {
@@ -46,6 +51,7 @@ export default function TopicLessonsClient({ topic }: { topic: string }) {
         const items = Array.isArray(data) ? data : data.results || [];
         const mapped = items.map((item: any, idx: number) => mapLesson(item, idx + 1));
         writeCachedLessons(mapped);
+        localStorage.setItem(LESSONS_FETCHED_FLAG_KEY, "true");
         setLessons(mapped);
       } catch (error) {
         console.error(error);
@@ -53,6 +59,13 @@ export default function TopicLessonsClient({ topic }: { topic: string }) {
         setLoading(false);
       }
     };
+
+    const hasFetchedOnce = localStorage.getItem(LESSONS_FETCHED_FLAG_KEY) === "true";
+    if (hasFetchedOnce && readCachedLessons().length > 0) {
+      setLessons(readCachedLessons());
+      setLoading(false);
+      return;
+    }
 
     fetchLessons();
   }, [baseUrl]);

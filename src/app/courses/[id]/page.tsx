@@ -60,6 +60,7 @@ export default function CourseDetailPage() {
         if (cachedLesson) {
           setLesson(cachedLesson);
           setLoading(false);
+          return;
         }
 
         const token = localStorage.getItem("access_token");
@@ -152,6 +153,11 @@ export default function CourseDetailPage() {
     if (!lesson?.created_at) return "";
     return new Date(lesson.created_at).toLocaleDateString();
   }, [lesson?.created_at]);
+  const topicBackHref = useMemo(() => {
+    const topic = (lesson?.topic || "").trim();
+    if (!topic) return "/courses";
+    return `/courses/topic/${encodeURIComponent(topic)}`;
+  }, [lesson?.topic]);
 
   // ✅ FIXED COMPLETE HANDLER (SYNC WITH BACKEND)
   const handleCompleteCourse = async () => {
@@ -211,7 +217,7 @@ export default function CourseDetailPage() {
 
             <div className="mt-6 mb-6 flex items-center justify-between gap-4">
               <Link
-                href="/topic"
+                href={topicBackHref}
                 className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
                   isDark
                     ? "bg-white/10 text-white"
