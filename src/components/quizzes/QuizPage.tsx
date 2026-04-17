@@ -145,7 +145,6 @@ export default function QuizPage() {
   }, [matchingAssessments]);
 
   const filteredAssessments = useMemo(() => {
-    // Quizzes remain hidden until the user picks a lesson tile.
     if (!selectedLessonTopic) return [];
     return matchingAssessments.filter((assessment) => assessment.topic === selectedLessonTopic);
   }, [matchingAssessments, selectedLessonTopic]);
@@ -273,8 +272,8 @@ export default function QuizPage() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      <main className={`flex-1 p-6 lg:p-10 relative overflow-hidden ${isDark ? "text-white" : "text-black"}`}>
+    <div className="h-screen flex overflow-hidden">
+      <main className={`flex-1 flex flex-col p-4 lg:p-6 relative overflow-hidden ${isDark ? "text-white" : "text-black"}`}>
         <div className="absolute inset-0 z-0">
           <Image
             src={isDark ? chatBgDark : chatBgLight}
@@ -284,46 +283,47 @@ export default function QuizPage() {
           />
         </div>
 
-        <div className="relative z-10">
+        <div className="relative z-10 flex flex-col h-full min-h-0">
           <TopBar searchValue={query} onSearch={setQuery} />
 
-          <div className="mt-6 flex flex-col gap-6 xl:grid xl:grid-cols-[380px_minmax(0,1fr)]">
-            <section className={`rounded-[2rem] border p-6 shadow-xl ${isDark ? "border-white/10 bg-zinc-950/85" : "border-gray-200 bg-white/90"}`}>
-              <div className="flex items-start justify-between gap-4">
+          <div className="mt-4 flex-1 min-h-0 flex flex-col gap-4 xl:grid xl:grid-cols-[340px_minmax(0,1fr)]">
+            {/* LEFT SIDEBAR: ASSESSMENTS LIST */}
+            <section className={`flex flex-col min-h-0 rounded-[2rem] border p-5 shadow-xl ${isDark ? "border-white/10 bg-zinc-950/85" : "border-gray-200 bg-white/90"}`}>
+              <div className="flex items-start justify-between gap-4 shrink-0">
                 <div>
-                  <h1 className="text-2xl font-bold">Assessments</h1>
-                  <p className={`mt-2 text-sm ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
-                    Pick a lesson first, then choose a quiz to start.
+                  <h1 className="text-xl font-bold">Assessments</h1>
+                  <p className={`mt-1 text-xs ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
+                    Pick a lesson first, then a quiz.
                   </p>
                 </div>
-                <div className={`rounded-full px-4 py-2 text-sm font-semibold bg-textGreen/60 text-white ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
+                <div className={`rounded-full px-3 py-1.5 text-xs font-semibold bg-textGreen/60 text-white ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
                   {selectedLessonTopic ? `${filteredAssessments.length} quizzes` : `${lessonOptions.length} lessons`}
                 </div>
               </div>
 
               {quizError && (
-                <div className={`mt-5 flex items-start gap-3 rounded-2xl px-4 py-3 text-sm ${isDark ? "bg-red-500/10 text-red-200" : "bg-red-50 text-red-700"}`}>
-                  <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                <div className={`mt-4 flex items-start gap-2 rounded-xl px-3 py-2 text-xs shrink-0 ${isDark ? "bg-red-500/10 text-red-200" : "bg-red-50 text-red-700"}`}>
+                  <AlertCircle size={16} className="shrink-0" />
                   <span>{quizError}</span>
                 </div>
               )}
 
-              <div className="mt-6 space-y-4">
+              <div className="mt-5 flex-1 overflow-y-auto pr-2 space-y-4 scrollbar-thin">
                 <div>
-                  <div className={`mb-3 text-xs font-semibold uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>
+                  <div className={`mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>
                     Lessons
                   </div>
 
                   {loading ? (
-                    <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
-                      Loading lessons and quizzes...
+                    <div className={`rounded-xl border px-3 py-4 text-xs ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
+                      Loading lessons...
                     </div>
                   ) : lessonOptions.length === 0 ? (
-                    <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
+                    <div className={`rounded-xl border px-3 py-4 text-xs ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
                       No lessons found.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2">
                       {lessonOptions.map((lesson) => {
                         const active = selectedLessonTopic === lesson.topic;
                         return (
@@ -331,7 +331,7 @@ export default function QuizPage() {
                             key={lesson.topic}
                             type="button"
                             onClick={() => selectLesson(lesson.topic)}
-                            className={`rounded-2xl border p-4 text-left transition ${
+                            className={`rounded-xl border p-3 text-left transition ${
                               active
                                 ? isDark
                                   ? "border-accentGreen bg-[#123428] text-white"
@@ -342,9 +342,9 @@ export default function QuizPage() {
                             }`}
                             title={`${lesson.quizCount} quiz(es)`}
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="text-sm font-semibold leading-5">{lesson.topic}</div>
-                              <div className={`rounded-full px-2 py-0.5 text-xs font-bold ${active ? (isDark ? "bg-accentGreen/20 text-white" : "bg-brandGreen/20 text-white") : isDark ? "bg-white/10 text-zinc-200" : "bg-gray-100 text-gray-700"}`}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="text-xs font-semibold leading-tight">{lesson.topic}</div>
+                              <div className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${active ? (isDark ? "bg-accentGreen/20 text-white" : "bg-brandGreen/20 text-white") : isDark ? "bg-white/10 text-zinc-200" : "bg-gray-100 text-gray-700"}`}>
                                 {lesson.quizCount}
                               </div>
                             </div>
@@ -355,119 +355,121 @@ export default function QuizPage() {
                   )}
                 </div>
 
-                {selectedLessonTopic ? (
+                {selectedLessonTopic && (
                   loading ? null : filteredAssessments.length === 0 ? (
-                    <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
-                      No quizzes found for this lesson.
+                    <div className={`rounded-xl border px-3 py-4 text-xs ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
+                      No quizzes found.
                     </div>
                   ) : (
-                    <>
-                      <div className={`mb-1 text-xs font-semibold uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>
+                    <div className="pb-4">
+                      <div className={`mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>
                         Quizzes
                       </div>
-                      {filteredAssessments.map((assessment) => {
-                        const isSelected = selectedQuiz?.id === assessment.id;
+                      <div className="space-y-2">
+                        {filteredAssessments.map((assessment) => {
+                          const isSelected = selectedQuiz?.id === assessment.id;
 
-                        return (
-                          <button
-                            key={assessment.id}
-                            type="button"
-                            onClick={() => openQuiz(assessment)}
-                            className={`w-full rounded-3xl border p-5 text-left transition ${
-                              isSelected
-                                ? isDark
-                                  ? "border-accentGreen bg-[#123428]"
-                                  : "border-brandGreen bg-brandGreen/5"
-                                : isDark
-                                  ? "border-white/10 bg-white/5 hover:bg-white/10"
-                                  : "border-gray-200 bg-white hover:bg-gray-50"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <div>
-                                <div className="text-lg font-semibold">{assessment.title}</div>
-                                <div className={`mt-1 text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>{assessment.topic}</div>
+                          return (
+                            <button
+                              key={assessment.id}
+                              type="button"
+                              onClick={() => openQuiz(assessment)}
+                              className={`w-full rounded-2xl border p-4 text-left transition ${
+                                isSelected
+                                  ? isDark
+                                    ? "border-accentGreen bg-[#123428]"
+                                    : "border-brandGreen bg-brandGreen/5"
+                                  : isDark
+                                    ? "border-white/10 bg-white/5 hover:bg-white/10"
+                                    : "border-gray-200 bg-white hover:bg-gray-50"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-sm font-semibold">{assessment.title}</div>
+                                  <div className={`mt-0.5 text-xs ${isDark ? "text-zinc-400" : "text-gray-500"}`}>{assessment.topic}</div>
+                                </div>
+                                <div className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${assessment.status.toLowerCase().includes("draft") ? "bg-yellow-100 text-yellow-800" : isDark ? "bg-white/10 text-zinc-200" : "bg-blue-100 text-blue-800"}`}>
+                                  {assessment.status}
+                                </div>
                               </div>
-                              <div className={`rounded-full px-3 py-1 text-xs font-semibold ${assessment.status.toLowerCase().includes("draft") ? "bg-yellow-100 text-yellow-800" : isDark ? "bg-white/10 text-zinc-200" : "bg-blue-100 text-blue-800"}`}>
-                                {assessment.status}
-                              </div>
-                            </div>
 
-                            <div className={`mt-4 grid grid-cols-2 gap-3 text-sm ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
-                              <div className="flex items-center gap-2">
-                                <ClipboardList size={16} className="text-[#9DE16A]" />
-                                <span>{assessment.total_questions} Questions</span>
+                              <div className={`mt-3 flex items-center gap-4 text-xs ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
+                                <div className="flex items-center gap-1.5">
+                                  <ClipboardList size={14} className="text-[#9DE16A]" />
+                                  <span>{assessment.total_questions} Qs</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Clock3 size={14} className="text-[#9DE16A]" />
+                                  <span>{assessment.time_limit ? `${assessment.time_limit}m` : "No limit"}</span>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Clock3 size={16} className="text-[#9DE16A]" />
-                                <span>{assessment.time_limit ? `${assessment.time_limit} mins` : "No limit"}</span>
-                              </div>
-                            </div>
 
-                            <div className={`mt-4 inline-flex items-center gap-2 text-sm font-semibold ${isDark ? "text-accentGreen" : "text-brandGreen"}`}>
-                              {loadingQuizId === assessment.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                              {loadingQuizId === assessment.id ? "Opening..." : isSelected ? "Open now" : "Open quiz"}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </>
+                              <div className={`mt-3 inline-flex items-center gap-1.5 text-xs font-semibold ${isDark ? "text-accentGreen" : "text-brandGreen"}`}>
+                                {loadingQuizId === assessment.id ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                                {loadingQuizId === assessment.id ? "Opening..." : isSelected ? "Open now" : "Open quiz"}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   )
-                ) : (
-                  <div className={`rounded-2xl border px-4 py-6 text-sm ${isDark ? "border-white/10 bg-white/5 text-zinc-300" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
-                    Select a lesson tile to see the quizzes.
-                  </div>
                 )}
               </div>
             </section>
 
-            <section className={`min-h-[720px] rounded-[2rem] border shadow-xl ${isDark ? "border-white/10 bg-zinc-950/90" : "border-gray-200 bg-white/90"}`}>
+            {/* RIGHT SIDEBAR: QUIZ AREA */}
+            <section className={`flex flex-col min-h-0 rounded-[2rem] border shadow-xl ${isDark ? "border-white/10 bg-zinc-950/90" : "border-gray-200 bg-white/90"}`}>
               {!selectedQuiz ? (
-                <div className="flex h-full min-h-[720px] items-center justify-center p-10">
-                  <div className="max-w-md text-center">
-                    <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full ${isDark ? "bg-white/10" : "bg-textGreen/10"}`}>
-                      <ClipboardList size={28} className={isDark ? "text-accentGreen" : "text-textGreen"} />
+                <div className="flex h-full items-center justify-center p-8">
+                  <div className="max-w-sm text-center">
+                    <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${isDark ? "bg-white/10" : "bg-textGreen/10"}`}>
+                      <ClipboardList size={24} className={isDark ? "text-accentGreen" : "text-textGreen"} />
                     </div>
-                    <h2 className="text-2xl font-bold">Choose a quiz to begin</h2>
-                    <p className={`mt-3 text-sm leading-7 ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
+                    <h2 className="text-xl font-bold">Choose a quiz to begin</h2>
+                    <p className={`mt-2 text-sm ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
                       {selectedLessonTopic ? `Pick a quiz under "${selectedLessonTopic}" to start.` : "Pick a lesson on the left to unlock quizzes."}
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="flex h-full min-h-[720px] flex-col">
-                  <div className={`border-b px-6 py-6 lg:px-8 ${isDark ? "border-white/10" : "border-gray-200"}`}>
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex h-full flex-col min-h-0">
+                  {/* HEADER */}
+                  <div className={`shrink-0 border-b px-5 py-4 lg:px-6 ${isDark ? "border-white/10" : "border-gray-200"}`}>
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
-                        <div className={`mb-3 inline-flex rounded-full px-3 py-1 text-sm font-semibold ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
+                        <div className={`mb-2 inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
                           {selectedQuiz.topic}
                         </div>
-                        <h2 className="text-3xl font-bold">{selectedQuiz.title}</h2>
-                        <p className={`mt-3 text-sm ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
+                        <h2 className="text-2xl font-bold">{selectedQuiz.title}</h2>
+                        <p className={`mt-1 text-xs ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
                           {answeredCount} of {selectedQuiz.total_questions} questions answered
                         </p>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className={`rounded-2xl px-4 py-3 text-center ${isDark ? "bg-white/5" : "bg-gray-50"}`}>
-                          <div className={`text-xs uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>Questions</div>
-                          <div className="mt-2 text-xl font-bold">{selectedQuiz.total_questions}</div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className={`rounded-xl px-3 py-2 text-center ${isDark ? "bg-white/5" : "bg-gray-50"}`}>
+                          <div className={`text-[10px] uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>Qs</div>
+                          <div className="mt-1 text-lg font-bold">{selectedQuiz.total_questions}</div>
                         </div>
-                        <div className={`rounded-2xl px-4 py-3 text-center ${isDark ? "bg-white/5" : "bg-gray-50"}`}>
-                          <div className={`text-xs uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>Answered</div>
-                          <div className="mt-2 text-xl font-bold">{answeredCount}</div>
+                        <div className={`rounded-xl px-3 py-2 text-center ${isDark ? "bg-white/5" : "bg-gray-50"}`}>
+                          <div className={`text-[10px] uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>Ans</div>
+                          <div className="mt-1 text-lg font-bold">{answeredCount}</div>
                         </div>
-                        <div className={`rounded-2xl px-4 py-3 text-center ${isDark ? "bg-white/5" : "bg-gray-50"}`}>
-                          <div className={`text-xs uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>Attempts</div>
-                          <div className="mt-2 text-xl font-bold">{selectedQuiz.total_attempts}</div>
+                        <div className={`rounded-xl px-3 py-2 text-center ${isDark ? "bg-white/5" : "bg-gray-50"}`}>
+                          <div className={`text-[10px] uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>Try</div>
+                          <div className="mt-1 text-lg font-bold">{selectedQuiz.total_attempts}</div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid min-h-0 flex-1 lg:grid-cols-[220px_minmax(0,1fr)]">
-                    <aside className={`border-b p-5 lg:border-b-0 lg:border-r ${isDark ? "border-white/10" : "border-gray-200"}`}>
-                      <div className={`mb-4 text-xs font-semibold uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>
+                  {/* MAIN QUIZ CONTENT */}
+                  <div className="flex-1 flex min-h-0 flex-col lg:flex-row">
+                    {/* QUESTION NAV SIDEBAR */}
+                    <aside className={`shrink-0 border-b p-4 lg:w-48 lg:border-b-0 lg:border-r lg:overflow-y-auto ${isDark ? "border-white/10" : "border-gray-200"}`}>
+                      <div className={`mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>
                         Questions
                       </div>
                       <div className="grid grid-cols-5 gap-2 lg:grid-cols-3">
@@ -480,7 +482,7 @@ export default function QuizPage() {
                               key={question.id}
                               type="button"
                               onClick={() => setCurrentQuestionIndex(index)}
-                              className={`flex h-12 items-center justify-center rounded-2xl border text-sm font-semibold transition ${
+                              className={`flex h-10 items-center justify-center rounded-xl border text-sm font-semibold transition ${
                                 active
                                   ? isDark
                                     ? "border-accentGreen bg-[#123428] text-white"
@@ -501,18 +503,20 @@ export default function QuizPage() {
                       </div>
                     </aside>
 
-                    <div className="min-h-0 flex flex-col">
-                      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 lg:px-8">
+                    {/* QUESTION DISPLAY & FOOTER */}
+                    <div className="flex-1 flex flex-col min-h-0 relative">
+                      {/* SCROLLABLE QUESTION AREA */}
+                      <div className="flex-1 overflow-y-auto px-5 py-5 lg:px-8">
                         {currentQuestion ? (
-                          <div className="max-w-3xl">
-                            <div className={`mb-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm ${isDark ? "bg-white/10 text-zinc-300" : "bg-gray-100 text-gray-600"}`}>
-                              {answers[currentQuestion.id] ? <CheckCircle2 size={16} className="text-[#9DE16A]" /> : <Circle size={16} />}
+                          <div className="max-w-3xl mx-auto">
+                            <div className={`mb-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ${isDark ? "bg-white/10 text-zinc-300" : "bg-gray-100 text-gray-600"}`}>
+                              {answers[currentQuestion.id] ? <CheckCircle2 size={14} className="text-[#9DE16A]" /> : <Circle size={14} />}
                               Question {currentQuestionIndex + 1}
                             </div>
 
-                            <h3 className="text-2xl font-bold leading-relaxed">{currentQuestion.question_text}</h3>
+                            <h3 className="text-xl font-bold leading-relaxed">{currentQuestion.question_text}</h3>
 
-                            <div className="mt-8 space-y-4">
+                            <div className="mt-6 space-y-3">
                               {getChoices(currentQuestion).map((choice) => {
                                 const selected = answers[currentQuestion.id] === choice.key;
 
@@ -521,7 +525,7 @@ export default function QuizPage() {
                                     key={choice.key}
                                     type="button"
                                     onClick={() => selectAnswer(currentQuestion.id, choice.key)}
-                                    className={`flex w-full items-start gap-4 rounded-3xl border p-5 text-left transition ${
+                                    className={`flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition ${
                                       selected
                                         ? isDark
                                           ? "border-accentGreen bg-[#123428]"
@@ -531,7 +535,7 @@ export default function QuizPage() {
                                           : "border-gray-200 bg-white hover:bg-gray-50"
                                     }`}
                                   >
-                                    <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
+                                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
                                       selected
                                         ? isDark
                                           ? "border-accentGreen bg-accentGreen text-black"
@@ -542,7 +546,7 @@ export default function QuizPage() {
                                     }`}>
                                       {choice.key}
                                     </div>
-                                    <div className="flex-1 text-base leading-7">{choice.text}</div>
+                                    <div className="flex-1 text-sm leading-snug">{choice.text}</div>
                                   </button>
                                 );
                               })}
@@ -553,17 +557,18 @@ export default function QuizPage() {
                         )}
                       </div>
 
-                      <div className={`flex flex-col gap-4 border-t px-6 py-5 lg:flex-row lg:items-center lg:justify-between lg:px-8 ${isDark ? "border-white/10" : "border-gray-200"}`}>
-                        <div className={`text-sm ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
+                      {/* PINNED FOOTER CONTROLS */}
+                      <div className={`shrink-0 flex flex-col gap-3 border-t px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-8 ${isDark ? "border-white/10 bg-zinc-950" : "border-gray-200 bg-white"}`}>
+                        <div className={`text-xs ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
                           Review every question before submitting.
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-2.5">
                           <button
                             type="button"
                             onClick={() => setCurrentQuestionIndex((index) => Math.max(0, index - 1))}
                             disabled={currentQuestionIndex === 0}
-                            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${isDark ? "bg-white/10 text-white" : "bg-gray-100 text-gray-700"}`}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${isDark ? "bg-white/10 text-white hover:bg-white/20" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
                           >
                             <ChevronLeft size={16} />
                             Previous
@@ -577,7 +582,7 @@ export default function QuizPage() {
                               )
                             }
                             disabled={currentQuestionIndex >= selectedQuiz.questions.length - 1}
-                            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${isDark ? "bg-white/10 text-white" : "bg-gray-100 text-gray-700"}`}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${isDark ? "bg-white/10 text-white hover:bg-white/20" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
                           >
                             Next
                             <ChevronRight size={16} />
@@ -587,8 +592,8 @@ export default function QuizPage() {
                             type="button"
                             onClick={submitQuiz}
                             disabled={submitting || selectedQuiz.questions.length === 0}
-                            className={`inline-flex items-center gap-2 rounded-full px-5 py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
-                              isDark ? "bg-accentGreen text-black" : "bg-brandGreen text-white"
+                            className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                              isDark ? "bg-accentGreen text-black hover:bg-[#8CD559]" : "bg-brandGreen text-white hover:bg-brandGreen/90"
                             }`}
                           >
                             {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
@@ -597,18 +602,19 @@ export default function QuizPage() {
                         </div>
                       </div>
 
+                      {/* RESULT NOTIFICATION (Overlays on bottom if present) */}
                       {result && (
-                        <div className={`m-6 mt-0 rounded-3xl border p-5 lg:mx-8 ${isDark ? "border-white/10 bg-white/5" : "border-gray-200 bg-gray-50"}`}>
+                        <div className={`absolute bottom-20 left-6 right-6 lg:left-8 lg:right-8 rounded-2xl border p-4 shadow-2xl ${isDark ? "border-white/10 bg-zinc-900" : "border-gray-200 bg-white"}`}>
                           <div className="flex items-start gap-3">
-                            <CheckCircle2 className="mt-1 text-[#9DE16A]" size={20} />
+                            <CheckCircle2 className="mt-0.5 text-[#9DE16A]" size={18} />
                             <div>
-                              <h4 className="text-lg font-bold">Submission recorded</h4>
-                              <div className={`mt-2 text-sm leading-7 ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
+                              <h4 className="text-base font-bold">Submission recorded</h4>
+                              <div className={`mt-1 text-xs leading-relaxed ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
                                 <div>Answered: {result.answered_count} of {result.total_questions}</div>
                                 {typeof result.correct_count === "number" && <div>Correct: {result.correct_count}</div>}
                                 {typeof result.score_percent === "number" && <div>Score: {result.score_percent}%</div>}
                                 {result.submitted_offline && (
-                                  <div>The frontend captured your answers, but the backend did not confirm the submission.</div>
+                                  <div className="mt-1 text-yellow-500">Answers captured locally (backend unavailable).</div>
                                 )}
                               </div>
                             </div>
