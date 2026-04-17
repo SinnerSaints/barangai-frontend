@@ -186,7 +186,7 @@ function ChatSection() {
     setMessage("");
     setLoading(true);
     
-    // NEW: Trigger the typing indicator
+    // Trigger the typing indicator
     setIsWaitingForAI(true); 
 
     try {
@@ -195,7 +195,7 @@ function ChatSection() {
       const payload = {
         message: userMessage,
         user_id: localStorage.getItem("user_id"),
-        session_uuid: sessionUUID,
+        session_uuid: sessionUUID, 
         user_name: userName,
         preferred_language: "Default",
         screenshot: null
@@ -212,12 +212,30 @@ function ChatSection() {
       // Turn off the typing indicator because we got the data
       setIsWaitingForAI(false);
 
-      // If this was a new chat, the backend should return a session_uuid
-      if (!sessionUUID && data.session_uuid) {
-        setSessionUUID(data.session_uuid);
-      } else if (!sessionUUID) {
-        // Fallback ID if backend doesn't provide one
-        setSessionUUID(crypto.randomUUID());
+      // Securely define the active session ID for this block
+      const activeSessionId = data.session_uuid || sessionUUID || crypto.randomUUID();
+
+      if (!sessionUUID) {
+        setSessionUUID(activeSessionId);
+      }
+
+      // UPDATE THE SIDEBAR TITLE WITH THE AI GENERATED TITLE
+      if (data.dialogue_state?.current_topic) {
+        setHistory((prev) => {
+          // Check if session is already in history
+          const exists = prev.find(s => s.id === activeSessionId);
+          if (exists) {
+            return prev.map(s => s.id === activeSessionId ? { ...s, title: data.dialogue_state.current_topic } : s);
+          } else {
+            // If it's a brand new chat, add it manually so the title doesn't get lost
+            return [{
+              id: activeSessionId,
+              title: data.dialogue_state.current_topic,
+              messages: [],
+              lastUpdated: new Date().toISOString()
+            }, ...prev];
+          }
+        });
       }
 
       const fullText = data.response || "No response received.";
@@ -231,11 +249,17 @@ function ChatSection() {
       for (let i = 0; i < fullText.length; i++) {
         currentText += fullText[i];
         await new Promise((resolve) => setTimeout(resolve, 10));
+        
         setMessages((prev) => {
           const updated = [...prev];
           updated[updated.length - 1].content = currentText;
           return updated;
         });
+
+        // Force scroll down while typing
+        if (isNearBottomRef.current) {
+          scrollToBottom("auto"); 
+        }
       }
 
       setMessages((prev) => {
@@ -243,7 +267,8 @@ function ChatSection() {
         updated[updated.length - 1].typing = false;
         return updated;
       });
-    } catch {
+    } catch (error) {
+      console.error("Chat Error:", error);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: "Error connecting to server.", time: new Date().toISOString() },
