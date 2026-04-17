@@ -49,6 +49,12 @@ interface QuizResult {
 }
 
 type ChoiceKey = "A" | "B" | "C" | "D";
+type QuizProgressState = {
+  completed: boolean;
+  score?: number | null;
+  attempts: number;
+  last_accessed?: string;
+};
 
 function mapAssessment(item: any, idx: number): Assessment {
   const questions = Array.isArray(item?.questions) ? item.questions : [];
@@ -90,6 +96,7 @@ export default function QuizPage() {
   const [answers, setAnswers] = useState<Record<number, ChoiceKey>>({});
   const [result, setResult] = useState<QuizResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [progressByQuizId, setProgressByQuizId] = useState<Record<number, QuizProgressState>>({});
 
   const baseUrl = API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
 
@@ -113,7 +120,46 @@ export default function QuizPage() {
 
         const data = await res.json();
         const items = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
-        setAssessments(items.map(mapAssessment));
+        const mappedAssessments: Assessment[] = items.map((item: any, idx: number) =>
+          mapAssessment(item, idx)
+        );
+        setAssessments(mappedAssessments);
+
+        const progressEntries = await Promise.all(
+          mappedAssessments.map(async (assessment) => {
+            try {
+              const progressRes = await fetch(`${baseUrl}quizzes/${assessment.id}/progress/`, {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+              });
+
+              if (!progressRes.ok) return null;
+
+              const progress = await progressRes.json();
+              return [
+                assessment.id,
+                {
+                  completed: Boolean(progress?.completed),
+                  score: typeof progress?.score === "number" ? progress.score : null,
+                  attempts: Number(progress?.attempts ?? 0),
+                  last_accessed: progress?.last_accessed,
+                } satisfies QuizProgressState,
+              ] as const;
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        const nextProgress: Record<number, QuizProgressState> = {};
+        for (const entry of progressEntries) {
+          if (!entry) continue;
+          const [quizId, progress] = entry;
+          nextProgress[quizId] = progress;
+        }
+        setProgressByQuizId(nextProgress);
       } catch (err) {
         console.error(err);
         setQuizError("Failed to load quizzes. Check your token or backend.");
@@ -258,6 +304,15 @@ export default function QuizPage() {
         correct_count: data.correct_count ?? null,
         score_percent: scorePercent,
       });
+      setProgressByQuizId((current) => ({
+        ...current,
+        [selectedQuiz.id]: {
+          completed: true,
+          score: scorePercent,
+          attempts: Number(data.attempts ?? current[selectedQuiz.id]?.attempts ?? 0),
+          last_accessed: current[selectedQuiz.id]?.last_accessed,
+        },
+      }));
     } catch (err) {
       console.error(err);
       setResult({
@@ -368,6 +423,8 @@ export default function QuizPage() {
                       <div className="space-y-2">
                         {filteredAssessments.map((assessment) => {
                           const isSelected = selectedQuiz?.id === assessment.id;
+                          const progress = progressByQuizId[assessment.id];
+                          const isCompleted = Boolean(progress?.completed);
 
                           return (
                             <button
@@ -389,8 +446,15 @@ export default function QuizPage() {
                                   <div className="text-sm font-semibold">{assessment.title}</div>
                                   <div className={`mt-0.5 text-xs ${isDark ? "text-zinc-400" : "text-gray-500"}`}>{assessment.topic}</div>
                                 </div>
-                                <div className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${assessment.status.toLowerCase().includes("draft") ? "bg-yellow-100 text-yellow-800" : isDark ? "bg-white/10 text-zinc-200" : "bg-blue-100 text-blue-800"}`}>
-                                  {assessment.status}
+                                <div className="flex items-center gap-2">
+                                  {isCompleted && (
+                                    <div className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${isDark ? "bg-accentGreen/20 text-accentGreen" : "bg-green-100 text-green-700"}`}>
+                                      Completed
+                                    </div>
+                                  )}
+                                  <div className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${assessment.status.toLowerCase().includes("draft") ? "bg-yellow-100 text-yellow-800" : isDark ? "bg-white/10 text-zinc-200" : "bg-blue-100 text-blue-800"}`}>
+                                    {assessment.status}
+                                  </div>
                                 </div>
                               </div>
 
@@ -402,6 +466,10 @@ export default function QuizPage() {
                                 <div className="flex items-center gap-1.5">
                                   <Clock3 size={14} className="text-[#9DE16A]" />
                                   <span>{assessment.time_limit ? `${assessment.time_limit}m` : "No limit"}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <CheckCircle2 size={14} className={isCompleted ? "text-[#9DE16A]" : "text-zinc-400"} />
+                                  <span>{isCompleted ? "Completed" : "Not completed"}</span>
                                 </div>
                               </div>
 
@@ -446,6 +514,9 @@ export default function QuizPage() {
                         <p className={`mt-1 text-xs ${isDark ? "text-zinc-400" : "text-gray-600"}`}>
                           {answeredCount} of {selectedQuiz.total_questions} questions answered
                         </p>
+                        <p className={`mt-1 text-xs font-semibold ${progressByQuizId[selectedQuiz.id]?.completed ? (isDark ? "text-accentGreen" : "text-green-700") : isDark ? "text-zinc-400" : "text-gray-600"}`}>
+                          {progressByQuizId[selectedQuiz.id]?.completed ? "Status: Completed" : "Status: Not completed"}
+                        </p>
                       </div>
 
                       <div className="grid grid-cols-3 gap-2">
@@ -459,7 +530,7 @@ export default function QuizPage() {
                         </div>
                         <div className={`rounded-xl px-3 py-2 text-center ${isDark ? "bg-white/5" : "bg-gray-50"}`}>
                           <div className={`text-[10px] uppercase tracking-[0.2em] ${isDark ? "text-zinc-500" : "text-gray-400"}`}>Try</div>
-                          <div className="mt-1 text-lg font-bold">{selectedQuiz.total_attempts}</div>
+                          <div className="mt-1 text-lg font-bold">{progressByQuizId[selectedQuiz.id]?.attempts ?? selectedQuiz.total_attempts}</div>
                         </div>
                       </div>
                     </div>
