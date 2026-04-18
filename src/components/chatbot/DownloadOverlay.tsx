@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { useTheme } from "@/context/theme";
+import Icon from "@/assets/img/icon.png";
+import Image from "next/image";
 
 export default function DownloadOverlay() {
   const { theme } = useTheme();
@@ -132,7 +134,9 @@ export default function DownloadOverlay() {
               className="flex items-center gap-3 px-4 py-2 hover:scale-105 transition-transform"
               aria-label="Open download chatbot"
             >
-              <div className={`h-9 w-9 flex items-center justify-center rounded-full bg-accentGreen text-black font-bold`}>AI</div>
+              <div>
+                <Image src={Icon} alt="ai icon" width={32} height={32} />
+              </div>
               <div className="text-sm text-left">
                 <div className="font-medium">Download Overlay Chatbot</div>
                 <div className="text-xs text-gray-400">Click to open • demo</div>

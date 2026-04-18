@@ -7,6 +7,7 @@ import {
   MessageSquarePlus,
   Search as SearchIcon,
   Trash2,
+  ArrowUp,
 } from "lucide-react";
 import TopBar from "@/components/dashboard/TopBar";
 import chatBgLight from "@/assets/img/chatBotBg-white.png";
@@ -115,13 +116,12 @@ function ChatSection() {
       } catch (error) {
         console.error("History fetch failed:", error);
       } finally {
-        // makes the "opacity-0" go away
         setEntered(true); 
       }
     };
 
     fetchHistoryFromDB();
-  }, []); // Empty dependency array so it only runs once on mount
+  }, []);
 
   // 2. SAVE HISTORY WHENEVER MESSAGES CHANGE
   useEffect(() => {
@@ -140,11 +140,8 @@ function ChatSection() {
         lastUpdated: new Date().toISOString()
       };
 
-      // This reorders the list: Current session goes to index 0
       const finalHistory = [newSessionEntry, ...otherSessions];
       setHistory(finalHistory);
-      // You can keep the localStorage sync if you want a fallback, 
-      // but the DB is now your primary source.
       localStorage.setItem("barangai_chat_history", JSON.stringify(finalHistory));
     }
   }, [messages, sessionUUID]);
@@ -186,7 +183,6 @@ function ChatSection() {
     setMessage("");
     setLoading(true);
     
-    // Trigger the typing indicator
     setIsWaitingForAI(true); 
 
     try {
@@ -209,25 +205,20 @@ function ChatSection() {
 
       const data = await res.json();
 
-      // Turn off the typing indicator because we got the data
       setIsWaitingForAI(false);
 
-      // Securely define the active session ID for this block
       const activeSessionId = data.session_uuid || sessionUUID || crypto.randomUUID();
 
       if (!sessionUUID) {
         setSessionUUID(activeSessionId);
       }
 
-      // UPDATE THE SIDEBAR TITLE WITH THE AI GENERATED TITLE
       if (data.dialogue_state?.current_topic) {
         setHistory((prev) => {
-          // Check if session is already in history
           const exists = prev.find(s => s.id === activeSessionId);
           if (exists) {
             return prev.map(s => s.id === activeSessionId ? { ...s, title: data.dialogue_state.current_topic } : s);
           } else {
-            // If it's a brand new chat, add it manually so the title doesn't get lost
             return [{
               id: activeSessionId,
               title: data.dialogue_state.current_topic,
@@ -256,7 +247,6 @@ function ChatSection() {
           return updated;
         });
 
-        // Force scroll down while typing
         if (isNearBottomRef.current) {
           scrollToBottom("auto"); 
         }
@@ -325,7 +315,6 @@ function ChatSection() {
       });
     } catch (error) {
       console.error("Failed to delete session:", error);
-      // Optional: You could fetch history again here if the delete failed to revert the UI
     }
   };
 
@@ -335,23 +324,36 @@ function ChatSection() {
 
   const isChatMode = hasStartedChat || messages.length > 0 || loading;
 
-  // Existing Classes (Unchanged)
+  // Glassy UI Styling variables
   const headingClass = isDark ? "text-center text-2xl md:text-3xl font-semibold text-white" : "text-center text-2xl md:text-3xl font-semibold text-black";
   const paraClass = isDark ? "text-center text-sm text-gray-300" : "text-center text-sm text-[#8F8F8F]";
-  const btnClass = isDark ? "stagger-child bg-white/10 text-white text-[12px] px-4 md:px-8 py-2 rounded-xl shadow-md font-medium hover:scale-[1.02] transition" : "stagger-child bg-white text-[#555] text-[12px] px-4 md:px-8 py-2 rounded-xl shadow-md font-medium hover:scale-[1.02] transition";
-  const inputWrap = isDark ? "flex items-center w-full bg-[#0b0b0b] border border-white/10 rounded-2xl shadow-md px-4 py-3 mt-3" : "flex items-center w-full bg-white border border-[#B9B9B9] rounded-2xl shadow-md px-4 py-3 mt-3";
-  const inputClass = isDark ? "flex-1 outline-none text-sm text-gray-200 placeholder:text-gray-400 bg-transparent" : "flex-1 outline-none text-sm text-[#555] placeholder:text-[#999] bg-transparent";
-  const refreshClass = isDark ? "flex items-center gap-2 text-gray-300 text-sm hover:opacity-70 transition" : "flex items-center gap-2 text-[#666] text-sm hover:opacity-70 transition";
-  const sendButtonClass = isDark ? "ml-3 w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:scale-105 hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed" : "ml-3 w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center hover:scale-105 hover:bg-emerald-500 transition disabled:opacity-50 disabled:cursor-not-allowed";
-  const newChatButtonClass = isDark ? "flex items-center gap-3 text-sm rounded-xl px-3 py-2.5 transition bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25" : "flex items-center gap-3 text-sm rounded-xl px-3 py-2.5 transition bg-emerald-50 text-emerald-700 hover:bg-emerald-100";
+  
+  const btnClass = isDark 
+    ? "stagger-child bg-white/5 hover:bg-[#8CD559]/10 border border-white/10 hover:border-[#8CD559]/30 hover:text-[#8CD559] text-white text-[12px] px-4 md:px-8 py-2 rounded-xl shadow-md font-medium hover:scale-[1.02] backdrop-blur-md transition-all" 
+    : "stagger-child bg-white/60 hover:bg-white border border-[#B9B9B9]/50 hover:border-brandGreen hover:text-brandGreen text-[#555] text-[12px] px-4 md:px-8 py-2 rounded-xl shadow-md font-medium hover:scale-[1.02] backdrop-blur-md transition-all";
+  
+  const inputWrap = isDark 
+    ? "flex items-center w-full bg-[#0b0b0b]/60 backdrop-blur-md border border-white/10 rounded-2xl shadow-[0_4px_30px_rgba(0,0,0,0.1)] px-4 py-3 mt-3 transition-colors focus-within:border-[#8CD559]/50 focus-within:bg-[#0b0b0b]/80" 
+    : "flex items-center w-full bg-white/60 backdrop-blur-md border border-[#B9B9B9]/50 rounded-2xl shadow-[0_4px_30px_rgba(0,0,0,0.05)] px-4 py-3 mt-3 transition-colors focus-within:border-brandGreen focus-within:bg-white/90";
+  
+  const inputClass = isDark 
+    ? "flex-1 outline-none text-sm text-gray-200 placeholder:text-gray-400 bg-transparent" 
+    : "flex-1 outline-none text-sm text-[#555] placeholder:text-[#999] bg-transparent";
+  
+  const sendButtonClass = isDark 
+    ? "ml-3 w-9 h-9 rounded-full bg-[#8CD559] text-black flex items-center justify-center hover:scale-105 hover:bg-[#7bc04e] shadow-[0_0_10px_rgba(140,213,89,0.3)] transition disabled:opacity-50 disabled:cursor-not-allowed" 
+    : "ml-3 w-9 h-9 rounded-full bg-brandGreen text-white flex items-center justify-center hover:scale-105 hover:bg-brandGreen/90 shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed";
+  
+  const newChatButtonClass = isDark 
+    ? "flex items-center gap-3 text-sm font-semibold rounded-xl px-3 py-2.5 transition bg-[#8CD559]/15 text-[#8CD559] border border-[#8CD559]/10 hover:bg-[#8CD559]/25 hover:shadow-[0_0_15px_rgba(140,213,89,0.1)]" 
+    : "flex items-center gap-3 text-sm font-semibold rounded-xl px-3 py-2.5 transition bg-brandGreen/10 text-brandGreen border border-brandGreen/20 hover:bg-brandGreen/20";
 
   return (
     <>
-      {/* Loading screen if mo open sa chatbot para dili black screen ra makit, ilisi lang pre if batian ka, plain ra pud kaayo hahaha */}
-        {!entered && (
+      {!entered && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center animate-pulse">
-            <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4 shadow-lg"></div>
-            <p className={`text-sm font-semibold tracking-wide ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
+            <div className={`w-10 h-10 border-4 border-t-transparent rounded-full animate-spin mb-4 shadow-lg ${isDark ? "border-[#8CD559]" : "border-brandGreen"}`}></div>
+            <p className={`text-sm font-semibold tracking-wide ${isDark ? "text-[#8CD559]" : "text-brandGreen"}`}>
               Starting BarangAI...
             </p>
           </div>
@@ -359,7 +361,7 @@ function ChatSection() {
       <section className={`${entered ? "chat-enter" : "opacity-0"} mt-4`}>
         {!isChatMode ? (
           <div className="flex flex-col items-center gap-6 mt-8">
-            <div className="w-12 h-12 md:w-14 md:h-14">
+            <div className="w-12 h-12 md:w-14 md:h-14 drop-shadow-[0_0_15px_rgba(140,213,89,0.2)]">
               <Image src={circle} alt="circle" width={56} height={56} className="object-cover" />
             </div>
             <h1 className={headingClass}>Good morning, {userName}!<br />Can I help you with anything?</h1>
@@ -372,16 +374,17 @@ function ChatSection() {
             <div className="w-full max-w-[680px]">
               <div className={inputWrap}>
                 <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder="How may I help you today?" className={inputClass} />
-                <button onClick={() => sendMessage()} disabled={loading || !message.trim()} className={sendButtonClass}>↗</button>
+                <button onClick={() => sendMessage()} disabled={loading || !message.trim()} className={sendButtonClass}>
+                  <ArrowUp size={18} strokeWidth={2.5} />
+                </button>
               </div>
             </div>
-            {/* History List for Mobile/Initial view */}
             {history.length > 0 && (
               <div className="mt-4 w-full max-w-[680px]">
-                <p className="text-xs font-semibold uppercase opacity-50 mb-2">Recent chats</p>
-                <div className="flex gap-2 overflow-x-auto pb-2">
+                <p className={`text-xs font-semibold uppercase mb-2 ${isDark ? "text-gray-500" : "text-gray-400"}`}>Recent chats</p>
+                <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
                   {history.slice(0,3).map(chat => (
-                    <button key={chat.id} onClick={() => loadChat(chat)} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs whitespace-nowrap">{chat.title}</button>
+                    <button key={chat.id} onClick={() => loadChat(chat)} className={`border rounded-lg px-3 py-2 text-xs whitespace-nowrap backdrop-blur-sm transition-colors ${isDark ? "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:border-[#8CD559]/30" : "bg-white/60 border-black/10 text-gray-600 hover:bg-white hover:border-brandGreen/30"}`}>{chat.title}</button>
                   ))}
                 </div>
               </div>
@@ -393,16 +396,16 @@ function ChatSection() {
               <button onClick={startNewChat} className={newChatButtonClass}>
                 <MessageSquarePlus size={18} /> New chat
               </button>
-              <button className={`mt-1 flex items-center gap-3 text-sm rounded-xl px-3 py-2.5 transition ${isDark ? "hover:bg-white/10" : "hover:bg-black/5"}`}>
+              <button className={`mt-2 flex items-center gap-3 text-sm font-medium rounded-xl px-3 py-2.5 transition ${isDark ? "hover:bg-white/5 text-gray-300" : "hover:bg-black/5 text-gray-600"}`}>
                 <FolderOpen size={18} /> Uploads
               </button>
               <div className="mt-5 relative">
-                <SearchIcon size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? "text-gray-400" : "text-gray-500"}`} />
+                <SearchIcon size={16} strokeWidth={2.5} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? "text-[#8CD559]/70" : "text-brandGreen/70"}`} />
                 <input 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search Chats" 
-                  className={`w-full rounded-xl border pl-9 pr-3 py-2 text-sm outline-none ${isDark ? "bg-white/5 border-white/15 text-gray-200" : "bg-white/85 border-black/20 text-gray-800"}`} 
+                  className={`w-full rounded-xl border pl-10 pr-3 py-2 text-sm outline-none backdrop-blur-sm transition-colors ${isDark ? "bg-white/5 border-white/10 text-gray-200 focus:border-[#8CD559]/50" : "bg-white/60 border-black/10 text-gray-800 focus:border-brandGreen/50"}`} 
                 />
               </div>
               <div className="mt-4 flex-1 overflow-y-auto chat-scroll-area pr-2">
@@ -415,24 +418,21 @@ function ChatSection() {
                       <button
                         key={item.id}
                         onClick={() => loadChat(item)}
-                        /* Add 'group relative' to the parent button */
-                        className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group relative flex items-center justify-between ${
+                        className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all duration-200 group relative flex items-center justify-between mb-1 ${
                           isActive 
                             ? (isDark 
-                                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-lg" 
-                                : "bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-sm")
+                                ? "bg-[#8CD559]/15 text-[#8CD559] border border-[#8CD559]/30 shadow-[0_0_15px_rgba(140,213,89,0.05)] backdrop-blur-sm" 
+                                : "bg-brandGreen/5 text-brandGreen border border-brandGreen/20 backdrop-blur-sm")
                             : (isDark 
                                 ? "text-gray-400 hover:bg-white/5 border border-transparent" 
                                 : "text-gray-600 hover:bg-black/5 border border-transparent")
                         }`}
                         >
-                        {/* Title Container - added pr-8 so text doesn't overlap the trash icon */}
                         <div className="flex items-center gap-2 truncate pr-8">
-                          {isActive && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0 animate-pulse" />}
-                          <span className="truncate">{item.title}</span>
+                          {isActive && <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse shadow-[0_0_8px_currentColor] ${isDark ? "bg-[#8CD559]" : "bg-brandGreen"}`} />}
+                          <span className={`truncate font-medium ${isActive ? "" : "opacity-80"}`}>{item.title}</span>
                         </div>
 
-                        {/* The Delete Button - Absolutely positioned to the right */}
                         <div
                           onClick={(e) => deleteSession(e, item.id)}
                           className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-red-500/20 text-red-400 hover:text-red-500 transition-all z-10"
@@ -447,12 +447,11 @@ function ChatSection() {
             </aside>
 
             <main className="relative flex flex-col h-full min-h-0 overflow-hidden">
-              <div ref={scrollContainerRef} className="chat-scroll-area flex-1 overflow-y-auto px-2 md:px-5 pb-40">
+              <div ref={scrollContainerRef} onScroll={handleScroll} className="chat-scroll-area flex-1 overflow-y-auto px-2 md:px-5 pb-40">
                 <div className="max-w-3xl mx-auto w-full pt-3 space-y-5">
-                  {/* LOADING SCREEN WHEN OPENING A CHAT SESSION */}
                   {loading && !isWaitingForAI && messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center mt-32 opacity-80 animate-fadeIn">
-                      <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3 shadow-sm"></div>
+                      <div className={`w-8 h-8 border-4 border-t-transparent rounded-full animate-spin mb-3 shadow-sm ${isDark ? "border-[#8CD559]" : "border-brandGreen"}`}></div>
                       <div className={`text-sm font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                         Loading conversation...
                       </div>
@@ -461,35 +460,28 @@ function ChatSection() {
 
                   {messages.map((msg, i) => (
                     <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fadeIn`}>
-                      <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm shadow ${msg.role === "user" ? (isDark ? "bg-[#608247] text-white" : "bg-[#9DE16A] text-black") : (isDark ? "bg-white/10 text-gray-200" : "bg-gray-200 text-black")}`}>
+                      <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm ${
+                        msg.role === "user" 
+                          ? (isDark ? "bg-[#8CD559] text-black shadow-[0_4px_15px_rgba(140,213,89,0.15)] font-medium" : "bg-[#9DE16A] text-black shadow-sm font-medium") 
+                          : (isDark ? "bg-white/10 text-gray-200 backdrop-blur-md border border-white/5" : "bg-white/80 text-black backdrop-blur-md border border-black/5")
+                      }`}>
                         <ReactMarkdown
                           components={{
-                            // Style standard paragraphs
                             p: ({ node, ...props }) => <p className="mb-2 leading-relaxed last:mb-0" {...props} />,
-                            
-                            // Style bullet and numbered lists
                             ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-2 space-y-1" {...props} />,
                             ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-2 space-y-1" {...props} />,
-                            
-                            // Style headings
                             h1: ({ node, ...props }) => <h1 className="text-xl font-bold mb-2 mt-4" {...props} />,
                             h2: ({ node, ...props }) => <h2 className="text-lg font-bold mb-2 mt-3" {...props} />,
                             h3: ({ node, ...props }) => <h3 className="text-base font-bold mb-2 mt-2" {...props} />,
-                            
-                            // Style links
-                            a: ({ node, ...props }) => <a className="underline underline-offset-2 hover:opacity-80 transition-opacity" target="_blank" rel="noopener noreferrer" {...props} />,
-                            
-                            // Style bold text
+                            a: ({ node, ...props }) => <a className="underline underline-offset-2 hover:opacity-80 transition-opacity font-medium" target="_blank" rel="noopener noreferrer" {...props} />,
                             strong: ({ node, ...props }) => <strong className="font-bold" {...props} />,
-
-                            // Style code (handles both inline `code` and multi-line ```code blocks```)
                             code: ({ node, inline, className, children, ...props }: any) => {
                               return inline ? (
-                                <code className="bg-black/10 dark:bg-white/10 rounded px-1.5 py-0.5 text-sm font-mono" {...props}>
+                                <code className="bg-black/10 dark:bg-black/20 rounded px-1.5 py-0.5 text-sm font-mono text-current" {...props}>
                                   {children}
                                 </code>
                               ) : (
-                                <div className="bg-black/20 dark:bg-black/40 rounded-lg p-3 my-2 overflow-x-auto text-sm font-mono border border-black/10 dark:border-white/10">
+                                <div className="bg-black/10 dark:bg-black/40 rounded-lg p-3 my-2 overflow-x-auto text-sm font-mono border border-black/5 dark:border-white/5">
                                   <code {...props}>{children}</code>
                                 </div>
                               );
@@ -498,26 +490,34 @@ function ChatSection() {
                         >
                           {msg.content}
                         </ReactMarkdown>
-                        {msg.typing && <span className="ml-1 animate-pulse">|</span>}
-                        <div className="text-[10px] opacity-60 mt-1">{new Date(msg.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+                        {msg.typing && <span className={`inline-block w-2 h-3.5 ml-1.5 align-middle animate-pulse ${isDark ? "bg-[#8CD559]" : "bg-black"}`}></span>}
+                        <div className="text-[10px] opacity-50 mt-1 font-medium">{new Date(msg.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
                       </div>
                     </div>
                   ))}
+
+                  {/* BUBBLE TYPING EFFECT */}
                   {isWaitingForAI && (
-                    <div className={`text-sm animate-pulse ml-4 ${isDark ? "text-emerald-400" : "text-emerald-600"}`}>
-                      BarangAI is typing...
+                    <div className="flex justify-start animate-fadeIn">
+                      <div className={`px-4 py-3.5 rounded-2xl text-sm w-fit flex items-center gap-1.5 ${isDark ? "bg-white/10 backdrop-blur-md border border-white/5" : "bg-white/80 backdrop-blur-md border border-black/5 shadow-sm"}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full animate-bounce ${isDark ? "bg-[#8CD559]" : "bg-brandGreen"}`} style={{ animationDelay: "0ms" }}></div>
+                        <div className={`w-1.5 h-1.5 rounded-full animate-bounce ${isDark ? "bg-[#8CD559]" : "bg-brandGreen"}`} style={{ animationDelay: "150ms" }}></div>
+                        <div className={`w-1.5 h-1.5 rounded-full animate-bounce ${isDark ? "bg-[#8CD559]" : "bg-brandGreen"}`} style={{ animationDelay: "300ms" }}></div>
+                      </div>
                     </div>
                   )}
+
                   <div ref={messagesEndRef} className="h-20 w-full" />
                 </div>
               </div>
               
-              {/* INPUT BOX */}
               <div className="absolute bottom-3 left-0 right-0 px-2 md:px-5 bg-transparent">
                 <div className="max-w-3xl mx-auto">
                   <div className={inputWrap}>
                     <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder="How may I help you today?" className={inputClass} />
-                    <button onClick={() => sendMessage()} disabled={loading || !message.trim()} className={sendButtonClass}>↗</button>
+                    <button onClick={() => sendMessage()} disabled={loading || !message.trim()} className={sendButtonClass}>
+                      <ArrowUp size={18} strokeWidth={2.5} />
+                    </button>
                   </div>
                 </div>
               </div>
