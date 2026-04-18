@@ -8,6 +8,7 @@ type User = {
   first_name: string;
   last_name: string;
   role?: string;
+  preferred_language?: string;
   [k: string]: any;
 };
 
@@ -59,8 +60,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const first_name = localStorage.getItem("first_name");
     const last_name = localStorage.getItem("last_name");
     const avatar = localStorage.getItem("user_avatar");
+    const prefLang = localStorage.getItem("preferred_language");
     if (email || role) {
-      setUser({ email: email || undefined, first_name: first_name || "", last_name: last_name || "", role: role || undefined, avatar: avatar || undefined });
+      setUser({ email: email || undefined, first_name: first_name || "", last_name: last_name || "", role: role || undefined, avatar: avatar || undefined, preferred_language: prefLang || "default"});
     }
   }, []);
 
@@ -76,7 +78,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // NOTE: never fall back to `data.user` for names; many APIs use `user` for email/username.
       const uFirstName = data?.first_name || localStorage.getItem("first_name") || first_name;
       const uLastName = data?.last_name || localStorage.getItem("last_name") || last_name;
-      setUser({ id: uId, email: uEmail, role: uRole, avatar: uAvatar, first_name: uFirstName, last_name: uLastName });
+
+      const uPrefLang = data?.preferred_language || "default";
+      localStorage.setItem("preferred_language", uPrefLang);
+      setUser({ id: uId, email: uEmail, role: uRole, avatar: uAvatar, first_name: uFirstName, last_name: uLastName, preferred_language: uPrefLang});
     } finally {
       setLoading(false);
     }
@@ -126,6 +131,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       coerceString(maybeUser?.picture) ??
       localStorage.getItem("user_avatar") ??
       undefined;
+    
+    const prefLang = coerceString(maybeUser?.preferred_language) ?? localStorage.getItem("preferred_language") ?? "default";
 
     localStorage.setItem("access_token", access);
     localStorage.setItem("refresh_token", refresh);
@@ -135,6 +142,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem("first_name", first_name);
     localStorage.setItem("last_name", last_name);
     if (avatar) localStorage.setItem("user_avatar", avatar);
+    
+    localStorage.setItem("preferred_language", prefLang);
 
     setUser({
       id: id || undefined,
@@ -143,6 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatar,
       first_name,
       last_name,
+      preferred_language: prefLang,
     });
   }
 

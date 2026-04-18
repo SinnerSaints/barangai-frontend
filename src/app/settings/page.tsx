@@ -7,6 +7,8 @@ import TopBar from "@/components/dashboard/TopBar";
 import { useAuth } from "@/context/auth";
 import { isAdminRole } from "@/lib/roles";
 import SettingsContent from "@/components/settings/SettingsContent";
+import { propEffect } from "framer-motion";
+import { API_BASE_URL } from "@/lib/auth";
 
 export default function SettingsPage() {
   const { theme, toggle: toggleTheme } = useTheme();
@@ -74,6 +76,58 @@ export default function SettingsPage() {
     } catch {}
   };
 
+  const [preferredLanguage, setPreferredLanguage] = useState("default");
+  useEffect(() => {
+    try {
+      const savedLang = localStorage.getItem("preferred_language");
+      if (savedLang) setPreferredLanguage(savedLang);
+    } catch {}
+  },[])
+
+  const handleLanguageChange = async (lang: string) => {
+    const user_id = localStorage.getItem("user_id");
+
+    // Optimistic UI update
+    setPreferredLanguage(lang);
+    
+    try {
+      localStorage.setItem("preferred_language", lang);
+      const token = localStorage.getItem("access_token");
+
+      if (!token) {
+        console.warn("No auth token found, cannot sync language to backend.");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}accounts/users/${user_id}/update/`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ preferred_language: lang }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Failed to update language on backend:", errorData);
+        
+        // Revert UI state if backend fails
+        const oldLang = localStorage.getItem("preferred_language");
+        if (oldLang) setPreferredLanguage(oldLang);
+      } else {
+         // Read the confirmed language back from the server
+         const data = await response.json();
+         
+         // Failsafe: Use the newly selected 'lang' if the backend response is empty
+         const confirmedLang = data.preferred_language || lang; 
+         localStorage.setItem("preferred_language", confirmedLang);
+      }
+    } catch (error) { 
+      console.error("Network error while updating the language:", error);
+    }
+  }
+
   return (
     <div className="min-h-screen flex">
       <Sidebar collapsed={sidebarCollapsed} onToggle={handleSidebarToggle} />
@@ -87,10 +141,12 @@ export default function SettingsPage() {
             chatbotOverlayState={chatbotOverlayState}
             dashboardPromoHidden={dashboardPromoHidden}
             sidebarCollapsed={sidebarCollapsed}
+            preferred_language={preferredLanguage}
             toggleTheme={toggleTheme}
             handleSidebarToggle={handleSidebarToggle}
             handleChatbotOverlayReset={handleChatbotOverlayReset}
             handleDashboardPromoToggle={handleDashboardPromoToggle}
+            handleLanguageChange={handleLanguageChange}
           />
         </div>
       </main>

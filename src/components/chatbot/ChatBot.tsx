@@ -197,7 +197,7 @@ function ChatSection() {
         user_id: localStorage.getItem("user_id"),
         session_uuid: sessionUUID, 
         user_name: userName,
-        preferred_language: "Default",
+        preferred_language: localStorage.getItem("preferred_language") || "default",
         screenshot: null
       }
 

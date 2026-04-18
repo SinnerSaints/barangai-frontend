@@ -2,6 +2,7 @@ type LoginResponse = {
   access?: string;
   refresh?: string;
   role?: string;
+  preferred_language?: string;
   [k: string]: any;
   first_name: string;
   last_name: string;
@@ -69,6 +70,8 @@ export async function login(
     localStorage.setItem("first_name", user_data.first_name);
     localStorage.setItem("last_name", user_data.last_name);
     if (user_data.avatar) localStorage.setItem("user_avatar", user_data.avatar);
+
+    localStorage.setItem("preferred_language", user_data.preferred_language || "default");
 
     if (options?.returnRaw) return { success: true, data: { ...token_data, ...user_data } };
     return { ...token_data, ...user_data } as LoginResponse;
