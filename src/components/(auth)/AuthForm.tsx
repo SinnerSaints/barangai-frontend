@@ -151,7 +151,7 @@ export default function AuthForm() {
     setLoading(true);
     setError(null);
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/accounts/google-login/";
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

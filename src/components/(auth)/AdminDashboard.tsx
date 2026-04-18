@@ -455,7 +455,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen flex relative">
       <Sidebar collapsed={sidebarCollapsed} onToggle={handleSidebarToggle} />
 
-      <main className={`flex-1 p-6 lg:p-8 ${isDark ? "bg-[#0b0b0b] text-white" : "bg-gray-50 text-black"}`}>
+      <main className={`flex-1 p-6 lg:p-8 ${isDark ? " text-white" : " text-black"}`}>
         <div className="max-w-[1200px] mx-auto space-y-6">
           <TopBar hideSearch />
 
