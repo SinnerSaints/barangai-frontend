@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { login as apiLogin, signup as apiSignup, logout as apiLogout, updateProfile as apiUpdateProfile } from "@/lib/auth";
+import { API_BASE_URL } from "@/lib/auth";
 
 type User = {
   email?: string;
@@ -63,6 +64,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const prefLang = localStorage.getItem("preferred_language");
     if (email || role) {
       setUser({ email: email || undefined, first_name: first_name || "", last_name: last_name || "", role: role || undefined, avatar: avatar || undefined, preferred_language: prefLang || "default"});
+    }
+
+    // Silently ping the database in the background to grab any cross-platform updates
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      fetch(`${API_BASE_URL}accounts/users/me/`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch fresh profile");
+        return res.json();
+      })
+      .then(data => {
+        // Sync the latest language to localStorage
+        const latestLang = data.preferred_language || "default";
+        localStorage.setItem("preferred_language", latestLang);
+        
+        // Sync other important fields just in case they changed them elsewhere
+        if (data.first_name) localStorage.setItem("first_name", data.first_name);
+        if (data.last_name) localStorage.setItem("last_name", data.last_name);
+        if (data.avatar) localStorage.setItem("user_avatar", data.avatar);
+
+        // Update the React State with the fresh data
+        setUser(prev => prev ? { 
+          ...prev, 
+          preferred_language: latestLang,
+          first_name: data.first_name || prev.first_name,
+          last_name: data.last_name || prev.last_name,
+          avatar: data.avatar || prev.avatar
+        } : null);
+      })
+      .catch(err => console.error("Background sync failed:", err));
     }
   }, []);
 
