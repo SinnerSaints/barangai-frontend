@@ -396,9 +396,6 @@ function ChatSection() {
               <button onClick={startNewChat} className={newChatButtonClass}>
                 <MessageSquarePlus size={18} /> New chat
               </button>
-              <button className={`mt-2 flex items-center gap-3 text-sm font-medium rounded-xl px-3 py-2.5 transition ${isDark ? "hover:bg-white/5 text-gray-300" : "hover:bg-black/5 text-gray-600"}`}>
-                <FolderOpen size={18} /> Uploads
-              </button>
               <div className="mt-5 relative">
                 <SearchIcon size={16} strokeWidth={2.5} className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? "text-[#8CD559]/70" : "text-brandGreen/70"}`} />
                 <input 
