@@ -31,7 +31,13 @@ import {
   Target,
   Brain,
   TrendingUp,
+  Award,
 } from "lucide-react";
+import {
+  checkCertificateEligibility, 
+  type CertificateEligibilityResponse
+} from "@/lib/statistics";
+import CertificateModal from "./CertificateModal";
 
 // --- MAGIC BENTO CORE LOGIC ---
 const DEFAULT_PARTICLE_COUNT = 12;
@@ -398,6 +404,23 @@ export default function StatisticsClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [isCertModalOpen, setIsCertModalOpen] = useState(false);
+  const [certData, setCertData] = useState<CertificateEligibilityResponse | null>(null);
+  const [isCertLoading, setIsCertLoading] = useState(false);
+
+  const handleOpenCertificate = async () => {
+    setIsCertModalOpen(true);
+    setIsCertLoading(true);
+    try {
+      const data = await checkCertificateEligibility();
+      setCertData(data);
+    } catch (err) {
+      console.error("Failed to check eligibility:", err);
+    } finally {
+      setIsCertLoading(false);
+    }
+  };
+
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= MOBILE_BREAKPOINT);
     checkMobile();
@@ -635,6 +658,15 @@ export default function StatisticsClient() {
               <p className={`text-base leading-relaxed relative z-10 ${isDark ? "text-zinc-300" : "text-slate-600"}`}>
                 {reportData.overall_report.insight}
               </p>
+
+              {/* NEW: CLAIM CERTIFICATE BUTTON */}
+              <button 
+                onClick={handleOpenCertificate}
+                className="relative z-10 mt-auto flex items-center gap-2 px-6 py-2.5 rounded-full font-semibold text-sm transition-all bg-gradient-to-r from-[#5A9B29] to-[#86C750] text-white hover:scale-105 shadow-lg shadow-[#5A9B29]/20"
+              >
+                <Award size={18} />
+                View Certificate
+              </button>
             </div>
           )}
         </div>
@@ -705,6 +737,12 @@ export default function StatisticsClient() {
           </div>
         </div>
       </div>
+      <CertificateModal 
+        isOpen={isCertModalOpen}
+        onClose={() => setIsCertModalOpen(false)}
+        data={certData}
+        isLoading={isCertLoading}
+      />
     </main>
   );
 }
