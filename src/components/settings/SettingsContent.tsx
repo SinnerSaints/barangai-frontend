@@ -8,10 +8,12 @@ type SettingsContentProps = {
   chatbotOverlayState: string | null;
   dashboardPromoHidden: boolean;
   sidebarCollapsed: boolean;
+  preferred_language: string;
   toggleTheme: () => void;
   handleSidebarToggle: () => void;
   handleChatbotOverlayReset: () => void;
   handleDashboardPromoToggle: () => void;
+  handleLanguageChange: (lang: string) => void;
 };
 
 type ToggleRowProps = {
@@ -68,10 +70,12 @@ export default function SettingsContent({
   chatbotOverlayState,
   dashboardPromoHidden,
   sidebarCollapsed,
+  preferred_language,
   toggleTheme,
   handleSidebarToggle,
   handleChatbotOverlayReset,
   handleDashboardPromoToggle,
+  handleLanguageChange,
 }: SettingsContentProps) {
   return (
     <section
@@ -119,6 +123,41 @@ export default function SettingsContent({
           >
             Edit Profile
           </Link>
+        </div>
+        {/* AI Language Preferences Section */}
+        <div className={`rounded-2xl border p-5 backdrop-blur-sm ${isDark ? "border-white/10 bg-black/25" : "border-[#d6e5d0] bg-[#fbfef8]/95"}`}>
+          <h2 className="text-lg font-semibold">AI Language Preferences</h2>
+          <p className={`mt-1 text-sm ${isDark ? "text-zinc-400" : "text-[#4f5f57]"}`}>
+            Choose how BarangAI responds to your messages.
+          </p>
+          
+          <div className="mt-4 max-w-sm">
+            <div className="relative">
+              <select
+                value={preferred_language}
+                onChange={(e) => handleLanguageChange(e.target.value)}
+                className={`w-full appearance-none rounded-xl border px-4 py-3 text-sm font-medium outline-none transition cursor-pointer shadow-sm ${
+                  isDark 
+                    ? "bg-[#0c1113] border-white/20 text-gray-200 focus:border-[#9DE16A] hover:bg-[#151c20]" 
+                    : "bg-white border-gray-300 text-gray-800 focus:border-[#7fb85a] hover:bg-gray-50"
+                }`}
+              >
+                <option value="default" className={isDark ? "bg-[#0c1113] text-white" : "bg-white text-black"}>Auto-Detect</option>
+                <option value="english" className={isDark ? "bg-[#0c1113] text-white" : "bg-white text-black"}>English</option>
+                <option value="tagalog" className={isDark ? "bg-[#0c1113] text-white" : "bg-white text-black"}>Tagalog</option>
+                <option value="cebuano" className={isDark ? "bg-[#0c1113] text-white" : "bg-white text-black"}>Cebuano</option>
+              </select>
+              <div className={`pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </div>
+            </div>
+
+            <p className={`mt-3 text-xs leading-relaxed ${isDark ? "text-zinc-500" : "text-gray-500"}`}>
+              When set to Auto-Detect, the AI will naturally reply in the language you type.
+            </p>
+          </div>
         </div>
 
         {isAdmin && (
