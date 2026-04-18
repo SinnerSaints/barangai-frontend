@@ -247,3 +247,22 @@ export async function fetchGrowthTimeline() {
   const raw = await request<any>("growth/");
   return normalizeGrowthTimeline(raw);
 }
+
+export type CertificateEligibilityResponse = {
+  eligible: boolean;
+  message: string;
+  action_items?: string[];
+  certificate_id?: string;
+  issued_at?: string;
+  user_name?: string;
+  stats?: {
+    lessons_completed: number;
+    quiz_avg: number;
+    proficiency: string;
+  };
+};
+
+export async function checkCertificateEligibility() {
+  const raw = await request<any>("certificate/eligibility/");
+  return raw as CertificateEligibilityResponse;
+}

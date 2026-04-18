@@ -73,7 +73,6 @@ function ChatSection() {
   }, [messages]);
 
   const sendMessage = async (prompt?: string) => {
-    // 2. Check limit before sending
     if (promptCount >= 5) {
       setShowLimitModal(true);
       return;
@@ -97,11 +96,22 @@ function ChatSection() {
 
     try {
       const baseUrl = OPENAI_API_KEY.replace(/\/$/, "");
-      const res = await fetch(`${baseUrl}/chat/`, { 
+      
+      const res = await fetch(`${baseUrl}/chat/guest/`, { 
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // user_id is ignored by the backend now, but we send it so the schema doesn't complain
         body: JSON.stringify({ message: userMessage, user_id: 1 }),
       });
+
+      // ---> Check specifically for the Rate Limit error (HTTP 429) <---
+      if (res.status === 429) {
+        setPromptCount(5); 
+        setShowLimitModal(true);
+        // Remove the typing indicator message since it failed
+        setMessages((prev) => prev.slice(0, -1));
+        return; 
+      }
 
       if (!res.ok) throw new Error(`Server Error: ${res.status}`);
 
@@ -117,11 +127,10 @@ function ChatSection() {
         return updated;
       });
 
-      // 3. Increment and Check for Limit Pop-up
       const nextCount = promptCount + 1;
       setPromptCount(nextCount);
       if (nextCount >= 5) {
-        setTimeout(() => setShowLimitModal(true), 1500); // Show modal shortly after response
+        setTimeout(() => setShowLimitModal(true), 1500); 
       }
 
     } catch (err: any) {
