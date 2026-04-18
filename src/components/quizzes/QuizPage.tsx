@@ -15,6 +15,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import TopBar from "@/components/dashboard/TopBar";
+import Stepper, { Step } from "@/components/quizzes/Stepper";
 import { API_BASE_URL } from "@/lib/auth";
 import chatBgLight from "@/assets/img/chatBotBg-white.png";
 import chatBgDark from "@/assets/img/chatBotBg-black.png";
@@ -46,15 +47,13 @@ interface QuizResult {
   answered_count: number;
   correct_count?: number | null;
   score_percent?: number | null;
-  correct_answers?: Record<number | string, string>; // Maps question ID to the correct ChoiceKey
+  correct_answers?: Record<number | string, string>; 
 }
 
 type ChoiceKey = "A" | "B" | "C" | "D";
 
 function mapAssessment(item: any, idx: number): Assessment {
   const questions = Array.isArray(item?.questions) ? item.questions : [];
-  
-  // Force swap to fix the backend API reversing title and topic
   const broadCategory = item?.lesson?.category?.name ?? item?.title ?? "General";
   const specificQuizName = item?.lesson?.title ?? item?.topic ?? `Assessment ${idx + 1}`;
 
@@ -90,12 +89,11 @@ export default function QuizPage() {
   const [loadingQuizId, setLoadingQuizId] = useState<number | null>(null);
   const [quizError, setQuizError] = useState("");
   
-  // Navigation State
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [selectedQuiz, setSelectedQuiz] = useState<Assessment | null>(null);
   
-  // Quiz State
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  // Stepper & Quiz State
+  const [currentStep, setCurrentStep] = useState(1);
   const [answers, setAnswers] = useState<Record<number, ChoiceKey>>({});
   const [result, setResult] = useState<QuizResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -123,7 +121,6 @@ export default function QuizPage() {
     fetchAssessments();
   }, [baseUrl]);
 
-  // Grouping logic for the sidebar (Topic first)
   const topicGroups = useMemo(() => {
     const groups = new Map<string, Assessment[]>();
     assessments.forEach((a) => {
@@ -135,7 +132,7 @@ export default function QuizPage() {
   }, [assessments]);
 
   const resetQuiz = () => {
-    setCurrentQuestionIndex(0);
+    setCurrentStep(1);
     setAnswers({});
     setResult(null);
     setQuizError("");
@@ -178,12 +175,11 @@ export default function QuizPage() {
       });
       const data = await res.json();
       setResult({
-        // Map directly to Django response keys
         total_questions: data.total_count || selectedQuiz.total_questions,
         answered_count: Object.keys(answers).length,
         correct_count: data.correct_count,
         score_percent: data.score,
-        correct_answers: data.correct_answers, // This will now contain the dictionary from Django!
+        correct_answers: data.correct_answers, 
       });
     } catch (err) {
       setQuizError("Submission failed. Scores may not be saved.");
@@ -192,9 +188,9 @@ export default function QuizPage() {
     }
   };
 
-  const currentQuestion = selectedQuiz?.questions[currentQuestionIndex];
   const answeredCount = Object.keys(answers).length;
-  const completionPercent = selectedQuiz ? Math.round((answeredCount / selectedQuiz.total_questions) * 100) : 0;
+  // Determine if every question has an answer recorded
+  const isQuizComplete = answeredCount === (selectedQuiz?.total_questions || 0);
 
   return (
     <div className="h-screen overflow-hidden">
@@ -289,21 +285,35 @@ export default function QuizPage() {
 
                     <div className="space-y-6">
                       <h3 className="text-lg font-bold border-b border-zinc-700 pb-2">Question Review</h3>
+                      
+                      {(!result.correct_answers || Object.keys(result.correct_answers).length === 0) && (
+                        <div className="p-4 bg-red-500/10 border border-red-500/50 text-red-500 rounded-xl font-medium text-sm">
+                          ⚠️ Warning: The backend did not return the `correct_answers` dictionary. Review highlighting is disabled.
+                        </div>
+                      )}
+
                       {selectedQuiz?.questions.map((q, idx) => {
                         const userAns = answers[q.id];
                         
-                        // Safely grab the correct answer from the API response
+                        // FIX: Safely checks against both Choice Key OR the text body 
                         const rawCorrectAns = result.correct_answers?.[q.id] || result.correct_answers?.[String(q.id)];
-                        const correctAns = rawCorrectAns ? String(rawCorrectAns).toUpperCase() : undefined;
+                        const correctAnsString = rawCorrectAns ? String(rawCorrectAns).toUpperCase().trim() : undefined;
                         
-                        const isCorrect = userAns === correctAns;
-                        const correctChoiceObj = getChoices(q).find(c => c.key === correctAns);
+                        const hasBackendAnswer = correctAnsString !== undefined && correctAnsString !== "";
+                        
+                        const correctChoiceObj = getChoices(q).find(c => 
+                          c.key === correctAnsString || c.text.toUpperCase().trim() === correctAnsString
+                        );
+                        
+                        const isCorrect = userAns === correctChoiceObj?.key;
 
                         return (
                           <div key={q.id} className={`rounded-2xl border p-5 transition-all ${isDark ? "bg-zinc-900/40 border-zinc-800" : "bg-zinc-50 border-zinc-200"}`}>
                             <div className="flex items-start gap-3">
                               <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-bold ${
-                                isCorrect ? "bg-green-500/20 text-green-500" : "bg-red-500/20 text-red-500"
+                                !hasBackendAnswer ? "bg-zinc-500/20 text-zinc-500" 
+                                : isCorrect ? "bg-green-500/20 text-green-500" 
+                                : "bg-red-500/20 text-red-500"
                               }`}>
                                 {idx + 1}
                               </span>
@@ -313,23 +323,28 @@ export default function QuizPage() {
                             <div className="mt-5 grid gap-2.5">
                               {getChoices(q).map((choice) => {
                                 const isUserChoice = userAns === choice.key;
-                                const isCorrectChoice = correctAns === choice.key;
+                                const isCorrectChoice = choice.key === correctChoiceObj?.key;
 
                                 let borderStyle = isDark ? "border-zinc-800" : "border-zinc-200";
                                 let bgStyle = isDark ? "bg-zinc-800/30" : "bg-white";
                                 let textStyle = "opacity-40";
 
-                                // If it's the correct answer, highlight it green
-                                if (isCorrectChoice) {
-                                  borderStyle = "border-green-500/50";
-                                  bgStyle = "bg-green-500/10";
-                                  textStyle = "text-green-500";
-                                } 
-                                // If the user picked it and it's wrong, highlight it red
-                                else if (isUserChoice && !isCorrectChoice) {
-                                  borderStyle = "border-red-500/50";
-                                  bgStyle = "bg-red-500/10";
-                                  textStyle = "text-red-500";
+                                if (hasBackendAnswer) {
+                                  if (isCorrectChoice) {
+                                    borderStyle = "border-green-500/50";
+                                    bgStyle = "bg-green-500/10";
+                                    textStyle = "text-green-500";
+                                  } else if (isUserChoice && !isCorrectChoice) {
+                                    borderStyle = "border-red-500/50";
+                                    bgStyle = "bg-red-500/10";
+                                    textStyle = "text-red-500";
+                                  }
+                                } else {
+                                   if (isUserChoice) {
+                                     borderStyle = "border-zinc-500/50";
+                                     bgStyle = "bg-zinc-500/10";
+                                     textStyle = "text-zinc-500";
+                                   }
                                 }
 
                                 return (
@@ -340,19 +355,18 @@ export default function QuizPage() {
                                       </span>
                                       {choice.text}
                                     </span>
-                                    {isCorrectChoice && <CheckCircle2 size={18} className="text-green-500" />}
-                                    {isUserChoice && !isCorrectChoice && <XCircle size={18} className="text-red-500" />}
+                                    {hasBackendAnswer && isCorrectChoice && <CheckCircle2 size={18} className="text-green-500" />}
+                                    {hasBackendAnswer && isUserChoice && !isCorrectChoice && <XCircle size={18} className="text-red-500" />}
                                   </div>
                                 );
                               })}
                             </div>
                             
-                            {/* If the user got it wrong, explicitly show the correct answer below */}
-                            {(!isCorrect && correctAns && correctChoiceObj) && (
+                            {(hasBackendAnswer && !isCorrect && correctChoiceObj) && (
                               <div className={`mt-5 p-4 rounded-xl border font-semibold flex items-center gap-2 ${
                                 isDark ? "bg-zinc-800/50 border-zinc-700 text-zinc-300" : "bg-zinc-100 border-zinc-200 text-zinc-700"
                               }`}>
-                                Correct Answer: <span className="text-green-500">{correctAns}. {correctChoiceObj.text}</span>
+                                Correct Answer: <span className="text-green-500">{correctChoiceObj.key}. {correctChoiceObj.text}</span>
                               </div>
                             )}
                           </div>
@@ -360,7 +374,6 @@ export default function QuizPage() {
                       })}
                     </div>
                     
-                    {/* Action Buttons */}
                     <div className="mt-10 flex flex-col sm:flex-row items-center gap-4">
                       <button 
                         onClick={resetQuiz}
@@ -384,83 +397,72 @@ export default function QuizPage() {
                   </div>
                 </div>
               ) : selectedQuiz ? (
-                /* ACTIVE QUIZ VIEW */
+                /* ACTIVE QUIZ VIEW WITH STEPPER */
                 <div className="flex h-full flex-col">
                   <div className={`border-b px-5 py-4 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
                     <p className={`text-xs font-bold uppercase tracking-widest ${isDark ? "text-[#8CD559]" : "text-brandGreen"}`}>{selectedQuiz.topic}</p>
                     <h3 className="truncate text-xl font-bold mt-1">{selectedQuiz.title}</h3>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto px-5 py-8 lg:px-12">
-                    {currentQuestion ? (
-                      <div className="mx-auto max-w-2xl">
-                        <div className="flex items-center gap-2 text-xs font-bold opacity-50 mb-4 uppercase">
-                          Question {currentQuestionIndex + 1} of {selectedQuiz.total_questions}
-                        </div>
-                        <h4 className="text-2xl font-semibold leading-snug">{currentQuestion.question_text}</h4>
-                        
-                        <div className="mt-8 space-y-3">
-                          {getChoices(currentQuestion).map((choice) => {
-                            const selected = answers[currentQuestion.id] === choice.key;
-                            return (
-                              <button
-                                key={choice.key}
-                                onClick={() => setAnswers(prev => ({ ...prev, [currentQuestion.id]: choice.key }))}
-                                className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all ${
-                                  selected
-                                    ? isDark ? "border-[#8CD559] bg-[#8CD559]/10" : "border-brandGreen bg-brandGreen/5"
-                                    : isDark ? "border-zinc-800 bg-zinc-900 hover:bg-zinc-800" : "border-zinc-200 bg-white hover:bg-zinc-50"
-                                }`}
-                              >
-                                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
-                                  selected
-                                    ? isDark ? "bg-[#8CD559] text-black border-[#8CD559]" : "bg-brandGreen text-white border-brandGreen"
-                                    : "border-zinc-700 text-zinc-500"
-                                }`}>
-                                  {choice.key}
-                                </span>
-                                <span className="text-lg font-medium">{choice.text}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center p-10 opacity-50">No questions found.</div>
-                    )}
-                  </div>
-
-                  <div className={`border-t px-6 py-5 flex items-center justify-between ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
-                    <div className="flex items-center gap-2">
-                      <button 
-                        disabled={currentQuestionIndex === 0}
-                        onClick={() => setCurrentQuestionIndex(i => i - 1)}
-                        className="p-2 rounded-lg border border-zinc-700 hover:bg-zinc-800 disabled:opacity-20"
-                      >
-                        <ChevronLeft size={20} />
-                      </button>
-                      <button 
-                        disabled={currentQuestionIndex === selectedQuiz.total_questions - 1}
-                        onClick={() => setCurrentQuestionIndex(i => i + 1)}
-                        className="p-2 rounded-lg border border-zinc-700 hover:bg-zinc-800 disabled:opacity-20"
-                      >
-                        <ChevronRight size={20} />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm font-bold opacity-50">{completionPercent}% done</span>
-                      <button
-                        onClick={submitQuiz}
-                        disabled={submitting || answeredCount < selectedQuiz.total_questions}
-                        className={`flex items-center gap-2 px-8 py-2.5 rounded-xl font-bold transition-all ${
-                          isDark ? "bg-[#8CD559] text-black hover:brightness-110" : "bg-brandGreen text-white hover:brightness-110"
-                        } disabled:opacity-30 disabled:grayscale`}
-                      >
-                        {submitting ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
-                        Submit Quiz
-                      </button>
-                    </div>
+                  {/* REMOVED overflow-y-auto to stop ugly scrolling */}
+                  <div className="flex-1 overflow-hidden px-5 py-2 lg:px-12 flex flex-col">
+                     <Stepper
+                        initialStep={1}
+                        onStepChange={(step) => setCurrentStep(step)}
+                        onFinalStepCompleted={submitQuiz}
+                        backButtonText="Prev"
+                        nextButtonText="Next"
+                        submitButtonText={submitting ? "Submitting..." : "Submit Quiz"}
+                        nextButtonProps={{ 
+                          disabled: submitting,
+                          // Hide the submit button entirely if the user hasn't answered all questions.
+                          // It will gracefully fade into view the moment the final answer is clicked.
+                          className: `duration-350 flex items-center justify-center rounded-xl py-2.5 px-6 font-bold tracking-tight text-black transition-all ${
+                             (currentStep === selectedQuiz.total_questions && !isQuizComplete) 
+                               ? "opacity-0 pointer-events-none translate-y-2" 
+                               : "opacity-100 translate-y-0 bg-[#8CD559] hover:bg-[#7bc04e]"
+                          }`
+                        }}
+                        stepCircleContainerClassName={`w-full max-w-4xl border-none shadow-none bg-transparent`}
+                        contentClassName="py-4 px-0 sm:px-4"
+                     >
+                        {selectedQuiz.questions.map((q, index) => (
+                           <Step key={q.id}>
+                              <div className="mx-auto max-w-2xl py-4">
+                                <div className="flex items-center gap-2 text-xs font-bold opacity-50 mb-4 uppercase">
+                                  Question {index + 1} of {selectedQuiz.total_questions}
+                                </div>
+                                <h4 className="text-2xl font-semibold leading-snug">{q.question_text}</h4>
+                                
+                                <div className="mt-8 space-y-3">
+                                  {getChoices(q).map((choice) => {
+                                    const selected = answers[q.id] === choice.key;
+                                    return (
+                                      <button
+                                        key={choice.key}
+                                        onClick={() => setAnswers(prev => ({ ...prev, [q.id]: choice.key }))}
+                                        className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all ${
+                                          selected
+                                            ? isDark ? "border-[#8CD559] bg-[#8CD559]/10" : "border-brandGreen bg-brandGreen/5"
+                                            : isDark ? "border-zinc-800 bg-zinc-900 hover:bg-zinc-800" : "border-zinc-200 bg-white hover:bg-zinc-50"
+                                        }`}
+                                      >
+                                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
+                                          selected
+                                            ? isDark ? "bg-[#8CD559] text-black border-[#8CD559]" : "bg-brandGreen text-white border-brandGreen"
+                                            : "border-zinc-700 text-zinc-500"
+                                        }`}>
+                                          {choice.key}
+                                        </span>
+                                        <span className="text-lg font-medium">{choice.text}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                           </Step>
+                        ))}
+                     </Stepper>
                   </div>
                 </div>
               ) : (
