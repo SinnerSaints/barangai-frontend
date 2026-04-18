@@ -523,7 +523,7 @@ export default function QuizPage() {
               ) : (
                 /* EMPTY STATE */
                 <div className="flex h-full flex-col items-center justify-center p-8 text-center opacity-30">
-                  <div className="h-20 w-20 rounded-3xl bg-zinc-800 flex items-center justify-center mb-4">
+                  <div className={`h-20 w-20 rounded-3xl flex items-center justify-center mb-4 ${isDark ? "bg-zinc-800 text-zinc-500" : "bg-zinc-200 text-zinc-400"}`}>
                     <ClipboardList size={40} />
                   </div>
                   <h3 className="text-xl font-bold">No Quiz Selected</h3>

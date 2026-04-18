@@ -5,7 +5,29 @@ import { API_BASE_URL } from "@/lib/auth";
 import { useTheme } from "@/context/theme";
 import Sidebar from "@/components/dashboard/Sidebar";
 import TopBar from "@/components/dashboard/TopBar";
-import { Check, X, Trash2, Search, RefreshCw, AlertCircle, Users, BookOpen, ClipboardList, Plus, Pencil } from "lucide-react";
+import { 
+  Check, X, Trash2, Search, RefreshCw, AlertCircle, Users, 
+  BookOpen, ClipboardList, Plus, Pencil, BarChart3, ChevronLeft 
+} from "lucide-react";
+
+type UserStats = {
+  pre_assessment?: {
+    score: number;
+    completed_at: string;
+  };
+  lesson_progress: {
+    title: string;
+    progress: number;
+    completed: boolean;
+  }[];
+  quiz_history: {
+    quiz_title: string;
+    score: number;
+    date: string;
+    correct_count: number;
+    total_questions: number;
+  }[];
+};
 
 type UserItem = {
   id: number;
@@ -14,11 +36,12 @@ type UserItem = {
   role?: string;
   is_active?: boolean;
   is_approved?: boolean;
+  stats?: UserStats;
   [k: string]: any;
 };
 
 type QuestionInput = {
-  id?: number; // Added to support updating existing nested questions
+  id?: number; 
   question_text: string;
   option_a: string;
   option_b: string;
@@ -31,7 +54,7 @@ export default function AdminDashboard() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const [activeTab, setActiveTab] = useState<"users" | "courses" | "quizzes">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "courses" | "quizzes" | "tracking">("users");
 
   // State for sidebar collapse
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -71,6 +94,10 @@ export default function AdminDashboard() {
   const [quizMsg, setQuizMsg] = useState("");
   const [adminLessons, setAdminLessons] = useState<any[]>([]);
 
+  // State for Track Management
+  const [selectedUser, setSelectedUser] = useState<UserItem | null>(null);
+  const [trackingQuery, setTrackingQuery] = useState("");
+
   const handleSidebarToggle = () => {
     const next = !sidebarCollapsed;
     setSidebarCollapsed(next);
@@ -79,7 +106,6 @@ export default function AdminDashboard() {
     } catch {}
   };
 
-  // Fetch users logic
   const getAccessToken = async () => { 
     let token = localStorage.getItem("access_token");
     const refreshToken = localStorage.getItem("refresh_token");
@@ -164,7 +190,6 @@ export default function AdminDashboard() {
     fetchPending();
   }, []);
 
-  // Fetch data for the active tab
   useEffect(() => {
     const fetchTabData = async () => {
       setLoading(true);
@@ -288,11 +313,8 @@ export default function AdminDashboard() {
       }
 
       setCourseMsg(isEditing ? "Course updated successfully! ✅" : "Course created successfully! ✅");
-      
-      // Reset form if creating, otherwise just cancel edit mode
       cancelCourseEdit();
       
-      // Refresh course list
       const lessonsRes = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/lessons/`, { headers });
       const lessonsData = await lessonsRes.json();
       setCoursesList(Array.isArray(lessonsData) ? lessonsData : lessonsData.results || []);
@@ -323,7 +345,6 @@ export default function AdminDashboard() {
         setLoading(false);
     }
   };
-
 
   /* ================= QUIZ LOGIC ================= */
   const handleStartEditQuiz = (quiz: any) => {
@@ -370,7 +391,7 @@ export default function AdminDashboard() {
         title: quizTitle,
         lesson: parseInt(quizLessonId),
         questions: questions.map(q => ({
-          ...(q.id ? { id: q.id } : {}), // Pass ID if it's an existing question
+          ...(q.id ? { id: q.id } : {}),
           question_text: q.question_text,
           choice_a: q.option_a,
           choice_b: q.option_b,
@@ -411,7 +432,6 @@ export default function AdminDashboard() {
       setQuizMsg(isEditing ? "Quiz updated successfully! ✅" : "Quiz created successfully! ✅");
       cancelQuizEdit();
 
-      // Refresh quiz list
       const quizzesRes = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/quizzes/admin/`, { headers });
       const quizzesData = await quizzesRes.json();
       setQuizzesList(Array.isArray(quizzesData) ? quizzesData : quizzesData.results || []);
@@ -450,6 +470,41 @@ export default function AdminDashboard() {
     }
   };
 
+  /* ================= TRACKING LOGIC ================= */
+  const fetchUserDetails = async (user: UserItem) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = await getAccessToken();
+      const headers = { Authorization: `Bearer ${token}` };
+      const base = API_BASE_URL.replace(/\/$/, "");
+  
+      const [progressRes, statsRes] = await Promise.all([
+        fetch(`${base}/accounts/users/${user.id}/progress/`, { headers }),
+        fetch(`${base}/accounts/users/${user.id}/statistics/`, { headers }),
+      ]);
+  
+      if (!progressRes.ok || !statsRes.ok)
+        throw new Error("Failed to fetch user data");
+  
+      const progressData = await progressRes.json();
+      const statsData = await statsRes.json();
+  
+      setSelectedUser({
+        ...user,
+        stats: {
+          pre_assessment: progressData.pre_assessment ?? null,
+          lesson_progress: progressData.lesson_progress ?? [],
+          quiz_history: statsData.quiz_history ?? [],
+        },
+      });
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   return (
     <div className="min-h-screen flex relative">
@@ -464,7 +519,7 @@ export default function AdminDashboard() {
             <div>
               <h1 className="text-3xl font-bold">Admin Dashboard</h1>
               <p className={`mt-1 text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>
-                Manage users, courses, and quizzes efficiently
+                Manage users, courses, quizzes, and tracking
               </p>
             </div>
             <button
@@ -482,27 +537,34 @@ export default function AdminDashboard() {
           </div>
 
           {/* Tabs */}
-          <div className={`flex items-center gap-6 border-b ${isDark ? "border-white/10" : "border-gray-200"}`}>
+          <div className={`flex items-center gap-6 border-b overflow-x-auto ${isDark ? "border-white/10" : "border-gray-200"}`}>
             <button
-              onClick={() => setActiveTab("users")}
-              className={`pb-3 text-sm font-medium flex items-center gap-2 transition-colors relative ${activeTab === "users" ? (isDark ? "text-accentGreen" : "text-brandGreen") : (isDark ? "text-zinc-400 hover:text-zinc-200" : "text-gray-500 hover:text-gray-700")}`}
+              onClick={() => { setActiveTab("users"); setSelectedUser(null); }}
+              className={`whitespace-nowrap pb-3 text-sm font-medium flex items-center gap-2 transition-colors relative ${activeTab === "users" ? (isDark ? "text-accentGreen" : "text-brandGreen") : (isDark ? "text-zinc-400 hover:text-zinc-200" : "text-gray-500 hover:text-gray-700")}`}
             >
               <Users size={18} /> User Management
               {activeTab === "users" && <span className={`absolute bottom-0 left-0 w-full h-0.5 ${isDark ? "bg-accentGreen" : "bg-brandGreen"}`}></span>}
             </button>
             <button
-              onClick={() => setActiveTab("courses")}
-              className={`pb-3 text-sm font-medium flex items-center gap-2 transition-colors relative ${activeTab === "courses" ? (isDark ? "text-accentGreen" : "text-brandGreen") : (isDark ? "text-zinc-400 hover:text-zinc-200" : "text-gray-500 hover:text-gray-700")}`}
+              onClick={() => { setActiveTab("courses"); setSelectedUser(null); }}
+              className={`whitespace-nowrap pb-3 text-sm font-medium flex items-center gap-2 transition-colors relative ${activeTab === "courses" ? (isDark ? "text-accentGreen" : "text-brandGreen") : (isDark ? "text-zinc-400 hover:text-zinc-200" : "text-gray-500 hover:text-gray-700")}`}
             >
               <BookOpen size={18} /> Course Management
               {activeTab === "courses" && <span className={`absolute bottom-0 left-0 w-full h-0.5 ${isDark ? "bg-accentGreen" : "bg-brandGreen"}`}></span>}
             </button>
             <button
-              onClick={() => setActiveTab("quizzes")}
-              className={`pb-3 text-sm font-medium flex items-center gap-2 transition-colors relative ${activeTab === "quizzes" ? (isDark ? "text-accentGreen" : "text-brandGreen") : (isDark ? "text-zinc-400 hover:text-zinc-200" : "text-gray-500 hover:text-gray-700")}`}
+              onClick={() => { setActiveTab("quizzes"); setSelectedUser(null); }}
+              className={`whitespace-nowrap pb-3 text-sm font-medium flex items-center gap-2 transition-colors relative ${activeTab === "quizzes" ? (isDark ? "text-accentGreen" : "text-brandGreen") : (isDark ? "text-zinc-400 hover:text-zinc-200" : "text-gray-500 hover:text-gray-700")}`}
             >
               <ClipboardList size={18} /> Quiz Management
               {activeTab === "quizzes" && <span className={`absolute bottom-0 left-0 w-full h-0.5 ${isDark ? "bg-accentGreen" : "bg-brandGreen"}`}></span>}
+            </button>
+            <button
+              onClick={() => setActiveTab("tracking")}
+              className={`whitespace-nowrap pb-3 text-sm font-medium flex items-center gap-2 transition-colors relative ${activeTab === "tracking" ? (isDark ? "text-accentGreen" : "text-brandGreen") : (isDark ? "text-zinc-400 hover:text-zinc-200" : "text-gray-500 hover:text-gray-700")}`}
+            >
+              <BarChart3 size={18} /> Track Management
+              {activeTab === "tracking" && <span className={`absolute bottom-0 left-0 w-full h-0.5 ${isDark ? "bg-accentGreen" : "bg-brandGreen"}`}></span>}
             </button>
           </div>
 
@@ -909,6 +971,243 @@ export default function AdminDashboard() {
                 </div>
               </section>
             </section>
+          )}
+
+          {activeTab === "tracking" && (
+            <div className="space-y-6">
+              {selectedUser ? (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <button 
+                    onClick={() => setSelectedUser(null)}
+                    className={`flex items-center gap-2 text-sm font-medium mb-4 ${isDark ? "text-zinc-400 hover:text-white" : "text-gray-500 hover:text-black"}`}
+                  >
+                    <ChevronLeft size={16} /> Back to Track Management
+                  </button>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-3xl font-bold">{selectedUser.email}</h2>
+                      <p className={`mt-1 text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>Account ID: #{selectedUser.id} • Role: {selectedUser.role}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Pre-Assessment Card */}
+                    <div className={`p-6 rounded-2xl border ${isDark ? "bg-zinc-900 border-white/10" : "bg-white border-gray-200 shadow-sm"}`}>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className={`p-2 rounded-lg ${isDark ? "bg-yellow-500/10 text-yellow-500" : "bg-yellow-100 text-yellow-600"}`}>
+                          <ClipboardList size={20} />
+                        </div>
+                        <h3 className="font-semibold text-lg">Pre-Assessment</h3>
+                      </div>
+                      {selectedUser.stats?.pre_assessment ? (
+                        <div>
+                          <p className="text-4xl font-bold">{selectedUser.stats.pre_assessment.score}%</p>
+                          <p className={`text-xs mt-2 ${isDark ? "text-zinc-400" : "text-gray-500"}`}>
+                            Completed: {new Date(selectedUser.stats.pre_assessment.completed_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className={`text-sm italic mt-2 ${isDark ? "text-zinc-500" : "text-gray-400"}`}>Not completed yet</p>
+                      )}
+                    </div>
+
+                    {/* Lesson Progress Card - replace the existing one */}
+                    <div className={`p-6 rounded-2xl border col-span-1 md:col-span-2 ${isDark ? "bg-zinc-900 border-white/10" : "bg-white border-gray-200 shadow-sm"}`}>
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className={`p-2 rounded-lg ${isDark ? "bg-blue-500/10 text-blue-500" : "bg-blue-100 text-blue-600"}`}>
+                          <BookOpen size={20} />
+                        </div>
+                        <h3 className="font-semibold text-lg">Lesson Progress by Topic</h3>
+                      </div>
+
+                      {selectedUser.stats?.lesson_progress && selectedUser.stats.lesson_progress.length > 0 ? (() => {
+                        // Group by topic
+                        const grouped = new Map<string, typeof selectedUser.stats.lesson_progress>();
+                        for (const lesson of selectedUser.stats.lesson_progress) {
+                          const topic = (lesson as any).topic || "General";
+                          const existing = grouped.get(topic) ?? [];
+                          existing.push(lesson);
+                          grouped.set(topic, existing);
+                        }
+
+                        return (
+                          <div className="space-y-4">
+                            {Array.from(grouped.entries()).map(([topic, topicLessons]) => {
+                              const completedCount = topicLessons.filter(l => l.completed).length;
+                              const topicProgress = Math.round(
+                                topicLessons.reduce((sum, l) => sum + l.progress, 0) / topicLessons.length
+                              );
+
+                              return (
+                                <div key={topic} className={`overflow-hidden rounded-xl border ${isDark ? "border-zinc-800 bg-zinc-800/40" : "border-gray-100 bg-gray-50"}`}>
+                                  {/* Topic header */}
+                                  <div className="flex items-center justify-between px-4 py-3">
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-semibold truncate">{topic}</p>
+                                      <p className={`text-xs mt-0.5 ${isDark ? "text-zinc-400" : "text-gray-500"}`}>
+                                        {completedCount}/{topicLessons.length} lessons completed
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0 ml-4">
+                                      <div className={`h-1.5 w-20 rounded-full overflow-hidden ${isDark ? "bg-zinc-700" : "bg-gray-200"}`}>
+                                        <div
+                                          className={`h-full rounded-full ${isDark ? "bg-accentGreen" : "bg-brandGreen"}`}
+                                          style={{ width: `${topicProgress}%` }}
+                                        />
+                                      </div>
+                                      <span className={`text-xs font-semibold w-8 text-right ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
+                                        {topicProgress}%
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Individual lessons */}
+                                  <div className={`border-t divide-y ${isDark ? "border-zinc-700 divide-zinc-700" : "border-gray-100 divide-gray-100"}`}>
+                                    {topicLessons.map((lesson, i) => (
+                                      <div key={i} className="flex items-center justify-between px-4 py-2.5">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <div className={`w-2 h-2 rounded-full shrink-0 ${lesson.completed ? (isDark ? "bg-accentGreen" : "bg-brandGreen") : (isDark ? "bg-zinc-600" : "bg-gray-300")}`} />
+                                          <span className={`text-xs truncate ${isDark ? "text-zinc-300" : "text-gray-700"}`}>{lesson.title}</span>
+                                        </div>
+                                        <span className={`text-xs font-medium shrink-0 ml-2 ${lesson.completed ? (isDark ? "text-accentGreen" : "text-brandGreen") : (isDark ? "text-zinc-500" : "text-gray-400")}`}>
+                                          {lesson.completed ? "Complete" : "In Progress"}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })() : (
+                        <p className={`text-sm italic ${isDark ? "text-zinc-500" : "text-gray-400"}`}>No lesson progress found.</p>
+                      )}
+                    </div>
+
+                    {/* Latest Quiz Card */}
+                    <div className={`p-6 rounded-2xl border ${isDark ? "bg-zinc-900 border-white/10" : "bg-white border-gray-200 shadow-sm"}`}>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className={`p-2 rounded-lg ${isDark ? "bg-green-500/10 text-green-500" : "bg-green-100 text-green-600"}`}>
+                          <Check size={20} />
+                        </div>
+                        <h3 className="font-semibold text-lg">Latest Quiz</h3>
+                      </div>
+                      {selectedUser.stats?.quiz_history && selectedUser.stats.quiz_history.length > 0 ? (
+                        <div>
+                          <p className="text-4xl font-bold text-green-500">{selectedUser.stats.quiz_history[0].score}%</p>
+                          <p className={`text-sm font-medium mt-2 truncate ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
+                            {selectedUser.stats.quiz_history[0].quiz_title}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className={`text-sm italic mt-2 ${isDark ? "text-zinc-500" : "text-gray-400"}`}>No attempts recorded</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Detailed Quiz History Table */}
+                  <section className={`rounded-2xl border overflow-hidden mt-8 ${isDark ? "bg-zinc-900 border-white/10" : "bg-white border-gray-200 shadow-sm"}`}>
+                    <div className={`p-5 border-b ${isDark ? "border-white/10" : "border-gray-200"}`}>
+                      <h3 className="font-semibold text-lg">Full Quiz History</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse min-w-[500px]">
+                        <thead>
+                          <tr className={`text-xs uppercase tracking-wider ${isDark ? "bg-black/40 text-zinc-400" : "bg-gray-50 text-gray-500"}`}>
+                            <th className="px-6 py-4 font-medium">Quiz Name</th>
+                            <th className="px-6 py-4 font-medium">Score</th>
+                            <th className="px-6 py-4 font-medium">Accuracy</th>
+                            <th className="px-6 py-4 font-medium">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className={`divide-y ${isDark ? "divide-white/10" : "divide-gray-200"}`}>
+                          {selectedUser.stats?.quiz_history && selectedUser.stats.quiz_history.length > 0 ? (
+                            selectedUser.stats.quiz_history.map((q, i) => (
+                              <tr key={i} className={`transition-colors ${isDark ? "hover:bg-white/5" : "hover:bg-gray-50"}`}>
+                                <td className="px-6 py-4 text-sm font-medium">{q.quiz_title}</td>
+                                <td className={`px-6 py-4 text-sm font-bold ${q.score >= 75 ? "text-green-500" : "text-yellow-500"}`}>{q.score}%</td>
+                                <td className={`px-6 py-4 text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>{q.correct_count}/{q.total_questions} Correct</td>
+                                <td className={`px-6 py-4 text-sm ${isDark ? "text-zinc-500" : "text-gray-400"}`}>{new Date(q.date).toLocaleDateString()}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={4} className={`px-6 py-12 text-center text-sm ${isDark ? "text-zinc-500" : "text-gray-400"}`}>No quiz history found.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                </div>
+              ) : (
+                <section className={`rounded-2xl border overflow-hidden ${isDark ? "bg-zinc-900 border-white/10" : "bg-white border-gray-200 shadow-sm"}`}>
+                  <div className={`p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${isDark ? "border-white/10" : "border-gray-200"}`}>
+                    <div>
+                      <h2 className="text-xl font-semibold">Select User to Track</h2>
+                      <p className={`text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>Click on an approved user to view their detailed progress.</p>
+                    </div>
+                    <div className="relative">
+                      <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? "text-zinc-400" : "text-gray-500"}`} />
+                      <input
+                        value={trackingQuery}
+                        onChange={(e) => setTrackingQuery(e.target.value)}
+                        placeholder="Search users..."
+                        className={`pl-9 pr-4 py-2 w-full sm:w-64 rounded-full text-sm outline-none border transition-colors ${isDark ? "bg-black/50 border-white/10 focus:border-accentGreen text-white placeholder:text-zinc-500" : "bg-gray-50 border-gray-200 focus:border-brandGreen text-black placeholder:text-gray-400"}`}
+                      />
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[500px]">
+                      <thead>
+                        <tr className={`text-xs uppercase tracking-wider ${isDark ? "bg-black/40 text-zinc-400" : "bg-gray-50 text-gray-500"}`}>
+                          <th className="px-6 py-4 font-medium">ID</th>
+                          <th className="px-6 py-4 font-medium">Email</th>
+                          <th className="px-6 py-4 font-medium">Role</th>
+                          <th className="px-6 py-4 font-medium text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className={`divide-y ${isDark ? "divide-white/10" : "divide-gray-200"}`}>
+                        {approvedUsers && approvedUsers.length > 0 ? (
+                          approvedUsers
+                            .filter((u) => {
+                              const q = trackingQuery.trim().toLowerCase();
+                              if (!q) return true;
+                              return (u.email || "").toLowerCase().includes(q) || (u.role || "").toLowerCase().includes(q);
+                            })
+                            .map((u) => (
+                              <tr 
+                                key={`t-${u.id}`} 
+                                onClick={() => fetchUserDetails(u)}
+                                className={`transition-colors cursor-pointer group ${isDark ? "hover:bg-white/5" : "hover:bg-gray-50"}`}
+                              >
+                                <td className={`px-6 py-4 text-sm ${isDark ? "text-zinc-400" : "text-gray-500"}`}>#{u.id}</td>
+                                <td className={`px-6 py-4 text-sm font-medium transition-colors ${isDark ? "group-hover:text-accentGreen" : "group-hover:text-brandGreen"}`}>{u.email}</td>
+                                <td className="px-6 py-4 text-sm">
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${u.role === 'CAPTAIN' ? (isDark ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-green-100 text-green-800') : (isDark ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-blue-100 text-blue-800')}`}>
+                                    {u.role ?? "—"}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <button className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition ${isDark ? "text-accentGreen bg-accentGreen/10 group-hover:bg-accentGreen/20" : "text-brandGreen bg-brandGreen/10 group-hover:bg-brandGreen/20"}`}>
+                                    <BarChart3 size={14} /> View Stats
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                        ) : (
+                          <tr>
+                            <td colSpan={4} className={`px-6 py-12 text-center text-sm ${isDark ? "text-zinc-500" : "text-gray-400"}`}>No users available to track</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
+            </div>
           )}
 
         </div>

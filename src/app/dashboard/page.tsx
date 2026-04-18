@@ -10,8 +10,6 @@ import DashboardHero from "@/components/dashboard/DashboardHero";
 import CardsRow from "@/components/dashboard/CardsRow";
 import Assessment from "@/components/dashboard/Assessment";
 import DownloadPromo from "@/components/dashboard/DownloadPromo";
-import chatBgLight from "@/assets/img/chatBotBg-white.png";
-import chatBgDark from "@/assets/img/chatBotBg-black.png";
 import { useTheme } from "@/context/theme";
 import { fetchAssessmentStatus } from "@/lib/preAssessment";
 
