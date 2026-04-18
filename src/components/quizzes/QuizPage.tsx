@@ -13,6 +13,7 @@ import {
   Send,
   XCircle,
   RotateCcw,
+  CheckCircle,
 } from "lucide-react";
 import TopBar from "@/components/dashboard/TopBar";
 import Stepper, { Step } from "@/components/quizzes/Stepper";
@@ -40,6 +41,8 @@ interface Assessment {
   total_attempts: number;
   time_limit?: number | null;
   status: string;
+  completed: boolean; 
+  score?: number | null;
 }
 
 interface QuizResult {
@@ -51,6 +54,7 @@ interface QuizResult {
 }
 
 type ChoiceKey = "A" | "B" | "C" | "D";
+type TabType = "ALL" | "PENDING" | "COMPLETED";
 
 function mapAssessment(item: any, idx: number): Assessment {
   const questions = Array.isArray(item?.questions) ? item.questions : [];
@@ -67,6 +71,8 @@ function mapAssessment(item: any, idx: number): Assessment {
     total_attempts: item?.total_attempts ?? 0,
     time_limit: item?.time_limit ?? null,
     status: item?.status ?? "Published",
+    completed: item?.completed || item?.progress?.completed || false,
+    score: item?.score ?? item?.progress?.score ?? null,
   };
 }
 
@@ -91,6 +97,7 @@ export default function QuizPage() {
   
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [selectedQuiz, setSelectedQuiz] = useState<Assessment | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>("ALL");
   
   // Stepper & Quiz State
   const [currentStep, setCurrentStep] = useState(1);
@@ -121,15 +128,23 @@ export default function QuizPage() {
     fetchAssessments();
   }, [baseUrl]);
 
+  const filteredAssessments = useMemo(() => {
+    return assessments.filter((a) => {
+      if (activeTab === "COMPLETED") return a.completed;
+      if (activeTab === "PENDING") return !a.completed;
+      return true; // "ALL"
+    });
+  }, [assessments, activeTab]);
+
   const topicGroups = useMemo(() => {
     const groups = new Map<string, Assessment[]>();
-    assessments.forEach((a) => {
+    filteredAssessments.forEach((a) => {
       const t = a.topic || "General";
       if (!groups.has(t)) groups.set(t, []);
       groups.get(t)?.push(a);
     });
     return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [assessments]);
+  }, [filteredAssessments]);
 
   const resetQuiz = () => {
     setCurrentStep(1);
@@ -174,6 +189,7 @@ export default function QuizPage() {
         body: JSON.stringify({ answers }),
       });
       const data = await res.json();
+      
       setResult({
         total_questions: data.total_count || selectedQuiz.total_questions,
         answered_count: Object.keys(answers).length,
@@ -181,6 +197,11 @@ export default function QuizPage() {
         score_percent: data.score,
         correct_answers: data.correct_answers, 
       });
+
+      setAssessments(prev => prev.map(a => 
+        a.id === selectedQuiz.id ? { ...a, completed: true, score: data.score } : a
+      ));
+
     } catch (err) {
       setQuizError("Submission failed. Scores may not be saved.");
     } finally {
@@ -189,7 +210,6 @@ export default function QuizPage() {
   };
 
   const answeredCount = Object.keys(answers).length;
-  // Determine if every question has an answer recorded
   const isQuizComplete = answeredCount === (selectedQuiz?.total_questions || 0);
 
   return (
@@ -206,18 +226,41 @@ export default function QuizPage() {
             
             {/* SIDEBAR */}
             <section className={`flex min-h-0 flex-col rounded-xl border p-3 ${isDark ? "border-zinc-800 bg-zinc-900/80" : "border-zinc-200 bg-white/90"}`}>
-              <div className="mb-3 flex items-center gap-2 px-1">
+              <div className="mb-4 flex items-center gap-2 px-1">
                 {selectedTopic && (
                   <button onClick={() => setSelectedTopic(null)} className="p-1 hover:bg-zinc-800 rounded-md transition-colors">
                     <ChevronLeft size={18} />
                   </button>
                 )}
-                <h2 className="text-lg font-bold">{selectedTopic ? "Available Quizzes" : "Topics"}</h2>
+                <h2 className="text-lg font-bold">{selectedTopic ? "Available Quizzes" : "Quizzes"}</h2>
               </div>
+
+              {/* FILTER TABS */}
+              {!selectedTopic && (
+                <div className={`mb-4 flex p-1 rounded-xl ${isDark ? "bg-zinc-800/50" : "bg-zinc-100"}`}>
+                  {(["ALL", "PENDING", "COMPLETED"] as TabType[]).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`flex-1 rounded-lg py-1.5 text-xs font-bold transition-all ${
+                        activeTab === tab 
+                          ? (isDark ? "bg-[#8CD559] text-black shadow-sm" : "bg-white text-brandGreen shadow-sm") 
+                          : "opacity-60 hover:opacity-100"
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div className="min-h-0 flex-1 overflow-y-auto space-y-3 pr-1">
                 {loading ? (
                   <div className="p-4 text-center animate-pulse text-sm opacity-50">Loading content...</div>
+                ) : topicGroups.length === 0 ? (
+                  <div className="p-8 text-center text-sm opacity-50">
+                    No {activeTab.toLowerCase()} quizzes found.
+                  </div>
                 ) : !selectedTopic ? (
                   topicGroups.map(([topic, quizzes]) => (
                     <button
@@ -253,14 +296,23 @@ export default function QuizPage() {
                       }`}
                     >
                       <div className="flex justify-between items-start gap-2">
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold truncate leading-tight">{assessment.title}</p>
-                          <div className="flex items-center gap-3 mt-2 opacity-60 text-[11px] font-medium">
-                            <span className="flex items-center gap-1.5"><ClipboardList size={14}/> {assessment.total_questions} Qs</span>
-                            <span className="flex items-center gap-1.5"><Clock3 size={14}/> {assessment.time_limit || "∞"}</span>
+                          <div className="flex items-center gap-4 mt-2">
+                            <div className="flex items-center gap-3 opacity-60 text-[11px] font-medium">
+                              <span className="flex items-center gap-1.5"><ClipboardList size={14}/> {assessment.total_questions} Qs</span>
+                              <span className="flex items-center gap-1.5"><Clock3 size={14}/> {assessment.time_limit || "∞"}</span>
+                            </div>
+                            
+                            {assessment.completed && (
+                              <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${isDark ? "bg-green-500/10 text-green-400" : "bg-green-100 text-green-700"}`}>
+                                <CheckCircle size={10} /> 
+                                {assessment.score !== null && assessment.score !== undefined ? `${assessment.score}%` : "Done"}
+                              </div>
+                            )}
                           </div>
                         </div>
-                        {loadingQuizId === assessment.id && <Loader2 size={18} className="animate-spin opacity-50" />}
+                        {loadingQuizId === assessment.id && <Loader2 size={18} className="animate-spin opacity-50 shrink-0" />}
                       </div>
                     </button>
                   ))
@@ -295,7 +347,6 @@ export default function QuizPage() {
                       {selectedQuiz?.questions.map((q, idx) => {
                         const userAns = answers[q.id];
                         
-                        // FIX: Safely checks against both Choice Key OR the text body 
                         const rawCorrectAns = result.correct_answers?.[q.id] || result.correct_answers?.[String(q.id)];
                         const correctAnsString = rawCorrectAns ? String(rawCorrectAns).toUpperCase().trim() : undefined;
                         
@@ -397,15 +448,14 @@ export default function QuizPage() {
                   </div>
                 </div>
               ) : selectedQuiz ? (
-                /* ACTIVE QUIZ VIEW WITH STEPPER */
+                /* ACTIVE QUIZ VIEW WITH STEPPER - COMPACT VERSION */
                 <div className="flex h-full flex-col">
                   <div className={`border-b px-5 py-4 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
                     <p className={`text-xs font-bold uppercase tracking-widest ${isDark ? "text-[#8CD559]" : "text-brandGreen"}`}>{selectedQuiz.topic}</p>
                     <h3 className="truncate text-xl font-bold mt-1">{selectedQuiz.title}</h3>
                   </div>
 
-                  {/* REMOVED overflow-y-auto to stop ugly scrolling */}
-                  <div className="flex-1 overflow-hidden px-5 py-2 lg:px-12 flex flex-col">
+                  <div className="flex-1 overflow-hidden px-5 py-0 lg:px-12 flex flex-col">
                      <Stepper
                         initialStep={1}
                         onStepChange={(step) => setCurrentStep(step)}
@@ -415,46 +465,51 @@ export default function QuizPage() {
                         submitButtonText={submitting ? "Submitting..." : "Submit Quiz"}
                         nextButtonProps={{ 
                           disabled: submitting,
-                          // Hide the submit button entirely if the user hasn't answered all questions.
-                          // It will gracefully fade into view the moment the final answer is clicked.
-                          className: `duration-350 flex items-center justify-center rounded-xl py-2.5 px-6 font-bold tracking-tight text-black transition-all ${
+                          className: `duration-350 flex items-center justify-center rounded-xl py-2 px-5 text-sm font-bold tracking-tight text-black transition-all ${
                              (currentStep === selectedQuiz.total_questions && !isQuizComplete) 
                                ? "opacity-0 pointer-events-none translate-y-2" 
                                : "opacity-100 translate-y-0 bg-[#8CD559] hover:bg-[#7bc04e]"
                           }`
                         }}
+                        backButtonProps={{
+                           className: `duration-350 rounded-xl px-5 py-2 text-sm font-bold transition-all border ${
+                            currentStep === 1
+                              ? 'pointer-events-none opacity-50 text-zinc-500 border-zinc-800'
+                              : 'text-white border-zinc-700 bg-zinc-900 hover:bg-zinc-800 active:scale-95'
+                          }`
+                        }}
                         stepCircleContainerClassName={`w-full max-w-4xl border-none shadow-none bg-transparent`}
-                        contentClassName="py-4 px-0 sm:px-4"
+                        contentClassName="py-0 px-0 sm:px-4"
                      >
                         {selectedQuiz.questions.map((q, index) => (
                            <Step key={q.id}>
-                              <div className="mx-auto max-w-2xl py-4">
-                                <div className="flex items-center gap-2 text-xs font-bold opacity-50 mb-4 uppercase">
+                              <div className="mx-auto max-w-2xl py-2">
+                                <div className="flex items-center gap-2 text-[11px] font-bold opacity-50 mb-2 uppercase">
                                   Question {index + 1} of {selectedQuiz.total_questions}
                                 </div>
-                                <h4 className="text-2xl font-semibold leading-snug">{q.question_text}</h4>
+                                <h4 className="text-lg sm:text-xl font-semibold leading-snug">{q.question_text}</h4>
                                 
-                                <div className="mt-8 space-y-3">
+                                <div className="mt-4 sm:mt-6 space-y-2">
                                   {getChoices(q).map((choice) => {
                                     const selected = answers[q.id] === choice.key;
                                     return (
                                       <button
                                         key={choice.key}
                                         onClick={() => setAnswers(prev => ({ ...prev, [q.id]: choice.key }))}
-                                        className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all ${
+                                        className={`flex w-full items-center gap-3 rounded-xl border p-3 sm:p-3.5 text-left transition-all ${
                                           selected
                                             ? isDark ? "border-[#8CD559] bg-[#8CD559]/10" : "border-brandGreen bg-brandGreen/5"
                                             : isDark ? "border-zinc-800 bg-zinc-900 hover:bg-zinc-800" : "border-zinc-200 bg-white hover:bg-zinc-50"
                                         }`}
                                       >
-                                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
+                                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
                                           selected
                                             ? isDark ? "bg-[#8CD559] text-black border-[#8CD559]" : "bg-brandGreen text-white border-brandGreen"
                                             : "border-zinc-700 text-zinc-500"
                                         }`}>
                                           {choice.key}
                                         </span>
-                                        <span className="text-lg font-medium">{choice.text}</span>
+                                        <span className="text-sm sm:text-base font-medium">{choice.text}</span>
                                       </button>
                                     );
                                   })}
