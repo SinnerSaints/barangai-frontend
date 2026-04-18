@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { HiHome, HiChat, HiBookOpen, HiClipboardList, HiChartBar, HiCog, HiMenu } from "react-icons/hi";
-import ProfileMenu from "@/components/ui/ProfileMenu";
+import ProfileMenu from "@/components/ui/ProfileMenu"; // Make sure this is used if needed, or remove if unused
 import { useTheme } from "@/context/theme";
 
 type Props = {
@@ -36,6 +36,7 @@ export default function Sidebar({ collapsed = false, onToggle }: Props) {
     if (isControlled) return;
     setInternalCollapsed(collapsed);
   }, [collapsed, isControlled]);
+
   const items = [
     { label: "Dashboard", href: "/dashboard", icon: HiHome },
     { label: "Chatbot", href: "/chatbot", icon: HiChat },
@@ -63,7 +64,9 @@ export default function Sidebar({ collapsed = false, onToggle }: Props) {
 
   return (
     <aside
-      className={`hidden md:flex flex-col gap-6 transition-[width] duration-300 ${effectiveCollapsed ? "w-20" : "w-64"} my-4 ml-4 h-[calc(100vh-2rem)] rounded-2xl backdrop-blur-xl border shadow-2xl p-4 ${
+      className={`hidden md:flex flex-col gap-6 transition-[width] duration-300 sticky top-4 ${
+        effectiveCollapsed ? "w-20" : "w-64"
+      } ml-4 h-[calc(100vh-2rem)] rounded-2xl backdrop-blur-xl border shadow-2xl p-4 ${
         isDark 
           ? "bg-[#034440]/20 border-white/15 shadow-black/20 text-white" 
           : "bg-white/80 border-gray-200 shadow-black/5 text-[#034440]"
@@ -112,7 +115,9 @@ export default function Sidebar({ collapsed = false, onToggle }: Props) {
                     }`}
                   />
                   {!effectiveCollapsed && (
-                    <span className={`text-sm ${active ? (isDark ? "text-white" : "text-[#034440] font-semibold") : (isDark ? "text-[#AFAFAF]" : "text-gray-500")}`}>{it.label}</span>
+                    <span className={`text-sm ${active ? (isDark ? "text-white" : "text-[#034440] font-semibold") : (isDark ? "text-[#AFAFAF]" : "text-gray-500")}`}>
+                      {it.label}
+                    </span>
                   )}
                 </Link>
               </li>

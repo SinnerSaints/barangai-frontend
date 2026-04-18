@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import {
   AlertCircle,
+  BookOpen,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -356,172 +357,181 @@ export default function QuizPage() {
         <div className="relative z-10 flex h-full min-h-0 flex-col">
           <TopBar searchValue={query} onSearch={setQuery} />
 
-          <div className="mt-3 grid min-h-0 flex-1 gap-3 xl:grid-cols-[300px_minmax(0,1fr)]">
+          {/* WIDENED THE SIDEBAR HERE */}
+          <div className="mt-3 grid min-h-0 flex-1 gap-4 lg:grid-cols-[380px_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)]">
+            
+            {/* SIDEBAR */}
             <section className={`flex min-h-0 flex-col rounded-xl border p-3 ${isDark ? "border-zinc-800 bg-zinc-900/80" : "border-zinc-200 bg-white/90"}`}>
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-base font-semibold">Quizzes</h2>
-                <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"}`}>
-                  {selectedLessonTopic ? `${displayedAssessments.length}/${filteredAssessments.length}` : `${lessonOptions.length} lessons`}
+              <div className="mb-3 flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  {selectedLessonTopic && (
+                    <button 
+                      onClick={() => selectLesson(null)} 
+                      className={`p-1.5 rounded-md transition ${isDark ? "hover:bg-zinc-800" : "hover:bg-zinc-100"}`}
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                  )}
+                  <h2 className="text-lg font-bold">
+                    {selectedLessonTopic ? "Quizzes" : "Lessons"}
+                  </h2>
+                </div>
+                <span className={`rounded-md px-2.5 py-1 text-xs font-semibold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"}`}>
+                  {selectedLessonTopic ? `${displayedAssessments.length}` : `${lessonOptions.length}`}
                 </span>
               </div>
 
               {quizError && (
-                <div className={`mb-2 flex items-start gap-2 rounded-lg px-2.5 py-2 text-xs ${isDark ? "bg-red-500/10 text-red-200" : "bg-red-50 text-red-700"}`}>
+                <div className={`mb-3 flex items-start gap-2 rounded-lg px-2.5 py-2 text-xs ${isDark ? "bg-red-500/10 text-red-200" : "bg-red-50 text-red-700"}`}>
                   <AlertCircle size={14} className="mt-0.5 shrink-0" />
                   <span>{quizError}</span>
                 </div>
               )}
 
-              <div className="min-h-0 flex-1 overflow-y-auto space-y-3 pr-1">
-                <div>
-                  <p className={`mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
-                    Lessons
-                  </p>
-                  {loading ? (
-                    <div className={`rounded-lg border px-3 py-3 text-xs ${isDark ? "border-zinc-800 bg-zinc-900 text-zinc-300" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
-                      Loading lessons...
-                    </div>
-                  ) : lessonOptions.length === 0 ? (
-                    <div className={`rounded-lg border px-3 py-3 text-xs ${isDark ? "border-zinc-800 bg-zinc-900 text-zinc-300" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
-                      No lessons found.
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {lessonOptions.map((lesson) => {
-                        const active = selectedLessonTopic === lesson.topic;
-                        return (
-                          <button
-                            key={lesson.topic}
-                            type="button"
-                            onClick={() => selectLesson(lesson.topic)}
-                            className={`w-full rounded-lg border px-3 py-2 text-left text-xs font-semibold transition ${
-                              active
-                                ? isDark
-                                  ? "border-accentGreen/60 bg-accentGreen/15"
-                                  : "border-brandGreen bg-brandGreen/10"
-                                : isDark
-                                  ? "border-zinc-800 bg-zinc-900 hover:bg-zinc-800/80"
-                                  : "border-zinc-200 bg-white hover:bg-zinc-50"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate">{lesson.topic}</span>
-                              <span className={`rounded-md px-1.5 py-0.5 text-[10px] ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"}`}>
-                                {lesson.quizCount}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+              {selectedLessonTopic && (
+                <div className="mb-3 space-y-2">
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {["all", "pending", "completed"].map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setQuizCompletionFilter(f as QuizCompletionFilter)}
+                        className={`rounded-md py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${
+                          quizCompletionFilter === f
+                            ? isDark ? "bg-[#8CD559] text-black" : "bg-brandGreen text-white"
+                            : isDark ? "bg-zinc-800 text-zinc-400 hover:bg-zinc-700" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"
+                        }`}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+              )}
 
-                {selectedLessonTopic && !loading && (
-                  <div>
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <p className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
-                        Quiz List
-                      </p>
-                      <span className={`text-[11px] ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>{completedCount} completed</span>
-                    </div>
-
-                    <div className="mb-2 grid grid-cols-3 gap-1">
-                      {[
-                        { key: "all", label: "All" },
-                        { key: "pending", label: "Pending" },
-                        { key: "completed", label: "Done" },
-                      ].map((filter) => (
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                {loading ? (
+                  <div className={`rounded-lg border px-3 py-3 text-xs ${isDark ? "border-zinc-800 bg-zinc-900 text-zinc-300" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
+                    Loading...
+                  </div>
+                ) : !selectedLessonTopic ? (
+                  <div className="space-y-3">
+                    {lessonOptions.length === 0 ? (
+                      <div className={`rounded-lg border px-3 py-3 text-xs ${isDark ? "border-zinc-800 bg-zinc-900 text-zinc-300" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
+                        No lessons found.
+                      </div>
+                    ) : (
+                      lessonOptions.map((lesson) => (
                         <button
-                          key={filter.key}
-                          type="button"
-                          onClick={() => setQuizCompletionFilter(filter.key as QuizCompletionFilter)}
-                          className={`rounded-md px-2 py-1 text-[11px] font-semibold ${
-                            quizCompletionFilter === filter.key
-                              ? isDark
-                                ? "bg-accentGreen text-black"
-                                : "bg-brandGreen text-white"
-                              : isDark
-                                ? "bg-zinc-800 text-zinc-300"
-                                : "bg-zinc-100 text-zinc-600"
+                          key={lesson.topic}
+                          onClick={() => selectLesson(lesson.topic)}
+                          className={`w-full group relative rounded-2xl border p-4 text-left transition-all duration-300 overflow-hidden ${
+                            isDark 
+                              ? "border-zinc-800/80 bg-zinc-900/40 hover:bg-zinc-800/80 hover:border-[#8CD559]/40 hover:shadow-[0_4px_20px_rgba(140,213,89,0.05)] backdrop-blur-md" 
+                              : "border-zinc-200/80 bg-white/60 hover:bg-white hover:border-brandGreen/40 hover:shadow-md backdrop-blur-md"
                           }`}
                         >
-                          {filter.label}
+                          <div className="relative z-10 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-4 min-w-0">
+                              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors duration-300 ${
+                                isDark 
+                                  ? "bg-zinc-800 group-hover:bg-[#8CD559]/20 text-zinc-400 group-hover:text-[#8CD559]" 
+                                  : "bg-zinc-100 group-hover:bg-brandGreen/10 text-zinc-500 group-hover:text-brandGreen"
+                              }`}>
+                                <BookOpen size={20} />
+                              </div>
+                              <div className="min-w-0 pr-2">
+                                {/* Text truncation is much less likely to happen now with the wider sidebar */}
+                                <h3 className="truncate text-base font-bold">{lesson.topic}</h3>
+                                <p className={`mt-0.5 text-xs font-medium ${isDark ? "text-zinc-500 group-hover:text-zinc-400 transition-colors" : "text-zinc-500"}`}>
+                                  {lesson.quizCount} {lesson.quizCount === 1 ? 'Quiz' : 'Quizzes'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all duration-300 ${
+                              isDark 
+                                ? "bg-zinc-800/50 text-zinc-500 group-hover:bg-[#8CD559]/20 group-hover:text-[#8CD559] group-hover:translate-x-1" 
+                                : "bg-zinc-100 text-zinc-400 group-hover:bg-brandGreen/10 group-hover:text-brandGreen group-hover:translate-x-1"
+                            }`}>
+                              <ChevronRight size={16} />
+                            </div>
+                          </div>
                         </button>
-                      ))}
-                    </div>
-
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
                     {displayedAssessments.length === 0 ? (
                       <div className={`rounded-lg border px-3 py-3 text-xs ${isDark ? "border-zinc-800 bg-zinc-900 text-zinc-300" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
                         No quizzes for this filter.
                       </div>
                     ) : (
-                      <div className="space-y-1.5">
-                        {displayedAssessments.map((assessment) => {
-                          const isSelected = selectedQuiz?.id === assessment.id;
-                          const isCompleted = Boolean(progressByQuizId[assessment.id]?.completed);
-                          return (
-                            <button
-                              key={assessment.id}
-                              type="button"
-                              onClick={() => openQuiz(assessment)}
-                              className={`w-full rounded-lg border px-3 py-2 text-left transition ${
-                                isSelected
-                                  ? isDark
-                                    ? "border-accentGreen/60 bg-accentGreen/15"
-                                    : "border-brandGreen bg-brandGreen/10"
-                                  : isDark
-                                    ? "border-zinc-800 bg-zinc-900 hover:bg-zinc-800/80"
-                                    : "border-zinc-200 bg-white hover:bg-zinc-50"
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-semibold">{assessment.title}</p>
-                                  <p className={`mt-0.5 text-[11px] ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                                    {assessment.total_questions} questions • {assessment.time_limit ? `${assessment.time_limit}m` : "No limit"}
-                                  </p>
+                      displayedAssessments.map((assessment) => {
+                        const isSelected = selectedQuiz?.id === assessment.id;
+                        const isCompleted = Boolean(progressByQuizId[assessment.id]?.completed);
+                        return (
+                          <button
+                            key={assessment.id}
+                            onClick={() => openQuiz(assessment)}
+                            className={`w-full group rounded-xl border p-4 text-left transition-all duration-300 ${
+                              isSelected
+                                ? isDark ? "border-[#8CD559] bg-[#8CD559]/10 shadow-[0_0_15px_rgba(140,213,89,0.1)]" : "border-brandGreen bg-brandGreen/5"
+                                : isDark ? "border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800/80 backdrop-blur-sm" : "border-zinc-200 bg-white/60 hover:bg-white backdrop-blur-sm"
+                            }`}
+                          >
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold truncate leading-tight">{assessment.title}</p>
+                                <div className="flex items-center gap-3 mt-2 opacity-60 text-[11px] font-medium">
+                                  <span className="flex items-center gap-1.5"><ClipboardList size={14}/> {assessment.total_questions} Qs</span>
+                                  <span className="flex items-center gap-1.5"><Clock3 size={14}/> {assessment.time_limit || "∞"}</span>
                                 </div>
-                                {loadingQuizId === assessment.id ? (
-                                  <Loader2 size={14} className="mt-0.5 animate-spin" />
-                                ) : (
-                                  <CheckCircle2 size={14} className={`mt-0.5 ${isCompleted ? "text-[#9DE16A]" : isDark ? "text-zinc-500" : "text-zinc-300"}`} />
-                                )}
                               </div>
-                            </button>
-                          );
-                        })}
-                      </div>
+                              {loadingQuizId === assessment.id ? (
+                                <Loader2 size={18} className="animate-spin shrink-0" />
+                              ) : isCompleted ? (
+                                <CheckCircle2 size={18} className="text-[#9DE16A] shrink-0" />
+                              ) : null}
+                            </div>
+                          </button>
+                        );
+                      })
                     )}
                   </div>
                 )}
               </div>
             </section>
 
+            {/* MAIN QUIZ AREA */}
             <section className={`min-h-0 rounded-xl border ${isDark ? "border-zinc-800 bg-zinc-900/80" : "border-zinc-200 bg-white/90"}`}>
               {!selectedQuiz ? (
                 <div className="flex h-full items-center justify-center p-8">
-                  <div className="text-center">
-                    <ClipboardList size={24} className={`mx-auto ${isDark ? "text-accentGreen" : "text-brandGreen"}`} />
-                    <p className={`mt-3 text-sm ${isDark ? "text-zinc-300" : "text-zinc-600"}`}>Select a quiz from the left panel.</p>
+                  <div className="text-center opacity-80">
+                    <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl ${isDark ? "bg-zinc-800/50" : "bg-zinc-100"}`}>
+                      <ClipboardList size={32} className={isDark ? "text-[#8CD559]" : "text-brandGreen"} />
+                    </div>
+                    <h3 className="mt-4 text-lg font-bold">No Quiz Selected</h3>
+                    <p className={`mt-1 text-sm font-medium ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                      Select a lesson and quiz from the left panel to begin.
+                    </p>
                   </div>
                 </div>
               ) : (
                 <div className="flex h-full min-h-0 flex-col">
-                  <div className={`border-b px-4 py-3 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
+                  <div className={`border-b px-5 py-4 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className={`text-[11px] font-semibold uppercase tracking-wide ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>{selectedQuiz.topic}</p>
-                        <h3 className="truncate text-lg font-bold">{selectedQuiz.title}</h3>
-                        <p className={`mt-0.5 text-xs ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
+                        <p className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-[#8CD559]" : "text-brandGreen"}`}>{selectedQuiz.topic}</p>
+                        <h3 className="truncate text-xl font-bold mt-1">{selectedQuiz.title}</h3>
+                        <p className={`mt-1 text-xs font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>
                           {answeredCount}/{selectedQuiz.total_questions} answered • {progressByQuizId[selectedQuiz.id]?.completed ? "Completed" : "In progress"}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-700"}`}>
+                        <span className={`rounded-md px-2.5 py-1.5 text-xs font-bold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-700"}`}>
                           Try {progressByQuizId[selectedQuiz.id]?.attempts ?? selectedQuiz.total_attempts}
                         </span>
-                        <span className={`rounded-md px-2 py-1 text-xs font-semibold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-700"}`}>
+                        <span className={`rounded-md px-2.5 py-1.5 text-xs font-bold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-700"}`}>
                           {completionPercent}%
                         </span>
                       </div>
@@ -530,7 +540,7 @@ export default function QuizPage() {
 
                   <div className="grid min-h-0 flex-1 lg:grid-cols-[140px_minmax(0,1fr)]">
                     <aside className={`border-b p-3 lg:border-b-0 lg:border-r ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
-                      <div className="grid grid-cols-5 gap-1 lg:grid-cols-3">
+                      <div className="grid grid-cols-5 gap-1.5 lg:grid-cols-3">
                         {selectedQuiz.questions.map((question, index) => {
                           const answered = Boolean(answers[question.id]);
                           const active = index === currentQuestionIndex;
@@ -539,18 +549,18 @@ export default function QuizPage() {
                               key={question.id}
                               type="button"
                               onClick={() => setCurrentQuestionIndex(index)}
-                              className={`h-8 rounded-md border text-xs font-semibold ${
+                              className={`h-9 rounded-md border text-sm font-bold ${
                                 active
                                   ? isDark
-                                    ? "border-accentGreen/70 bg-accentGreen/15"
-                                    : "border-brandGreen bg-brandGreen/10"
+                                    ? "border-[#8CD559]/70 bg-[#8CD559]/15 text-white"
+                                    : "border-brandGreen bg-brandGreen/10 text-brandGreen"
                                   : answered
                                     ? isDark
-                                      ? "border-zinc-700 bg-zinc-800"
+                                      ? "border-zinc-700 bg-zinc-800 text-zinc-300"
                                       : "border-zinc-200 bg-green-50 text-green-700"
                                     : isDark
-                                      ? "border-zinc-800 bg-zinc-900 text-zinc-400"
-                                      : "border-zinc-200 bg-white text-zinc-500"
+                                      ? "border-zinc-800 bg-zinc-900 text-zinc-500 hover:bg-zinc-800"
+                                      : "border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50"
                               }`}
                             >
                               {index + 1}
@@ -561,17 +571,17 @@ export default function QuizPage() {
                     </aside>
 
                     <div className="flex min-h-0 flex-col">
-                      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-6">
+                      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 lg:px-8">
                         {currentQuestion ? (
                           <div className="mx-auto max-w-2xl">
-                            <div className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"}`}>
-                              {answers[currentQuestion.id] ? <CheckCircle2 size={12} className="text-[#9DE16A]" /> : <Circle size={12} />}
+                            <div className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"}`}>
+                              {answers[currentQuestion.id] ? <CheckCircle2 size={14} className="text-[#9DE16A]" /> : <Circle size={14} />}
                               Question {currentQuestionIndex + 1}
                             </div>
 
-                            <h4 className="mt-3 text-lg font-semibold leading-relaxed">{currentQuestion.question_text}</h4>
+                            <h4 className="mt-4 text-xl font-semibold leading-relaxed">{currentQuestion.question_text}</h4>
 
-                            <div className="mt-4 space-y-2">
+                            <div className="mt-6 space-y-3">
                               {getChoices(currentQuestion).map((choice) => {
                                 const selected = answers[currentQuestion.id] === choice.key;
                                 return (
@@ -579,20 +589,20 @@ export default function QuizPage() {
                                     key={choice.key}
                                     type="button"
                                     onClick={() => selectAnswer(currentQuestion.id, choice.key)}
-                                    className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left ${
+                                    className={`flex w-full items-center gap-4 rounded-xl border px-4 py-3.5 text-left transition-colors duration-200 ${
                                       selected
                                         ? isDark
-                                          ? "border-accentGreen/70 bg-accentGreen/15"
-                                          : "border-brandGreen bg-brandGreen/10"
+                                          ? "border-[#8CD559] bg-[#8CD559]/10"
+                                          : "border-brandGreen bg-brandGreen/5"
                                         : isDark
                                           ? "border-zinc-800 bg-zinc-900 hover:bg-zinc-800/80"
                                           : "border-zinc-200 bg-white hover:bg-zinc-50"
                                     }`}
                                   >
-                                    <span className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold ${
+                                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${
                                       selected
                                         ? isDark
-                                          ? "border-accentGreen bg-accentGreen text-black"
+                                          ? "border-[#8CD559] bg-[#8CD559] text-black"
                                           : "border-brandGreen bg-brandGreen text-white"
                                         : isDark
                                           ? "border-zinc-700 text-zinc-400"
@@ -600,11 +610,11 @@ export default function QuizPage() {
                                     }`}>
                                       {choice.key}
                                     </span>
-                                    <span className="flex-1 text-sm">{choice.text}</span>
+                                    <span className="flex-1 text-base font-medium">{choice.text}</span>
                                     {selected ? (
-                                      <CheckCircle2 size={15} className="text-[#9DE16A]" />
+                                      <CheckCircle2 size={20} className="text-[#9DE16A] shrink-0" />
                                     ) : (
-                                      <Dot size={18} className={isDark ? "text-zinc-500" : "text-zinc-300"} />
+                                      <Dot size={24} className={`shrink-0 ${isDark ? "text-zinc-600" : "text-zinc-300"}`} />
                                     )}
                                   </button>
                                 );
@@ -612,40 +622,40 @@ export default function QuizPage() {
                             </div>
                           </div>
                         ) : (
-                          <p className={`text-sm ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>No questions found for this quiz.</p>
+                          <p className={`text-sm font-medium ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>No questions found for this quiz.</p>
                         )}
                       </div>
 
-                      <div className={`flex flex-wrap items-center justify-between gap-2 border-t px-4 py-3 ${isDark ? "border-zinc-800 bg-zinc-900/90" : "border-zinc-200 bg-white/90"}`}>
-                        <p className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>{completionPercent}% complete</p>
+                      <div className={`flex flex-wrap items-center justify-between gap-3 border-t px-5 py-4 ${isDark ? "border-zinc-800 bg-zinc-900/90" : "border-zinc-200 bg-white/90"}`}>
+                        <p className={`text-sm font-bold ${isDark ? "text-zinc-400" : "text-zinc-600"}`}>{completionPercent}% complete</p>
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => setCurrentQuestionIndex((index) => Math.max(0, index - 1))}
                             disabled={currentQuestionIndex === 0}
-                            className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${isDark ? "bg-zinc-800 hover:bg-zinc-700" : "bg-zinc-100 hover:bg-zinc-200"}`}
+                            className={`inline-flex items-center gap-1 rounded-md px-4 py-2 text-sm font-bold disabled:opacity-50 transition-colors ${isDark ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-100" : "bg-zinc-100 hover:bg-zinc-200 text-zinc-900"}`}
                           >
-                            <ChevronLeft size={14} />
+                            <ChevronLeft size={16} />
                             Prev
                           </button>
                           <button
                             type="button"
                             onClick={() => setCurrentQuestionIndex((index) => Math.min(selectedQuiz.questions.length - 1, index + 1))}
                             disabled={currentQuestionIndex >= selectedQuiz.questions.length - 1}
-                            className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${isDark ? "bg-zinc-800 hover:bg-zinc-700" : "bg-zinc-100 hover:bg-zinc-200"}`}
+                            className={`inline-flex items-center gap-1 rounded-md px-4 py-2 text-sm font-bold disabled:opacity-50 transition-colors ${isDark ? "bg-zinc-800 hover:bg-zinc-700 text-zinc-100" : "bg-zinc-100 hover:bg-zinc-200 text-zinc-900"}`}
                           >
                             Next
-                            <ChevronRight size={14} />
+                            <ChevronRight size={16} />
                           </button>
                           <button
                             type="button"
                             onClick={submitQuiz}
                             disabled={submitting || selectedQuiz.questions.length === 0}
-                            className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
-                              isDark ? "bg-accentGreen text-black hover:bg-[#8CD559]" : "bg-brandGreen text-white hover:bg-brandGreen/90"
+                            className={`inline-flex items-center gap-2 rounded-md px-5 py-2 text-sm font-bold disabled:opacity-50 transition-colors ${
+                              isDark ? "bg-[#8CD559] text-black hover:bg-[#7bc04e]" : "bg-brandGreen text-white hover:bg-brandGreen/90"
                             }`}
                           >
-                            {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                            {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                             {submitting ? "Submitting..." : "Submit"}
                           </button>
                         </div>
@@ -654,15 +664,15 @@ export default function QuizPage() {
                   </div>
 
                   {result && (
-                    <div className={`mx-4 mb-4 rounded-lg border px-3 py-2 text-xs ${isDark ? "border-zinc-800 bg-zinc-900" : "border-zinc-200 bg-zinc-50"}`}>
-                      <p className="font-semibold">Submission recorded</p>
-                      <p className={`mt-1 ${isDark ? "text-zinc-300" : "text-zinc-600"}`}>
+                    <div className={`mx-5 mb-5 rounded-lg border px-4 py-3 text-sm ${isDark ? "border-zinc-800 bg-zinc-900" : "border-zinc-200 bg-zinc-50"}`}>
+                      <p className="font-bold">Submission recorded</p>
+                      <p className={`mt-1 font-medium ${isDark ? "text-zinc-300" : "text-zinc-600"}`}>
                         Answered {result.answered_count}/{result.total_questions}
                         {typeof result.correct_count === "number" ? ` • Correct ${result.correct_count}` : ""}
                         {typeof result.score_percent === "number" ? ` • Score ${result.score_percent}%` : ""}
                       </p>
                       {result.submitted_offline && (
-                        <p className="mt-1 text-yellow-500">Answers captured locally (backend unavailable).</p>
+                        <p className="mt-1 text-yellow-500 font-medium">Answers captured locally (backend unavailable).</p>
                       )}
                     </div>
                   )}
