@@ -229,10 +229,16 @@ export default function AuthForm() {
 
   const heroCopy = (
     <>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accentGreen/95 mb-1.5">
-        Welcome to BarangAI
+      <p 
+        className="text-[10px] font-semibold uppercase tracking-[0.22em] text-accentGreen/95 mb-1.5"
+        style={{ fontFamily: "'Poppins', 'Plus Jakarta Sans', sans-serif" }}
+      >
+        WELCOME TO BARANGAI
       </p>
-      <div className="text-lg md:text-xl font-bold mb-2">
+      <div 
+        className="text-lg md:text-xl font-bold mb-2"
+        style={{ fontFamily: "'Poppins', 'Plus Jakarta Sans', sans-serif" }}
+      >
         Barang<span className="text-accentGreen">AI</span>
       </div>
       <h2 className="text-base md:text-lg font-extrabold leading-snug mb-1.5">
@@ -246,8 +252,16 @@ export default function AuthForm() {
 
   const mobileHeroStrip = (
     <div className="md:hidden text-center text-white mb-2 px-1">
-      <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-accentGreen/90">Welcome to BarangAI</p>
-      <p className="text-sm font-bold">
+      <p 
+        className="text-[9px] font-semibold uppercase tracking-[0.2em] text-accentGreen/90"
+        style={{ fontFamily: "'Poppins', 'Plus Jakarta Sans', sans-serif" }}
+      >
+        WELCOME TO BARANGAI
+      </p>
+      <p 
+        className="text-sm font-bold"
+        style={{ fontFamily: "'Poppins', 'Plus Jakarta Sans', sans-serif" }}
+      >
         Barang<span className="text-accentGreen">AI</span>
         <span className="font-normal text-white/75 text-xs"> · Adaptive learning and AI help</span>
       </p>
@@ -271,12 +285,13 @@ export default function AuthForm() {
               <div className="text-center">
                 <motion.h1
                   className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight"
+                  style={{ fontFamily: "'Poppins', 'Plus Jakarta Sans', sans-serif" }}
                   initial={{ opacity: 0, scale: 0.94 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.96, y: -12 }}
                   transition={{ duration: 0.35, ease: easeOut }}
                 >
-                  Welcome to <span className="text-accentGreen">BarangAI</span>
+                  WELCOME TO <span className="text-accentGreen">BARANGAI</span>
                 </motion.h1>
               </div>
             </motion.div>
