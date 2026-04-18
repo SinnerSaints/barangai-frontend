@@ -10,6 +10,38 @@ type LoginResponse = {
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
 export const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY || "";
 
+function extractApiErrorMessage(data: any, fallback: string): string {
+  if (!data) return fallback;
+
+  if (typeof data === "string") {
+    return data || fallback;
+  }
+
+  if (typeof data?.detail === "string" && data.detail.trim()) {
+    return data.detail;
+  }
+
+  if (typeof data?.error === "string" && data.error.trim()) {
+    return data.error;
+  }
+
+  const firstFieldError = Object.values(data).find(
+    (value) =>
+      (Array.isArray(value) && value.length > 0 && typeof value[0] === "string") ||
+      typeof value === "string"
+  );
+
+  if (Array.isArray(firstFieldError) && typeof firstFieldError[0] === "string") {
+    return firstFieldError[0];
+  }
+
+  if (typeof firstFieldError === "string" && firstFieldError.trim()) {
+    return firstFieldError;
+  }
+
+  return fallback;
+}
+
 function getAvatarValue(data: any): string | undefined {
   return (
     data?.avatar ||
@@ -50,15 +82,37 @@ export async function login(
     const token_data = await token_res.json();
 
     // 2. Get User Profile/Role Info
+    const loginPayload: Record<string, string> = { email, password };
+    if (typeof role === "string" && role.trim()) {
+      loginPayload.role = role.trim();
+    }
+
     const login_res = await fetch(login_url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, role }),
+      body: JSON.stringify(loginPayload),
     });
 
     const user_data = await login_res.json();
 
-    if (!login_res.ok) throw new Error(user_data.detail || "No profile registered with that credential.");
+    if (!login_res.ok) {
+      const rawMessage = extractApiErrorMessage(
+        user_data,
+        "No profile registered with that credential."
+      );
+      const normalized = rawMessage.toLowerCase();
+
+      if (
+        normalized.includes("pending") ||
+        normalized.includes("approval") ||
+        normalized.includes("not approved") ||
+        normalized.includes("inactive")
+      ) {
+        throw new Error("Your account is waiting for admin approval.");
+      }
+
+      throw new Error(rawMessage);
+    }
 
     // 3. Persist everything to localStorage
     localStorage.setItem("access_token", token_data.access);
@@ -87,7 +141,7 @@ export async function signup(email: string, password: string, first_name: string
     body: JSON.stringify({ email, password, role, first_name, last_name }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || "Signup failed");
+  if (!res.ok) throw new Error(extractApiErrorMessage(data, "Signup failed"));
   return data;
 }
 
