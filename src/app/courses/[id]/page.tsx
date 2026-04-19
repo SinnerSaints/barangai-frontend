@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, BookOpen, Calendar, Download, ExternalLink } from "lucide-react";
+import { ArrowLeft, BookOpen, Calendar, ClipboardList, Download, ExternalLink } from "lucide-react";
 import AssessmentGate from "@/components/assessment/AssessmentGate";
 import Sidebar from "@/components/dashboard/Sidebar";
 import TopBar from "@/components/dashboard/TopBar";
@@ -16,6 +16,109 @@ import {
 } from "@/lib/lessonProgress";
 import { useTheme } from "@/context/theme";
 
+// ─── Offline Export ───────────────────────────────────────────────────────────
+function exportLessonAsHTML(lesson: LessonRecord) {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${lesson.title}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0a0a0a;
+      color: #e4e4e7;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+    .container { max-width: 780px; margin: 0 auto; }
+    .badge {
+      display: inline-block;
+      background: #1f2e1f;
+      color: #8CD559;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.3rem 0.9rem;
+      border-radius: 999px;
+      margin-bottom: 1.2rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    h1 { font-size: 2rem; font-weight: 800; line-height: 1.25; margin-bottom: 1rem; }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      font-size: 0.85rem;
+      color: #a1a1aa;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid #27272a;
+    }
+    .meta span { display: flex; align-items: center; gap: 0.4rem; }
+    .content { font-size: 1rem; line-height: 1.85; color: #d4d4d8; white-space: pre-wrap; }
+    .quiz-cta {
+      margin-top: 3rem;
+      padding: 1.5rem;
+      border: 1px solid #27272a;
+      border-radius: 1rem;
+      background: #111;
+    }
+    .quiz-cta h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .quiz-cta p { font-size: 0.875rem; color: #a1a1aa; margin-bottom: 1rem; }
+    .quiz-cta .note {
+      display: inline-block;
+      font-size: 0.8rem;
+      color: #52525b;
+      font-style: italic;
+    }
+    .footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #27272a;
+      font-size: 0.75rem;
+      color: #52525b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="badge">${lesson.topic}</div>
+    <h1>${lesson.title}</h1>
+    <div class="meta">
+      <span>📚 ${lesson.total_lessons} Lessons</span>
+      <span>📝 ${lesson.total_quizzes} Quizzes</span>
+      <span>📅 Saved on ${new Date().toLocaleDateString()}</span>
+      ${typeof lesson.score === "number" ? `<span>⭐ Score: ${lesson.score}%</span>` : ""}
+    </div>
+    <div class="content">${lesson.content ?? "No content available."}</div>
+
+    <div class="quiz-cta">
+      <h3>📋 Test Your Knowledge</h3>
+      <p>Ready to check what you learned? Go back online and take the quiz for this lesson.</p>
+      <span class="note">Open the BarangAI app → Quizzes → ${lesson.topic}</span>
+    </div>
+
+    <div class="footer">
+      Saved from BarangAI · Open this file in any browser to read offline
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${lesson.title.replace(/[^a-z0-9]/gi, "_")}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function CourseDetailPage() {
   const params = useParams<{ id: string }>();
   const courseId = Number(params?.id);
@@ -28,18 +131,6 @@ export default function CourseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Offline Access Handler
-  const handleSaveOffline = () => {
-    if (!lesson) return;
-    const cached = readCachedLessons();
-    const already = cached.some((item) => Number(item.id) === courseId);
-    const updated = already
-      ? cached.map((item) => Number(item.id) === courseId ? { ...lesson } : item)
-      : [...cached, { ...lesson }];
-    writeCachedLessons(updated);
-    alert("Course saved for offline access!");
-  };
-
   const baseUrl = API_BASE_URL.endsWith("/")
     ? API_BASE_URL
     : `${API_BASE_URL}/`;
@@ -47,9 +138,7 @@ export default function CourseDetailPage() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem("sidebar_collapsed");
-      if (stored !== null) {
-        setCollapsed(stored === "true");
-      }
+      if (stored !== null) setCollapsed(stored === "true");
     } catch {}
   }, []);
 
@@ -65,9 +154,7 @@ export default function CourseDetailPage() {
 
       try {
         cachedLesson =
-          readCachedLessons().find(
-            (item) => Number(item.id) === courseId
-          ) ?? null;
+          readCachedLessons().find((item) => Number(item.id) === courseId) ?? null;
 
         if (cachedLesson) {
           setLesson(cachedLesson);
@@ -77,15 +164,12 @@ export default function CourseDetailPage() {
 
         const token = localStorage.getItem("access_token");
 
-        const response = await fetch(
-          `${baseUrl}lessons/${courseId}/`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        const response = await fetch(`${baseUrl}lessons/${courseId}/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
 
         if (response.ok) {
           const data = await response.json();
@@ -95,13 +179,9 @@ export default function CourseDetailPage() {
           const mergedLessons =
             nextLessons.length === 0
               ? [mappedLesson]
-              : nextLessons.some(
-                  (item) => Number(item.id) === courseId
-                )
+              : nextLessons.some((item) => Number(item.id) === courseId)
               ? nextLessons.map((item) =>
-                  Number(item.id) === courseId
-                    ? mappedLesson
-                    : item
+                  Number(item.id) === courseId ? mappedLesson : item
                 )
               : [...nextLessons, mappedLesson];
 
@@ -117,32 +197,24 @@ export default function CourseDetailPage() {
           },
         });
 
-        if (!listResponse.ok) {
-          throw new Error("Failed to load course.");
-        }
+        if (!listResponse.ok) throw new Error("Failed to load course.");
 
         const listData = await listResponse.json();
         const mappedLessons = Array.isArray(listData)
-          ? listData.map((item, index) =>
-              mapLesson(item, index + 1)
-            )
+          ? listData.map((item, index) => mapLesson(item, index + 1))
           : [];
 
         const matchedLesson = mappedLessons.find(
           (item) => Number(item.id) === courseId
         );
 
-        if (!matchedLesson) {
-          throw new Error("Course not found.");
-        }
+        if (!matchedLesson) throw new Error("Course not found.");
 
         writeCachedLessons(mappedLessons);
         setLesson(matchedLesson);
       } catch (err) {
         console.error(err);
-        if (!cachedLesson) {
-          setError("Unable to load this course right now.");
-        }
+        if (!cachedLesson) setError("Unable to load this course right now.");
       } finally {
         setLoading(false);
       }
@@ -165,13 +237,21 @@ export default function CourseDetailPage() {
     if (!lesson?.created_at) return "";
     return new Date(lesson.created_at).toLocaleDateString();
   }, [lesson?.created_at]);
+
   const topicBackHref = useMemo(() => {
     const topic = (lesson?.topic || "").trim();
     if (!topic) return "/courses";
     return `/courses/topic/${encodeURIComponent(topic)}`;
   }, [lesson?.topic]);
 
-  // ✅ FIXED COMPLETE HANDLER (SYNC WITH BACKEND)
+  // Quiz link — navigates to /quizzes with topic pre-selected
+  const quizHref = useMemo(() => {
+    const topic = (lesson?.topic || "").trim();
+    if (!topic) return "/quizzes";
+    // Pass lesson id so QuizPage can match and auto-open the right quiz
+    return `/quizzes?topic=${encodeURIComponent(topic)}&lessonId=${courseId}`;
+  }, [lesson?.topic, courseId]);
+
   const handleCompleteCourse = async () => {
     if (!lesson) return;
 
@@ -190,7 +270,6 @@ export default function CourseDetailPage() {
 
       const data = await res.json();
 
-      // ✅ USE BACKEND RESPONSE (TOGGLE SAFE)
       const updatedLesson = {
         ...lesson,
         completed: data.completed,
@@ -203,9 +282,7 @@ export default function CourseDetailPage() {
       const updatedCache = cached.map((item) =>
         Number(item.id) === courseId ? updatedLesson : item
       );
-
       writeCachedLessons(updatedCache);
-
     } catch (err) {
       console.error("Backend update failed", err);
     }
@@ -227,6 +304,7 @@ export default function CourseDetailPage() {
           >
             <TopBar searchValue={query} onSearch={setQuery} />
 
+            {/* ── Top action bar ── */}
             <div className="mt-6 mb-6 flex items-center justify-between gap-4">
               <Link
                 href={topicBackHref}
@@ -240,7 +318,8 @@ export default function CourseDetailPage() {
                 Back to Lessons
               </Link>
 
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
+                {/* Open external resource */}
                 {lesson?.url && (
                   <Link
                     href={lesson.url}
@@ -256,15 +335,22 @@ export default function CourseDetailPage() {
                   </Link>
                 )}
 
-                <button
-                  onClick={handleSaveOffline}
-                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold bg-blue-600 text-white"
-                >
-                  <Download size={16} />
-                  Save Offline
-                </button>
+                {/* Download lesson as offline HTML */}
+                {lesson && (
+                  <button
+                    onClick={() => exportLessonAsHTML(lesson)}
+                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
+                      isDark
+                        ? "bg-white/10 text-white hover:bg-white/20"
+                        : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                    }`}
+                  >
+                    <Download size={16} />
+                    Download Lesson
+                  </button>
+                )}
 
-                {/* ✅ TOGGLE BUTTON */}
+                {/* Mark complete / incomplete toggle */}
                 {lesson && (
                   <button
                     onClick={handleCompleteCourse}
@@ -284,6 +370,7 @@ export default function CourseDetailPage() {
               </div>
             </div>
 
+            {/* ── States ── */}
             {loading ? (
               <div className="p-10 text-center font-bold text-brandGreen">
                 Loading course...
@@ -296,14 +383,8 @@ export default function CourseDetailPage() {
                     : "border-gray-200 bg-white/90"
                 }`}
               >
-                <h1 className="text-2xl font-bold">
-                  Course unavailable
-                </h1>
-                <p
-                  className={`mt-3 ${
-                    isDark ? "text-zinc-300" : "text-gray-600"
-                  }`}
-                >
+                <h1 className="text-2xl font-bold">Course unavailable</h1>
+                <p className={`mt-3 ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
                   {error}
                 </p>
               </div>
@@ -315,6 +396,7 @@ export default function CourseDetailPage() {
                     : "border-gray-200 bg-white/90"
                 }`}
               >
+                {/* ── Course header ── */}
                 <div
                   className={`border-b px-8 py-7 ${
                     isDark ? "border-white/10" : "border-gray-200"
@@ -354,47 +436,31 @@ export default function CourseDetailPage() {
                       <BookOpen size={18} className="text-[#9DE16A]" />
                       <span>{lesson.total_lessons} Lessons</span>
                     </div>
-
                     <div>
-                      <span className="font-semibold">
-                        {lesson.total_quizzes}
-                      </span>{" "}
-                      quizzes
+                      <span className="font-semibold">{lesson.total_quizzes}</span> quizzes
                     </div>
-
                     <div>
-                      <span className="font-semibold">
-                        {lesson.progress}%
-                      </span>{" "}
-                      progress
+                      <span className="font-semibold">{lesson.progress}%</span> progress
                     </div>
-
                     <div>
                       <span className="font-semibold">
-                        {lesson.completed
-                          ? "Completed"
-                          : "In progress"}
+                        {lesson.completed ? "Completed" : "In progress"}
                       </span>
                     </div>
-
                     {typeof lesson.score === "number" && (
                       <div>
-                        <span className="font-semibold">
-                          {lesson.score}%
-                        </span>{" "}
-                        latest score
+                        <span className="font-semibold">{lesson.score}%</span> latest score
                       </div>
                     )}
                   </div>
                 </div>
 
+                {/* ── Course content ── */}
                 <div className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
                   <div className="max-w-4xl">
                     <h2
                       className={`mb-4 text-lg font-semibold ${
-                        isDark
-                          ? "text-zinc-100"
-                          : "text-[#034440]"
+                        isDark ? "text-zinc-100" : "text-[#034440]"
                       }`}
                     >
                       Course Content
@@ -402,13 +468,45 @@ export default function CourseDetailPage() {
 
                     <div
                       className={`whitespace-pre-wrap text-base leading-8 ${
-                        isDark
-                          ? "text-zinc-200"
-                          : "text-gray-700"
+                        isDark ? "text-zinc-200" : "text-gray-700"
                       }`}
                     >
-                      {lesson.content ||
-                        "No content available for this course yet."}
+                      {lesson.content || "No content available for this course yet."}
+                    </div>
+
+                    {/* ── Quiz CTA at the bottom ── */}
+                    <div
+                      className={`mt-10 rounded-2xl border p-6 ${
+                        isDark
+                          ? "border-zinc-700 bg-zinc-800/50"
+                          : "border-gray-200 bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <ClipboardList
+                          size={20}
+                          className={isDark ? "text-[#8CD559]" : "text-brandGreen"}
+                        />
+                        <h3 className="text-lg font-bold">Test Your Knowledge</h3>
+                      </div>
+                      <p
+                        className={`text-sm mb-4 ${
+                          isDark ? "text-zinc-400" : "text-gray-500"
+                        }`}
+                      >
+                        Ready to check what you learned? Take the quiz for this lesson.
+                      </p>
+                      <Link
+                        href={quizHref}
+                        className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold ${
+                          isDark
+                            ? "bg-[#8CD559] text-black hover:bg-[#7bc04e]"
+                            : "bg-brandGreen text-white hover:opacity-90"
+                        }`}
+                      >
+                        <ClipboardList size={16} />
+                        Take the Quiz
+                      </Link>
                     </div>
                   </div>
                 </div>

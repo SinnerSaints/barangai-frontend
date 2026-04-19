@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import {
   BookOpen,
   CheckCircle2,
@@ -10,7 +11,6 @@ import {
   ClipboardList,
   Clock3,
   Loader2,
-  Send,
   XCircle,
   RotateCcw,
   CheckCircle,
@@ -41,7 +41,7 @@ interface Assessment {
   total_attempts: number;
   time_limit?: number | null;
   status: string;
-  completed: boolean; 
+  completed: boolean;
   score?: number | null;
 }
 
@@ -50,7 +50,7 @@ interface QuizResult {
   answered_count: number;
   correct_count?: number | null;
   score_percent?: number | null;
-  correct_answers?: Record<number | string, string>; 
+  correct_answers?: Record<number | string, string>;
 }
 
 type ChoiceKey = "A" | "B" | "C" | "D";
@@ -88,18 +88,18 @@ function getChoices(question: Question) {
 export default function QuizPage() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const searchParams = useSearchParams();
 
   const [query, setQuery] = useState("");
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingQuizId, setLoadingQuizId] = useState<number | null>(null);
   const [quizError, setQuizError] = useState("");
-  
+
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [selectedQuiz, setSelectedQuiz] = useState<Assessment | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>("ALL");
-  
-  // Stepper & Quiz State
+
   const [currentStep, setCurrentStep] = useState(1);
   const [answers, setAnswers] = useState<Record<number, ChoiceKey>>({});
   const [result, setResult] = useState<QuizResult | null>(null);
@@ -107,32 +107,81 @@ export default function QuizPage() {
 
   const baseUrl = API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
 
+  // Prevents auto-open from firing more than once
+  const autoOpenedRef = useRef(false);
+
+  // ── Single fetch effect: loads quizzes then immediately auto-opens if
+  //    ?topic=...&lessonId=... are present in the URL ──────────────────────────
   useEffect(() => {
-    const fetchAssessments = async () => {
+    const topicParam = searchParams.get("topic");
+    const lessonIdParam = searchParams.get("lessonId");
+
+    const fetchAndAutoOpen = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem("access_token");
+
         const res = await fetch(`${baseUrl}quizzes/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error("Failed to load");
+
         const data = await res.json();
         const items = Array.isArray(data) ? data : data.results || [];
-        setAssessments(items.map((item: any, idx: number) => mapAssessment(item, idx)));
+        const mapped: Assessment[] = items.map((item: any, idx: number) =>
+          mapAssessment(item, idx)
+        );
+        setAssessments(mapped);
+
+        // Auto-open only once and only when both params exist
+        if (topicParam && lessonIdParam && !autoOpenedRef.current) {
+          autoOpenedRef.current = true;
+
+          const decodedTopic = decodeURIComponent(topicParam);
+          const targetId = Number(lessonIdParam);
+
+          // Match priority: exact id+topic → exact id → first in topic
+          const matched =
+            mapped.find((a) => a.id === targetId && a.topic === decodedTopic) ??
+            mapped.find((a) => a.id === targetId) ??
+            mapped.find((a) => a.topic === decodedTopic);
+
+          if (matched) {
+            setSelectedTopic(matched.topic);
+            setLoadingQuizId(matched.id);
+
+            try {
+              const qRes = await fetch(`${baseUrl}quizzes/${matched.id}/`, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              const qData = await qRes.json();
+              setSelectedQuiz(mapAssessment(qData, matched.id));
+            } catch {
+              // Detail fetch failed — use the list entry (has no questions yet,
+              // but at least shows the quiz header)
+              setSelectedQuiz(matched);
+            } finally {
+              setLoadingQuizId(null);
+            }
+          }
+        }
       } catch (err) {
         setQuizError("Failed to load quizzes.");
       } finally {
         setLoading(false);
       }
     };
-    fetchAssessments();
+
+    fetchAndAutoOpen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUrl]);
+  // searchParams intentionally omitted — we read it once on mount only.
 
   const filteredAssessments = useMemo(() => {
     return assessments.filter((a) => {
       if (activeTab === "COMPLETED") return a.completed;
       if (activeTab === "PENDING") return !a.completed;
-      return true; // "ALL"
+      return true;
     });
   }, [assessments, activeTab]);
 
@@ -168,7 +217,7 @@ export default function QuizPage() {
       });
       const data = await res.json();
       setSelectedQuiz(mapAssessment(data, assessment.id));
-    } catch (err) {
+    } catch {
       setSelectedQuiz(assessment);
     } finally {
       setLoadingQuizId(null);
@@ -189,20 +238,21 @@ export default function QuizPage() {
         body: JSON.stringify({ answers }),
       });
       const data = await res.json();
-      
+
       setResult({
         total_questions: data.total_count || selectedQuiz.total_questions,
         answered_count: Object.keys(answers).length,
         correct_count: data.correct_count,
         score_percent: data.score,
-        correct_answers: data.correct_answers, 
+        correct_answers: data.correct_answers,
       });
 
-      setAssessments(prev => prev.map(a => 
-        a.id === selectedQuiz.id ? { ...a, completed: true, score: data.score } : a
-      ));
-
-    } catch (err) {
+      setAssessments((prev) =>
+        prev.map((a) =>
+          a.id === selectedQuiz.id ? { ...a, completed: true, score: data.score } : a
+        )
+      );
+    } catch {
       setQuizError("Submission failed. Scores may not be saved.");
     } finally {
       setSubmitting(false);
@@ -214,37 +264,62 @@ export default function QuizPage() {
 
   return (
     <div className="h-screen overflow-hidden">
-      <main className={`relative flex h-full flex-col p-4 lg:p-5 ${isDark ? "text-zinc-100" : "text-zinc-900"}`}>
+      <main
+        className={`relative flex h-full flex-col p-4 lg:p-5 ${
+          isDark ? "text-zinc-100" : "text-zinc-900"
+        }`}
+      >
         <div className="absolute inset-0 z-0">
-          <Image src={isDark ? chatBgDark : chatBgLight} alt="background" fill className="object-cover opacity-60" />
+          <Image
+            src={isDark ? chatBgDark : chatBgLight}
+            alt="background"
+            fill
+            className="object-cover opacity-60"
+          />
         </div>
 
         <div className="relative z-10 flex h-full min-h-0 flex-col">
           <TopBar searchValue={query} onSearch={setQuery} />
 
           <div className="mt-3 grid min-h-0 flex-1 gap-4 lg:grid-cols-[380px_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)]">
-            
-            {/* SIDEBAR */}
-            <section className={`flex min-h-0 flex-col rounded-xl border p-3 ${isDark ? "border-zinc-800 bg-zinc-900/80" : "border-zinc-200 bg-white/90"}`}>
+
+            {/* ── SIDEBAR ── */}
+            <section
+              className={`flex min-h-0 flex-col rounded-xl border p-3 ${
+                isDark
+                  ? "border-zinc-800 bg-zinc-900/80"
+                  : "border-zinc-200 bg-white/90"
+              }`}
+            >
               <div className="mb-4 flex items-center gap-2 px-1">
                 {selectedTopic && (
-                  <button onClick={() => setSelectedTopic(null)} className="p-1 hover:bg-zinc-800 rounded-md transition-colors">
+                  <button
+                    onClick={() => setSelectedTopic(null)}
+                    className="p-1 hover:bg-zinc-800 rounded-md transition-colors"
+                  >
                     <ChevronLeft size={18} />
                   </button>
                 )}
-                <h2 className="text-lg font-bold">{selectedTopic ? "Available Quizzes" : "Quizzes"}</h2>
+                <h2 className="text-lg font-bold">
+                  {selectedTopic ? "Available Quizzes" : "Quizzes"}
+                </h2>
               </div>
 
-              {/* FILTER TABS */}
               {!selectedTopic && (
-                <div className={`mb-4 flex p-1 rounded-xl ${isDark ? "bg-zinc-800/50" : "bg-zinc-100"}`}>
+                <div
+                  className={`mb-4 flex p-1 rounded-xl ${
+                    isDark ? "bg-zinc-800/50" : "bg-zinc-100"
+                  }`}
+                >
                   {(["ALL", "PENDING", "COMPLETED"] as TabType[]).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
                       className={`flex-1 rounded-lg py-1.5 text-xs font-bold transition-all ${
-                        activeTab === tab 
-                          ? (isDark ? "bg-[#8CD559] text-black shadow-sm" : "bg-white text-brandGreen shadow-sm") 
+                        activeTab === tab
+                          ? isDark
+                            ? "bg-[#8CD559] text-black shadow-sm"
+                            : "bg-white text-brandGreen shadow-sm"
                           : "opacity-60 hover:opacity-100"
                       }`}
                     >
@@ -256,7 +331,9 @@ export default function QuizPage() {
 
               <div className="min-h-0 flex-1 overflow-y-auto space-y-3 pr-1">
                 {loading ? (
-                  <div className="p-4 text-center animate-pulse text-sm opacity-50">Loading content...</div>
+                  <div className="p-4 text-center animate-pulse text-sm opacity-50">
+                    Loading content...
+                  </div>
                 ) : topicGroups.length === 0 ? (
                   <div className="p-8 text-center text-sm opacity-50">
                     No {activeTab.toLowerCase()} quizzes found.
@@ -267,105 +344,174 @@ export default function QuizPage() {
                       key={topic}
                       onClick={() => setSelectedTopic(topic)}
                       className={`w-full group relative rounded-2xl border p-4 text-left transition-all duration-300 ${
-                        isDark ? "border-zinc-800/80 bg-zinc-900/40 hover:bg-zinc-800/80" : "border-zinc-200/80 bg-white/60 hover:bg-white"
+                        isDark
+                          ? "border-zinc-800/80 bg-zinc-900/40 hover:bg-zinc-800/80"
+                          : "border-zinc-200/80 bg-white/60 hover:bg-white"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-4 min-w-0">
-                          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${isDark ? "bg-zinc-800 text-zinc-400 group-hover:text-[#8CD559]" : "bg-zinc-100 text-zinc-500 group-hover:text-brandGreen"}`}>
+                          <div
+                            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                              isDark
+                                ? "bg-zinc-800 text-zinc-400 group-hover:text-[#8CD559]"
+                                : "bg-zinc-100 text-zinc-500 group-hover:text-brandGreen"
+                            }`}
+                          >
                             <BookOpen size={20} />
                           </div>
                           <div className="min-w-0">
                             <h3 className="truncate text-base font-bold">{topic}</h3>
-                            <p className="text-xs opacity-50">{quizzes.length} Quizzes Available</p>
+                            <p className="text-xs opacity-50">
+                              {quizzes.length} Quizzes Available
+                            </p>
                           </div>
                         </div>
-                        <ChevronRight size={16} className="opacity-40 group-hover:translate-x-1 transition-transform" />
+                        <ChevronRight
+                          size={16}
+                          className="opacity-40 group-hover:translate-x-1 transition-transform"
+                        />
                       </div>
                     </button>
                   ))
                 ) : (
-                  topicGroups.find(g => g[0] === selectedTopic)?.[1].map((assessment) => (
-                    <button
-                      key={assessment.id}
-                      onClick={() => openQuiz(assessment)}
-                      className={`w-full group rounded-xl border p-4 text-left transition-all ${
-                        selectedQuiz?.id === assessment.id
-                          ? isDark ? "border-[#8CD559] bg-[#8CD559]/10" : "border-brandGreen bg-brandGreen/5"
-                          : isDark ? "border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800/80" : "border-zinc-200 bg-white/60 hover:bg-white"
-                      }`}
-                    >
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold truncate leading-tight">{assessment.title}</p>
-                          <div className="flex items-center gap-4 mt-2">
-                            <div className="flex items-center gap-3 opacity-60 text-[11px] font-medium">
-                              <span className="flex items-center gap-1.5"><ClipboardList size={14}/> {assessment.total_questions} Qs</span>
-                              <span className="flex items-center gap-1.5"><Clock3 size={14}/> {assessment.time_limit || "∞"}</span>
-                            </div>
-                            
-                            {assessment.completed && (
-                              <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${isDark ? "bg-green-500/10 text-green-400" : "bg-green-100 text-green-700"}`}>
-                                <CheckCircle size={10} /> 
-                                {assessment.score !== null && assessment.score !== undefined ? `${assessment.score}%` : "Done"}
+                  topicGroups
+                    .find((g) => g[0] === selectedTopic)?.[1]
+                    .map((assessment) => (
+                      <button
+                        key={assessment.id}
+                        onClick={() => openQuiz(assessment)}
+                        className={`w-full group rounded-xl border p-4 text-left transition-all ${
+                          selectedQuiz?.id === assessment.id
+                            ? isDark
+                              ? "border-[#8CD559] bg-[#8CD559]/10"
+                              : "border-brandGreen bg-brandGreen/5"
+                            : isDark
+                            ? "border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800/80"
+                            : "border-zinc-200 bg-white/60 hover:bg-white"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold truncate leading-tight">
+                              {assessment.title}
+                            </p>
+                            <div className="flex items-center gap-4 mt-2">
+                              <div className="flex items-center gap-3 opacity-60 text-[11px] font-medium">
+                                <span className="flex items-center gap-1.5">
+                                  <ClipboardList size={14} />
+                                  {assessment.total_questions} Qs
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                  <Clock3 size={14} />
+                                  {assessment.time_limit || "∞"}
+                                </span>
                               </div>
-                            )}
+                              {assessment.completed && (
+                                <div
+                                  className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                    isDark
+                                      ? "bg-green-500/10 text-green-400"
+                                      : "bg-green-100 text-green-700"
+                                  }`}
+                                >
+                                  <CheckCircle size={10} />
+                                  {assessment.score !== null && assessment.score !== undefined
+                                    ? `${assessment.score}%`
+                                    : "Done"}
+                                </div>
+                              )}
+                            </div>
                           </div>
+                          {loadingQuizId === assessment.id && (
+                            <Loader2 size={18} className="animate-spin opacity-50 shrink-0" />
+                          )}
                         </div>
-                        {loadingQuizId === assessment.id && <Loader2 size={18} className="animate-spin opacity-50 shrink-0" />}
-                      </div>
-                    </button>
-                  ))
+                      </button>
+                    ))
                 )}
               </div>
             </section>
 
-            {/* MAIN CONTENT AREA */}
-            <section className={`min-h-0 rounded-xl border flex flex-col overflow-hidden ${isDark ? "border-zinc-800 bg-zinc-900/80" : "border-zinc-200 bg-white/90"}`}>
+            {/* ── MAIN CONTENT ── */}
+            <section
+              className={`min-h-0 rounded-xl border flex flex-col overflow-hidden ${
+                isDark
+                  ? "border-zinc-800 bg-zinc-900/80"
+                  : "border-zinc-200 bg-white/90"
+              }`}
+            >
               {result ? (
-                /* RESULTS REVIEW VIEW */
                 <div className="flex-1 overflow-y-auto p-6 lg:p-10">
                   <div className="mx-auto max-w-3xl">
                     <div className="text-center mb-8">
-                      <h2 className="text-3xl font-black italic uppercase tracking-tighter">Quiz Complete</h2>
-                      <div className={`mt-4 inline-flex items-center gap-3 px-6 py-2 rounded-full font-bold text-xl ${isDark ? "bg-[#8CD559] text-black" : "bg-brandGreen text-white"}`}>
+                      <h2 className="text-3xl font-black italic uppercase tracking-tighter">
+                        Quiz Complete
+                      </h2>
+                      <div
+                        className={`mt-4 inline-flex items-center gap-3 px-6 py-2 rounded-full font-bold text-xl ${
+                          isDark ? "bg-[#8CD559] text-black" : "bg-brandGreen text-white"
+                        }`}
+                      >
                         Score: {result.correct_count}/{result.total_questions}
                       </div>
-                      <p className="mt-2 text-sm opacity-60">You got {result.correct_count} out of {result.total_questions} questions correct.</p>
-                      {quizError && <p className="mt-2 text-red-500 font-medium text-sm">{quizError}</p>}
+                      <p className="mt-2 text-sm opacity-60">
+                        You got {result.correct_count} out of {result.total_questions} questions correct.
+                      </p>
+                      {quizError && (
+                        <p className="mt-2 text-red-500 font-medium text-sm">{quizError}</p>
+                      )}
                     </div>
 
                     <div className="space-y-6">
-                      <h3 className="text-lg font-bold border-b border-zinc-700 pb-2">Question Review</h3>
-                      
-                      {(!result.correct_answers || Object.keys(result.correct_answers).length === 0) && (
+                      <h3 className="text-lg font-bold border-b border-zinc-700 pb-2">
+                        Question Review
+                      </h3>
+
+                      {(!result.correct_answers ||
+                        Object.keys(result.correct_answers).length === 0) && (
                         <div className="p-4 bg-red-500/10 border border-red-500/50 text-red-500 rounded-xl font-medium text-sm">
-                          ⚠️ Warning: The backend did not return the `correct_answers` dictionary. Review highlighting is disabled.
+                          ⚠️ Warning: The backend did not return the `correct_answers`
+                          dictionary. Review highlighting is disabled.
                         </div>
                       )}
 
                       {selectedQuiz?.questions.map((q, idx) => {
                         const userAns = answers[q.id];
-                        
-                        const rawCorrectAns = result.correct_answers?.[q.id] || result.correct_answers?.[String(q.id)];
-                        const correctAnsString = rawCorrectAns ? String(rawCorrectAns).toUpperCase().trim() : undefined;
-                        
-                        const hasBackendAnswer = correctAnsString !== undefined && correctAnsString !== "";
-                        
-                        const correctChoiceObj = getChoices(q).find(c => 
-                          c.key === correctAnsString || c.text.toUpperCase().trim() === correctAnsString
+                        const rawCorrectAns =
+                          result.correct_answers?.[q.id] ||
+                          result.correct_answers?.[String(q.id)];
+                        const correctAnsString = rawCorrectAns
+                          ? String(rawCorrectAns).toUpperCase().trim()
+                          : undefined;
+                        const hasBackendAnswer =
+                          correctAnsString !== undefined && correctAnsString !== "";
+                        const correctChoiceObj = getChoices(q).find(
+                          (c) =>
+                            c.key === correctAnsString ||
+                            c.text.toUpperCase().trim() === correctAnsString
                         );
-                        
                         const isCorrect = userAns === correctChoiceObj?.key;
 
                         return (
-                          <div key={q.id} className={`rounded-2xl border p-5 transition-all ${isDark ? "bg-zinc-900/40 border-zinc-800" : "bg-zinc-50 border-zinc-200"}`}>
+                          <div
+                            key={q.id}
+                            className={`rounded-2xl border p-5 transition-all ${
+                              isDark
+                                ? "bg-zinc-900/40 border-zinc-800"
+                                : "bg-zinc-50 border-zinc-200"
+                            }`}
+                          >
                             <div className="flex items-start gap-3">
-                              <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-bold ${
-                                !hasBackendAnswer ? "bg-zinc-500/20 text-zinc-500" 
-                                : isCorrect ? "bg-green-500/20 text-green-500" 
-                                : "bg-red-500/20 text-red-500"
-                              }`}>
+                              <span
+                                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-bold ${
+                                  !hasBackendAnswer
+                                    ? "bg-zinc-500/20 text-zinc-500"
+                                    : isCorrect
+                                    ? "bg-green-500/20 text-green-500"
+                                    : "bg-red-500/20 text-red-500"
+                                }`}
+                              >
                                 {idx + 1}
                               </span>
                               <p className="font-semibold text-lg">{q.question_text}</p>
@@ -391,55 +537,71 @@ export default function QuizPage() {
                                     textStyle = "text-red-500";
                                   }
                                 } else {
-                                   if (isUserChoice) {
-                                     borderStyle = "border-zinc-500/50";
-                                     bgStyle = "bg-zinc-500/10";
-                                     textStyle = "text-zinc-500";
-                                   }
+                                  if (isUserChoice) {
+                                    borderStyle = "border-zinc-500/50";
+                                    bgStyle = "bg-zinc-500/10";
+                                    textStyle = "text-zinc-500";
+                                  }
                                 }
 
                                 return (
-                                  <div key={choice.key} className={`flex items-center justify-between p-3.5 rounded-xl border text-sm font-medium ${borderStyle} ${bgStyle}`}>
+                                  <div
+                                    key={choice.key}
+                                    className={`flex items-center justify-between p-3.5 rounded-xl border text-sm font-medium ${borderStyle} ${bgStyle}`}
+                                  >
                                     <span className="flex items-center gap-3">
                                       <span className={`font-bold ${textStyle}`}>
                                         {choice.key}.
                                       </span>
                                       {choice.text}
                                     </span>
-                                    {hasBackendAnswer && isCorrectChoice && <CheckCircle2 size={18} className="text-green-500" />}
-                                    {hasBackendAnswer && isUserChoice && !isCorrectChoice && <XCircle size={18} className="text-red-500" />}
+                                    {hasBackendAnswer && isCorrectChoice && (
+                                      <CheckCircle2 size={18} className="text-green-500" />
+                                    )}
+                                    {hasBackendAnswer && isUserChoice && !isCorrectChoice && (
+                                      <XCircle size={18} className="text-red-500" />
+                                    )}
                                   </div>
                                 );
                               })}
                             </div>
-                            
-                            {(hasBackendAnswer && !isCorrect && correctChoiceObj) && (
-                              <div className={`mt-5 p-4 rounded-xl border font-semibold flex items-center gap-2 ${
-                                isDark ? "bg-zinc-800/50 border-zinc-700 text-zinc-300" : "bg-zinc-100 border-zinc-200 text-zinc-700"
-                              }`}>
-                                Correct Answer: <span className="text-green-500">{correctChoiceObj.key}. {correctChoiceObj.text}</span>
+
+                            {hasBackendAnswer && !isCorrect && correctChoiceObj && (
+                              <div
+                                className={`mt-5 p-4 rounded-xl border font-semibold flex items-center gap-2 ${
+                                  isDark
+                                    ? "bg-zinc-800/50 border-zinc-700 text-zinc-300"
+                                    : "bg-zinc-100 border-zinc-200 text-zinc-700"
+                                }`}
+                              >
+                                Correct Answer:{" "}
+                                <span className="text-green-500">
+                                  {correctChoiceObj.key}. {correctChoiceObj.text}
+                                </span>
                               </div>
                             )}
                           </div>
                         );
                       })}
                     </div>
-                    
+
                     <div className="mt-10 flex flex-col sm:flex-row items-center gap-4">
-                      <button 
+                      <button
                         onClick={resetQuiz}
                         className={`w-full flex-1 flex items-center justify-center gap-2 py-4 rounded-xl font-bold transition-transform active:scale-95 border ${
-                          isDark 
-                            ? "border-zinc-700 bg-zinc-900/50 text-white hover:bg-zinc-800" 
+                          isDark
+                            ? "border-zinc-700 bg-zinc-900/50 text-white hover:bg-zinc-800"
                             : "border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50"
                         }`}
                       >
                         <RotateCcw size={18} /> Retake Quiz
                       </button>
-                      <button 
+                      <button
                         onClick={handlePickAnotherQuiz}
                         className={`w-full flex-1 flex items-center justify-center gap-2 py-4 rounded-xl font-bold transition-transform active:scale-95 ${
-                          isDark ? "bg-zinc-100 text-black hover:bg-white" : "bg-zinc-900 text-white hover:bg-black"
+                          isDark
+                            ? "bg-zinc-100 text-black hover:bg-white"
+                            : "bg-zinc-900 text-white hover:bg-black"
                         }`}
                       >
                         <BookOpen size={18} /> Pick Another Quiz
@@ -448,86 +610,122 @@ export default function QuizPage() {
                   </div>
                 </div>
               ) : selectedQuiz ? (
-                /* ACTIVE QUIZ VIEW WITH STEPPER - COMPACT VERSION */
                 <div className="flex h-full flex-col">
-                  <div className={`border-b px-5 py-4 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
-                    <p className={`text-xs font-bold uppercase tracking-widest ${isDark ? "text-[#8CD559]" : "text-brandGreen"}`}>{selectedQuiz.topic}</p>
-                    <h3 className="truncate text-xl font-bold mt-1">{selectedQuiz.title}</h3>
+                  <div
+                    className={`border-b px-5 py-4 ${
+                      isDark ? "border-zinc-800" : "border-zinc-200"
+                    }`}
+                  >
+                    <p
+                      className={`text-xs font-bold uppercase tracking-widest ${
+                        isDark ? "text-[#8CD559]" : "text-brandGreen"
+                      }`}
+                    >
+                      {selectedQuiz.topic}
+                    </p>
+                    <h3 className="truncate text-xl font-bold mt-1">
+                      {selectedQuiz.title}
+                    </h3>
                   </div>
 
                   <div className="flex-1 overflow-hidden px-5 py-0 lg:px-12 flex flex-col">
-                     <Stepper
-                        initialStep={1}
-                        onStepChange={(step) => setCurrentStep(step)}
-                        onFinalStepCompleted={submitQuiz}
-                        backButtonText="Prev"
-                        nextButtonText="Next"
-                        submitButtonText={submitting ? "Submitting..." : "Submit Quiz"}
-                        nextButtonProps={{ 
-                          disabled: submitting,
-                          className: `duration-350 flex items-center justify-center rounded-xl py-2 px-5 text-sm font-bold tracking-tight text-black transition-all ${
-                             (currentStep === selectedQuiz.total_questions && !isQuizComplete) 
-                               ? "opacity-0 pointer-events-none translate-y-2" 
-                               : "opacity-100 translate-y-0 bg-[#8CD559] hover:bg-[#7bc04e]"
-                          }`
-                        }}
-                        backButtonProps={{
-                           className: `duration-350 rounded-xl px-5 py-2 text-sm font-bold transition-all border ${
-                            currentStep === 1
-                              ? 'pointer-events-none opacity-50 text-zinc-500 border-zinc-800'
-                              : 'text-white border-zinc-700 bg-zinc-900 hover:bg-zinc-800 active:scale-95'
-                          }`
-                        }}
-                        stepCircleContainerClassName={`w-full max-w-4xl border-none shadow-none bg-transparent`}
-                        contentClassName="py-0 px-0 sm:px-4"
-                     >
-                        {selectedQuiz.questions.map((q, index) => (
-                           <Step key={q.id}>
-                              <div className="mx-auto max-w-2xl py-2">
-                                <div className="flex items-center gap-2 text-[11px] font-bold opacity-50 mb-2 uppercase">
-                                  Question {index + 1} of {selectedQuiz.total_questions}
-                                </div>
-                                <h4 className="text-lg sm:text-xl font-semibold leading-snug">{q.question_text}</h4>
-                                
-                                <div className="mt-4 sm:mt-6 space-y-2">
-                                  {getChoices(q).map((choice) => {
-                                    const selected = answers[q.id] === choice.key;
-                                    return (
-                                      <button
-                                        key={choice.key}
-                                        onClick={() => setAnswers(prev => ({ ...prev, [q.id]: choice.key }))}
-                                        className={`flex w-full items-center gap-3 rounded-xl border p-3 sm:p-3.5 text-left transition-all ${
-                                          selected
-                                            ? isDark ? "border-[#8CD559] bg-[#8CD559]/10" : "border-brandGreen bg-brandGreen/5"
-                                            : isDark ? "border-zinc-800 bg-zinc-900 hover:bg-zinc-800" : "border-zinc-200 bg-white hover:bg-zinc-50"
-                                        }`}
-                                      >
-                                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
-                                          selected
-                                            ? isDark ? "bg-[#8CD559] text-black border-[#8CD559]" : "bg-brandGreen text-white border-brandGreen"
-                                            : "border-zinc-700 text-zinc-500"
-                                        }`}>
-                                          {choice.key}
-                                        </span>
-                                        <span className="text-sm sm:text-base font-medium">{choice.text}</span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                           </Step>
-                        ))}
-                     </Stepper>
+                    <Stepper
+                      initialStep={1}
+                      onStepChange={(step) => setCurrentStep(step)}
+                      onFinalStepCompleted={submitQuiz}
+                      backButtonText="Prev"
+                      nextButtonText="Next"
+                      submitButtonText={submitting ? "Submitting..." : "Submit Quiz"}
+                      nextButtonProps={{
+                        disabled: submitting,
+                        className: `duration-350 flex items-center justify-center rounded-xl py-2 px-5 text-sm font-bold tracking-tight text-black transition-all ${
+                          currentStep === selectedQuiz.total_questions && !isQuizComplete
+                            ? "opacity-0 pointer-events-none translate-y-2"
+                            : "opacity-100 translate-y-0 bg-[#8CD559] hover:bg-[#7bc04e]"
+                        }`,
+                      }}
+                      backButtonProps={{
+                        className: `duration-350 rounded-xl px-5 py-2 text-sm font-bold transition-all border ${
+                          currentStep === 1
+                            ? "pointer-events-none opacity-50 text-zinc-500 border-zinc-800"
+                            : "text-white border-zinc-700 bg-zinc-900 hover:bg-zinc-800 active:scale-95"
+                        }`,
+                      }}
+                      stepCircleContainerClassName="w-full max-w-4xl border-none shadow-none bg-transparent"
+                      contentClassName="py-0 px-0 sm:px-4"
+                    >
+                      {selectedQuiz.questions.map((q, index) => (
+                        <Step key={q.id}>
+                          <div className="mx-auto max-w-2xl py-2">
+                            <div className="flex items-center gap-2 text-[11px] font-bold opacity-50 mb-2 uppercase">
+                              Question {index + 1} of {selectedQuiz.total_questions}
+                            </div>
+                            <h4 className="text-lg sm:text-xl font-semibold leading-snug">
+                              {q.question_text}
+                            </h4>
+
+                            <div className="mt-4 sm:mt-6 space-y-2">
+                              {getChoices(q).map((choice) => {
+                                const selected = answers[q.id] === choice.key;
+                                return (
+                                  <button
+                                    key={choice.key}
+                                    onClick={() =>
+                                      setAnswers((prev) => ({
+                                        ...prev,
+                                        [q.id]: choice.key,
+                                      }))
+                                    }
+                                    className={`flex w-full items-center gap-3 rounded-xl border p-3 sm:p-3.5 text-left transition-all ${
+                                      selected
+                                        ? isDark
+                                          ? "border-[#8CD559] bg-[#8CD559]/10"
+                                          : "border-brandGreen bg-brandGreen/5"
+                                        : isDark
+                                        ? "border-zinc-800 bg-zinc-900 hover:bg-zinc-800"
+                                        : "border-zinc-200 bg-white hover:bg-zinc-50"
+                                    }`}
+                                  >
+                                    <span
+                                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
+                                        selected
+                                          ? isDark
+                                            ? "bg-[#8CD559] text-black border-[#8CD559]"
+                                            : "bg-brandGreen text-white border-brandGreen"
+                                          : "border-zinc-700 text-zinc-500"
+                                      }`}
+                                    >
+                                      {choice.key}
+                                    </span>
+                                    <span className="text-sm sm:text-base font-medium">
+                                      {choice.text}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </Step>
+                      ))}
+                    </Stepper>
                   </div>
                 </div>
               ) : (
-                /* EMPTY STATE */
                 <div className="flex h-full flex-col items-center justify-center p-8 text-center opacity-30">
-                  <div className={`h-20 w-20 rounded-3xl flex items-center justify-center mb-4 ${isDark ? "bg-zinc-800 text-zinc-500" : "bg-zinc-200 text-zinc-400"}`}>
+                  <div
+                    className={`h-20 w-20 rounded-3xl flex items-center justify-center mb-4 ${
+                      isDark
+                        ? "bg-zinc-800 text-zinc-500"
+                        : "bg-zinc-200 text-zinc-400"
+                    }`}
+                  >
                     <ClipboardList size={40} />
                   </div>
                   <h3 className="text-xl font-bold">No Quiz Selected</h3>
-                  <p className="text-sm max-w-xs mt-2">Pick a topic and a lesson from the left sidebar to start testing your knowledge.</p>
+                  <p className="text-sm max-w-xs mt-2">
+                    Pick a topic and a lesson from the left sidebar to start testing
+                    your knowledge.
+                  </p>
                 </div>
               )}
             </section>
