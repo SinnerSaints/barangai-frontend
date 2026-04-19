@@ -33,7 +33,7 @@ export default function RootLayout({
       <body className="bg-background text-foreground min-h-screen relative">
         <AuthProvider>
           <ThemeProvider>
-            <ClientWrapper>
+            <ClientWrapper>   {/* SW registration lives here */}
               {children}
             </ClientWrapper>
           </ThemeProvider>

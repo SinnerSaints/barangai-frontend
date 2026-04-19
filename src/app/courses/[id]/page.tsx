@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, BookOpen, Calendar, ExternalLink } from "lucide-react";
+import { ArrowLeft, BookOpen, Calendar, Download, ExternalLink } from "lucide-react";
 import AssessmentGate from "@/components/assessment/AssessmentGate";
 import Sidebar from "@/components/dashboard/Sidebar";
 import TopBar from "@/components/dashboard/TopBar";
@@ -27,6 +27,18 @@ export default function CourseDetailPage() {
   const [lesson, setLesson] = useState<LessonRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Offline Access Handler
+  const handleSaveOffline = () => {
+    if (!lesson) return;
+    const cached = readCachedLessons();
+    const already = cached.some((item) => Number(item.id) === courseId);
+    const updated = already
+      ? cached.map((item) => Number(item.id) === courseId ? { ...lesson } : item)
+      : [...cached, { ...lesson }];
+    writeCachedLessons(updated);
+    alert("Course saved for offline access!");
+  };
 
   const baseUrl = API_BASE_URL.endsWith("/")
     ? API_BASE_URL
@@ -243,6 +255,14 @@ export default function CourseDetailPage() {
                     Open Resource
                   </Link>
                 )}
+
+                <button
+                  onClick={handleSaveOffline}
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold bg-blue-600 text-white"
+                >
+                  <Download size={16} />
+                  Save Offline
+                </button>
 
                 {/* ✅ TOGGLE BUTTON */}
                 {lesson && (
