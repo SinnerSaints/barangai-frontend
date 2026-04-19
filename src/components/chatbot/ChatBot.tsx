@@ -488,7 +488,10 @@ function ChatSection() {
                           {msg.content}
                         </ReactMarkdown>
                         {msg.typing && <span className={`inline-block w-2 h-3.5 ml-1.5 align-middle animate-pulse ${isDark ? "bg-[#8CD559]" : "bg-black"}`}></span>}
-                        <div className="text-[10px] opacity-50 mt-1 font-medium">{new Date(msg.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+                        <div className="text-[10px] opacity-50 mt-1 font-medium">
+                          {new Date(
+                            msg.time.endsWith("Z") || msg.time.includes("+") ? msg.time : `${msg.time}Z`
+                          ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
                       </div>
                     </div>
                   ))}
