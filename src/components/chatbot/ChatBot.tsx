@@ -88,7 +88,11 @@ function ChatSection() {
       
       try {
         const baseUrl = OPENAI_API_KEY.replace(/\/$/, "");
-        const res = await fetch(`${baseUrl}/sessions/?user_id=${userId}`);
+        const token = localStorage.getItem("access_token");
+
+        const res = await fetch(`${baseUrl}/sessions/?user_id=${userId}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
         
         if (!res.ok) throw new Error("Backend not responding");
 
@@ -102,9 +106,10 @@ function ChatSection() {
             lastUpdated: s.created_at
           })));
 
-          // Auto-load latest session messages
           const latestUUID = sessionList[0].session_uuid;
-          const msgRes = await fetch(`${baseUrl}/sessions/${latestUUID}/messages`);
+          const msgRes = await fetch(`${baseUrl}/sessions/${latestUUID}/messages`, {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
           const messageHistory = await msgRes.json();
           
           if (Array.isArray(messageHistory)) {
@@ -187,6 +192,7 @@ function ChatSection() {
 
     try {
       const baseUrl = OPENAI_API_KEY.replace(/\/$/, "");
+      const token = localStorage.getItem("access_token");
 
       const payload = {
         message: userMessage,
@@ -199,7 +205,10 @@ function ChatSection() {
 
       const res = await fetch(`${baseUrl}/chat/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(payload),
       });
 
@@ -281,7 +290,11 @@ function ChatSection() {
     
     try {
       const baseUrl = OPENAI_API_KEY.replace(/\/$/, "");
-      const res = await fetch(`${baseUrl}/sessions/${session.id}/messages`);
+      const token = localStorage.getItem("access_token");
+      
+      const res = await fetch(`${baseUrl}/sessions/${session.id}/messages`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
       const messageHistory = await res.json();
       
       if (Array.isArray(messageHistory)) {
@@ -310,8 +323,11 @@ function ChatSection() {
 
     try {
       const baseUrl = OPENAI_API_KEY.replace(/\/$/, "");
+      const token = localStorage.getItem("access_token");
+      
       await fetch(`${baseUrl}/sessions/${idToDelete}`, {
         method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
       });
     } catch (error) {
       console.error("Failed to delete session:", error);
