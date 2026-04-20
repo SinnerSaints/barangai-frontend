@@ -110,8 +110,6 @@ export default function QuizPage() {
   // Prevents auto-open from firing more than once
   const autoOpenedRef = useRef(false);
 
-  // ── Single fetch effect: loads quizzes then immediately auto-opens if
-  //    ?topic=...&lessonId=... are present in the URL ──────────────────────────
   useEffect(() => {
     const topicParam = searchParams.get("topic");
     const lessonIdParam = searchParams.get("lessonId");
@@ -133,35 +131,45 @@ export default function QuizPage() {
         );
         setAssessments(mapped);
 
-        // Auto-open only once and only when both params exist
-        if (topicParam && lessonIdParam && !autoOpenedRef.current) {
+        // --- INTELLIGENT AUTO-OPEN LOGIC ---
+        if (!autoOpenedRef.current) {
           autoOpenedRef.current = true;
 
-          const decodedTopic = decodeURIComponent(topicParam);
-          const targetId = Number(lessonIdParam);
+          // SCENARIO 1: From Course Page (Both Topic and LessonId exist)
+          if (topicParam && lessonIdParam) {
+            const decodedTopic = decodeURIComponent(topicParam);
+            const targetId = Number(lessonIdParam);
 
-          // Match priority: exact id+topic → exact id → first in topic
-          const matched =
-            mapped.find((a) => a.id === targetId && a.topic === decodedTopic) ??
-            mapped.find((a) => a.id === targetId) ??
-            mapped.find((a) => a.topic === decodedTopic);
+            const matched =
+              mapped.find((a) => a.id === targetId && a.topic === decodedTopic) ??
+              mapped.find((a) => a.id === targetId) ??
+              mapped.find((a) => a.topic === decodedTopic);
 
-          if (matched) {
-            setSelectedTopic(matched.topic);
-            setLoadingQuizId(matched.id);
+            if (matched) {
+              setSelectedTopic(matched.topic);
+              setLoadingQuizId(matched.id);
 
-            try {
-              const qRes = await fetch(`${baseUrl}quizzes/${matched.id}/`, {
-                headers: { Authorization: `Bearer ${token}` },
-              });
-              const qData = await qRes.json();
-              setSelectedQuiz(mapAssessment(qData, matched.id));
-            } catch {
-              // Detail fetch failed — use the list entry (has no questions yet,
-              // but at least shows the quiz header)
-              setSelectedQuiz(matched);
-            } finally {
-              setLoadingQuizId(null);
+              try {
+                const qRes = await fetch(`${baseUrl}quizzes/${matched.id}/`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                const qData = await qRes.json();
+                setSelectedQuiz(mapAssessment(qData, matched.id));
+              } catch {
+                setSelectedQuiz(matched);
+              } finally {
+                setLoadingQuizId(null);
+              }
+            }
+          } 
+          // SCENARIO 2: From Dashboard Page (Only Topic exists)
+          else if (topicParam) {
+            const decodedTopic = decodeURIComponent(topicParam);
+            const topicExists = mapped.some((a) => a.topic === decodedTopic);
+
+            if (topicExists) {
+              // Just open the sidebar to the right topic. Leave the specific quiz blank.
+              setSelectedTopic(decodedTopic);
             }
           }
         }
@@ -175,7 +183,6 @@ export default function QuizPage() {
     fetchAndAutoOpen();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUrl]);
-  // searchParams intentionally omitted — we read it once on mount only.
 
   const filteredAssessments = useMemo(() => {
     return assessments.filter((a) => {
@@ -295,13 +302,14 @@ export default function QuizPage() {
                 {selectedTopic && (
                   <button
                     onClick={() => setSelectedTopic(null)}
-                    className="p-1 hover:bg-zinc-800 rounded-md transition-colors"
+                    className="p-1 hover:bg-zinc-800 rounded-md transition-colors shrink-0"
                   >
                     <ChevronLeft size={18} />
                   </button>
                 )}
-                <h2 className="text-lg font-bold">
-                  {selectedTopic ? "Available Quizzes" : "Quizzes"}
+                {/* --- CHANGED THIS LINE RIGHT HERE --- */}
+                <h2 className="text-lg font-bold truncate">
+                  {selectedTopic ? selectedTopic : "Quizzes"}
                 </h2>
               </div>
 
@@ -723,7 +731,7 @@ export default function QuizPage() {
                   </div>
                   <h3 className="text-xl font-bold">No Quiz Selected</h3>
                   <p className="text-sm max-w-xs mt-2">
-                    Pick a topic and a lesson from the left sidebar to start testing
+                    Pick a topic from the left sidebar to start testing
                     your knowledge.
                   </p>
                 </div>
