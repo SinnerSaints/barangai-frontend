@@ -69,7 +69,7 @@ export default function DownloadOverlay() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const downloadUrl = "https://github.com/SinnerSaints/barangai-overlay-app/releases/download/v0.2.0-beta/BarangAI.exe";
+  const downloadUrl = "https://github.com/SinnerSaints/barangai-overlay-app/releases/download/v1.1.0/BarangAI.exe";
 
   // Prevent hydration UI glitches by rendering nothing on the server
   if (!mounted) return null;
