@@ -20,7 +20,7 @@ export default function DownloadPromo() {
 
   if (hidden) return null;
 
-  const downloadUrl = "https://github.com/SinnerSaints/barangai-overlay-app/releases/download/v1.1.0/BarangAI.exe";
+  const downloadUrl = "https://github.com/SinnerSaints/barangai-overlay-app/releases/download/v1.1.0/BarangAI-v1.1.0.exe";
 
   return (
     <section className={`w-full rounded-2xl p-5 mb-6 shadow-lg border ${isDark ? 'bg-zinc-900 border-white/6 text-white' : 'bg-white border-gray-100 text-black'}`}>
