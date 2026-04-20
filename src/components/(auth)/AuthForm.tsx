@@ -94,13 +94,29 @@ export default function AuthForm() {
 
   const router = useRouter();
   const auth = useAuth();
-  const { theme } = useTheme();
+  
+  // Destructured "toggle" specifically for the theme button
+  const { theme, toggle } = useTheme();
   const isDark = theme === "dark";
 
   const inputClass =
     isDark
       ? "w-full py-1.5 px-2 rounded-md border border-white/10 bg-white/5 text-[13px] outline-none transition focus:border-accentGreen/60 focus:ring-1 focus:ring-accentGreen/25"
       : "w-full py-1.5 px-2 rounded-md border border-gray-200 bg-white text-[13px] outline-none transition focus:border-black/25 focus:ring-1 focus:ring-black/10";
+
+  // FIX 1: Pre-load the Google script immediately so it doesn't block the splash animation
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+
+    return () => {
+      try { document.body.removeChild(script); } catch (e) {}
+    };
+  }, []);
 
   useEffect(() => {
     const t = window.setTimeout(() => setIntroDone(true), INTRO_SPLASH_MS);
@@ -188,25 +204,12 @@ export default function AuthForm() {
     }
   };
 
+  // FIX 2: Better Google UI styling rendered after the splash screen
   useEffect(() => {
     if (!introDone || typeof window === "undefined") return;
 
-    if ((window as any).google && (window as any).google.accounts) {
-      try {
-        (window as any).google.accounts.id.renderButton(
-          document.getElementById("googleSignInDiv"),
-          { theme: "outline", size: "large" }
-        );
-      } catch (e) {}
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      if ((window as any).google) {
+    const renderButton = () => {
+      if ((window as any).google && (window as any).google.accounts) {
         (window as any).google.accounts.id.initialize({
           client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID",
           callback: handleCredentialResponse,
@@ -214,18 +217,29 @@ export default function AuthForm() {
 
         (window as any).google.accounts.id.renderButton(
           document.getElementById("googleSignInDiv"),
-          { theme: "outline", size: "large" }
+          { 
+            theme: isDark ? "filled_black" : "outline", 
+            size: "large",
+            shape: "pill",
+            text: "continue_with"
+          }
         );
       }
     };
-    document.body.appendChild(script);
-    return () => {
-      try {
-        document.body.removeChild(script);
-      } catch (e) {}
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [introDone]);
+
+    if ((window as any).google) {
+      renderButton();
+    } else {
+      const interval = setInterval(() => {
+        if ((window as any).google) {
+          renderButton();
+          clearInterval(interval);
+        }
+      }, 100);
+      setTimeout(() => clearInterval(interval), 5000);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [introDone, isDark]);
 
   const heroCopy = (
     <>
@@ -299,242 +313,275 @@ export default function AuthForm() {
         </AnimatePresence>
 
         {introDone && (
-          <motion.div
-            className="min-h-[100dvh] flex items-center justify-center relative z-10 px-3 py-4 md:px-4 md:py-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.35, ease: easeOut }}
-          >
-            <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-6 items-start">
-              {mobileHeroStrip}
-              {/* Hero — desktop only, no card */}
-              <div className="hidden md:flex md:col-span-6 flex-col justify-center text-white px-1 md:pr-4 pt-0">
-                <motion.div
-                  layoutId="welcome-shell"
-                  className="rounded-none border-0 bg-transparent p-0 md:py-1 text-left"
-                  transition={{ type: "spring", stiffness: 320, damping: 34 }}
+          <>
+            {/* FLOATING THEME TOGGLE (Top Right) */}
+            <motion.div
+              className="absolute top-4 right-4 md:top-6 md:right-8 z-50"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.35, ease: easeOut }}
+            >
+              <button
+                aria-label="Toggle theme"
+                onClick={toggle}
+                className="group inline-flex items-center gap-2 rounded-full px-2 py-1 transition"
+                title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+              >
+                <span
+                  className={`relative inline-flex h-9 w-20 items-center rounded-full border px-1 transition ${
+                    isDark
+                      ? "border-[#2f3a2f] bg-[#034440]"
+                      : "border-[#7fb85a] bg-[#9DE16A]"
+                  }`}
                 >
-                  {heroCopy}
-                </motion.div>
-              </div>
+                  <span
+                    className={`h-7 w-7 rounded-full shadow-[0_2px_10px_rgba(0,0,0,0.2)] transition-transform duration-300 ${
+                      isDark ? "translate-x-10 bg-[#9DE16A]" : "translate-x-0 bg-white"
+                    }`}
+                  />
+                  <span className="pointer-events-none absolute right-4 top-2 h-1.5 w-1.5 rounded-full bg-white/80" />
+                  <span className="pointer-events-none absolute right-2.5 top-4 h-1.5 w-1.5 rounded-full bg-white/60" />
+                </span>
+              </button>
+            </motion.div>
 
-              {/* Form — compact */}
-              <div className="md:col-span-6 w-full max-w-md mx-auto md:max-w-none md:mx-0">
-                <div
-                  className={`w-full rounded-xl p-4 md:p-5 shadow-lg border flex flex-col ${isDark ? "bg-black/80 text-white border-white/10" : "bg-white text-black border-black/[0.06]"}`}
-                >
-                  <div className="flex flex-col gap-3 mb-3">
-                    <AnimatePresence mode="wait">
-                      <motion.h2
-                        key={mode}
-                        className="text-lg font-bold tracking-tight"
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 4 }}
-                        transition={{ duration: 0.2, ease: easeOut }}
-                      >
-                        {mode === "login" ? "Welcome back" : "Create your account"}
-                      </motion.h2>
-                    </AnimatePresence>
+            <motion.div
+              className="min-h-[100dvh] flex items-center justify-center relative z-10 px-3 py-4 md:px-4 md:py-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.35, ease: easeOut }}
+            >
+              <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-6 items-start">
+                {mobileHeroStrip}
+                {/* Hero — desktop only, no card */}
+                <div className="hidden md:flex md:col-span-6 flex-col justify-center text-white px-1 md:pr-4 pt-0">
+                  <motion.div
+                    layoutId="welcome-shell"
+                    className="rounded-none border-0 bg-transparent p-0 md:py-1 text-left"
+                    transition={{ type: "spring", stiffness: 320, damping: 34 }}
+                  >
+                    {heroCopy}
+                  </motion.div>
+                </div>
 
-                    <div
-                      className={`relative flex rounded-full p-0.5 ${isDark ? "bg-white/[0.08]" : "bg-black/[0.06]"}`}
-                      role="tablist"
-                      aria-label="Authentication mode"
-                    >
-                      <motion.div
-                        className="absolute top-0.5 bottom-0.5 z-0 rounded-full bg-accentGreen shadow-sm shadow-accentGreen/20"
-                        layout
-                        transition={springTab}
-                        style={{
-                          width: "calc(50% - 3px)",
-                          left: mode === "login" ? 3 : "calc(50% + 0px)",
-                        }}
-                      />
-                      <button
-                        type="button"
-                        role="tab"
-                        aria-selected={mode === "login"}
-                        onClick={() => setModeWithDirection("login")}
-                        className={`relative z-10 flex-1 py-2 text-xs font-semibold rounded-full transition-colors ${
-                          mode === "login" ? "text-black" : isDark ? "text-white/65" : "text-black/55"
-                        }`}
+                {/* Form — compact */}
+                <div className="md:col-span-6 w-full max-w-md mx-auto md:max-w-none md:mx-0">
+                  <div
+                    className={`w-full rounded-xl p-4 md:p-5 shadow-lg border flex flex-col ${isDark ? "bg-black/80 text-white border-white/10" : "bg-white text-black border-black/[0.06]"}`}
+                  >
+                    <div className="flex flex-col gap-3 mb-3">
+                      <AnimatePresence mode="wait">
+                        <motion.h2
+                          key={mode}
+                          className="text-lg font-bold tracking-tight"
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 4 }}
+                          transition={{ duration: 0.2, ease: easeOut }}
+                        >
+                          {mode === "login" ? "Welcome back" : "Create your account"}
+                        </motion.h2>
+                      </AnimatePresence>
+
+                      <div
+                        className={`relative flex rounded-full p-0.5 ${isDark ? "bg-white/[0.08]" : "bg-black/[0.06]"}`}
+                        role="tablist"
+                        aria-label="Authentication mode"
                       >
-                        Login
-                      </button>
-                      <button
-                        type="button"
-                        role="tab"
-                        aria-selected={mode === "signup"}
-                        onClick={() => setModeWithDirection("signup")}
-                        className={`relative z-10 flex-1 py-2 text-xs font-semibold rounded-full transition-colors ${
-                          mode === "signup" ? "text-black" : isDark ? "text-white/65" : "text-black/55"
-                        }`}
-                      >
-                        Sign Up
-                      </button>
+                        <motion.div
+                          className="absolute top-0.5 bottom-0.5 z-0 rounded-full bg-accentGreen shadow-sm shadow-accentGreen/20"
+                          layout
+                          transition={springTab}
+                          style={{
+                            width: "calc(50% - 3px)",
+                            left: mode === "login" ? 3 : "calc(50% + 0px)",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={mode === "login"}
+                          onClick={() => setModeWithDirection("login")}
+                          className={`relative z-10 flex-1 py-2 text-xs font-semibold rounded-full transition-colors ${
+                            mode === "login" ? "text-black" : isDark ? "text-white/65" : "text-black/55"
+                          }`}
+                        >
+                          Login
+                        </button>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={mode === "signup"}
+                          onClick={() => setModeWithDirection("signup")}
+                          className={`relative z-10 flex-1 py-2 text-xs font-semibold rounded-full transition-colors ${
+                            mode === "signup" ? "text-black" : isDark ? "text-white/65" : "text-black/55"
+                          }`}
+                        >
+                          Sign Up
+                        </button>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className={FORM_BODY_SLOT_CLASS}>
-                    <AnimatePresence mode="wait" custom={direction}>
-                      {mode === "login" ? (
-                        <motion.form
-                          key="login"
-                          custom={direction}
-                          variants={formVariants}
-                          initial="initial"
-                          animate="animate"
-                          exit="exit"
-                          onSubmit={handleLogin}
-                          className="absolute inset-0 flex h-full min-h-0 flex-col gap-0"
-                        >
-                          <div className="space-y-1.5 shrink-0">
-                            <div>
-                              <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Email</label>
-                              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Password</label>
-                              <input
-                                type="password"
-                                required
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className={inputClass}
-                              />
-                            </div>
-                            <div className="flex items-center justify-between gap-2 pt-0.5 text-[10px]">
-                              <label className="flex items-center gap-1.5 opacity-80 shrink-0">
-                                <input type="checkbox" className="accent-[#9DE16A] rounded" />
-                                Remember
-                              </label>
-                              <button type="button" className="hover:underline opacity-80 text-right truncate">
-                                Forgot password?
-                              </button>
-                            </div>
-                            <div className="min-h-[2.25rem]">
-                              {error && (
-                                <p className={`text-[11px] leading-snug ${isDark ? "text-red-300" : "text-red-600"}`}>{error}</p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="min-h-0 flex-1" aria-hidden />
-                          <motion.button
-                            type="submit"
-                            className={
-                              isDark
-                                ? "mt-auto w-full shrink-0 py-2 rounded-full bg-accentGreen text-black text-sm font-semibold"
-                                : "mt-auto w-full shrink-0 py-2 rounded-full bg-black text-white text-sm font-semibold"
-                            }
-                            disabled={loading}
-                            whileHover={{ scale: loading ? 1 : 1.01 }}
-                            whileTap={{ scale: loading ? 1 : 0.99 }}
+                    <div className={FORM_BODY_SLOT_CLASS}>
+                      <AnimatePresence mode="wait" custom={direction}>
+                        {mode === "login" ? (
+                          <motion.form
+                            key="login"
+                            custom={direction}
+                            variants={formVariants}
+                            initial="initial"
+                            animate="animate"
+                            exit="exit"
+                            onSubmit={handleLogin}
+                            className="absolute inset-0 flex h-full min-h-0 flex-col gap-0"
                           >
-                            {loading ? "Signing in..." : "Login"}
-                          </motion.button>
-                        </motion.form>
-                      ) : (
-                        <motion.form
-                          key="signup"
-                          custom={direction}
-                          variants={formVariants}
-                          initial="initial"
-                          animate="animate"
-                          exit="exit"
-                          onSubmit={handleSignup}
-                          className="absolute inset-0 flex h-full min-h-0 flex-col gap-0"
-                        >
-                          <div className="flex min-h-0 flex-1 flex-col space-y-1.5">
-                            <div>
-                              <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Email</label>
-                              <input type="email" required value={sEmail} onChange={(e) => setSEmail(e.target.value)} className={inputClass} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-1.5">
+                            <div className="space-y-1.5 shrink-0">
                               <div>
-                                <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">First name</label>
-                                <input
-                                  type="text"
-                                  required
-                                  value={sFirstName}
-                                  onChange={(e) => setSFirstName(e.target.value)}
-                                  className={inputClass}
-                                />
+                                <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Email</label>
+                                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
                               </div>
-                              <div>
-                                <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Last name</label>
-                                <input
-                                  type="text"
-                                  required
-                                  value={sLastName}
-                                  onChange={(e) => setSLastName(e.target.value)}
-                                  className={inputClass}
-                                />
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-1.5">
                               <div>
                                 <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Password</label>
                                 <input
                                   type="password"
                                   required
-                                  value={sPassword}
-                                  onChange={(e) => setSPassword(e.target.value)}
+                                  value={password}
+                                  onChange={(e) => setPassword(e.target.value)}
                                   className={inputClass}
                                 />
+                              </div>
+                              <div className="flex items-center justify-between gap-2 pt-0.5 text-[10px]">
+                                <label className="flex items-center gap-1.5 opacity-80 shrink-0">
+                                  <input type="checkbox" className="accent-[#9DE16A] rounded" />
+                                  Remember
+                                </label>
+                                <button type="button" className="hover:underline opacity-80 text-right truncate">
+                                  Forgot password?
+                                </button>
+                              </div>
+                              <div className="min-h-[2.25rem]">
+                                {error && (
+                                  <p className={`text-[11px] leading-snug ${isDark ? "text-red-300" : "text-red-600"}`}>{error}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="min-h-0 flex-1" aria-hidden />
+                            <motion.button
+                              type="submit"
+                              className={
+                                isDark
+                                  ? "mt-auto w-full shrink-0 py-2 rounded-full bg-accentGreen text-black text-sm font-semibold"
+                                  : "mt-auto w-full shrink-0 py-2 rounded-full bg-black text-white text-sm font-semibold"
+                              }
+                              disabled={loading}
+                              whileHover={{ scale: loading ? 1 : 1.01 }}
+                              whileTap={{ scale: loading ? 1 : 0.99 }}
+                            >
+                              {loading ? "Signing in..." : "Login"}
+                            </motion.button>
+                          </motion.form>
+                        ) : (
+                          <motion.form
+                            key="signup"
+                            custom={direction}
+                            variants={formVariants}
+                            initial="initial"
+                            animate="animate"
+                            exit="exit"
+                            onSubmit={handleSignup}
+                            className="absolute inset-0 flex h-full min-h-0 flex-col gap-0"
+                          >
+                            <div className="flex min-h-0 flex-1 flex-col space-y-1.5">
+                              <div>
+                                <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Email</label>
+                                <input type="email" required value={sEmail} onChange={(e) => setSEmail(e.target.value)} className={inputClass} />
+                              </div>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                <div>
+                                  <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">First name</label>
+                                  <input
+                                    type="text"
+                                    required
+                                    value={sFirstName}
+                                    onChange={(e) => setSFirstName(e.target.value)}
+                                    className={inputClass}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Last name</label>
+                                  <input
+                                    type="text"
+                                    required
+                                    value={sLastName}
+                                    onChange={(e) => setSLastName(e.target.value)}
+                                    className={inputClass}
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                <div>
+                                  <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Password</label>
+                                  <input
+                                    type="password"
+                                    required
+                                    value={sPassword}
+                                    onChange={(e) => setSPassword(e.target.value)}
+                                    className={inputClass}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Confirm</label>
+                                  <input
+                                    type="password"
+                                    required
+                                    value={sConfirm}
+                                    onChange={(e) => setSConfirm(e.target.value)}
+                                    className={inputClass}
+                                  />
+                                </div>
                               </div>
                               <div>
-                                <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Confirm</label>
-                                <input
-                                  type="password"
-                                  required
-                                  value={sConfirm}
-                                  onChange={(e) => setSConfirm(e.target.value)}
-                                  className={inputClass}
-                                />
+                                <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Role</label>
+                                <select value={sRole} onChange={(e) => setSRole(e.target.value)} className={inputClass}>
+                                  <option value="CAPTAIN">Barangay Captain</option>
+                                  <option value="OFFICIAL">Barangay Official</option>
+                                </select>
+                              </div>
+                              <div className="min-h-[2.25rem] shrink-0">
+                                {error && (
+                                  <p className={`text-[11px] leading-snug ${isDark ? "text-red-300" : "text-red-600"}`}>{error}</p>
+                                )}
                               </div>
                             </div>
-                            <div>
-                              <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Role</label>
-                              <select value={sRole} onChange={(e) => setSRole(e.target.value)} className={inputClass}>
-                                <option value="CAPTAIN">Barangay Captain</option>
-                                <option value="OFFICIAL">Barangay Official</option>
-                              </select>
-                            </div>
-                            <div className="min-h-[2.25rem] shrink-0">
-                              {error && (
-                                <p className={`text-[11px] leading-snug ${isDark ? "text-red-300" : "text-red-600"}`}>{error}</p>
-                              )}
-                            </div>
-                          </div>
-                          <motion.button
-                            type="submit"
-                            className={
-                              isDark
-                                ? "mt-auto w-full shrink-0 py-2 rounded-full bg-accentGreen text-black text-sm font-semibold"
-                                : "mt-auto w-full shrink-0 py-2 rounded-full bg-black text-white text-sm font-semibold"
-                            }
-                            disabled={loading}
-                            whileHover={{ scale: loading ? 1 : 1.01 }}
-                            whileTap={{ scale: loading ? 1 : 0.99 }}
-                          >
-                            {loading ? "Creating..." : "Sign Up"}
-                          </motion.button>
-                        </motion.form>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                            <motion.button
+                              type="submit"
+                              className={
+                                isDark
+                                  ? "mt-auto w-full shrink-0 py-2 rounded-full bg-accentGreen text-black text-sm font-semibold"
+                                  : "mt-auto w-full shrink-0 py-2 rounded-full bg-black text-white text-sm font-semibold"
+                              }
+                              disabled={loading}
+                              whileHover={{ scale: loading ? 1 : 1.01 }}
+                              whileTap={{ scale: loading ? 1 : 0.99 }}
+                            >
+                              {loading ? "Creating..." : "Sign Up"}
+                            </motion.button>
+                          </motion.form>
+                        )}
+                      </AnimatePresence>
+                    </div>
 
-                  <div
-                    className={`mt-3 pt-2 border-t text-center text-[11px] opacity-70 ${isDark ? "border-white/10" : "border-black/10"}`}
-                  >
-                    Or continue with
-                    <div id="googleSignInDiv" className="mt-2 flex justify-center scale-90 origin-top" />
+                    <div
+                      className={`mt-3 pt-2 border-t text-center text-[11px] opacity-70 ${isDark ? "border-white/10" : "border-black/10"}`}
+                    >
+                      Or continue with
+                      <div id="googleSignInDiv" className="mt-2 flex justify-center scale-90 origin-top" />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </>
         )}
       </LayoutGroup>
     </BackgroundPaths>
