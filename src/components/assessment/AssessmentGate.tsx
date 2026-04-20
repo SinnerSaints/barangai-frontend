@@ -26,8 +26,8 @@ export default function AssessmentGate({ title, description, children }: Props) 
         setLoading(true);
         setError("");
         const status = await fetchAssessmentStatus();
-        setCompleted(Boolean(status.completed));
-        setProficiencyLevel(status.proficiency_level);
+        setCompleted(Boolean(status.pre_completed));
+        setProficiencyLevel(status.pre_proficiency_level);
       } catch (err) {
         console.error(err);
         setError("Unable to verify your pre-assessment status right now.");

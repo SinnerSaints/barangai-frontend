@@ -24,6 +24,8 @@ import {
   getScorePercent,
   startPreAssessment,
   submitPreAssessment,
+  startPostAssessment,
+  submitPostAssessment,
 } from "@/lib/preAssessment";
 import { isAdminRole } from "@/lib/roles";
 import { useAuth } from "@/context/auth";
@@ -76,6 +78,8 @@ export default function Assessment() {
   const showAdminEdit = isAdminRole(user?.role ?? clientRole);
 
   const [viewState, setViewState] = useState<ViewState>("idle");
+  const [mode, setMode] = useState<"PRE" | "POST">("PRE"); 
+  const [allResults, setAllResults] = useState<AssessmentResult[]>([]); 
   const [attempt, setAttempt] = useState<AssessmentAttempt | null>(null);
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [ratings, setRatings] = useState<Record<number, number>>({});
@@ -85,6 +89,7 @@ export default function Assessment() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [hasPromptedSubmit, setHasPromptedSubmit] = useState(false);
   const [error, setError] = useState("");
+  const [currentLevel, setCurrentLevel] = useState<string | null>(null);
 
   useEffect(() => {
     const loadAssessment = async () => {
@@ -94,17 +99,31 @@ export default function Assessment() {
 
         const status = await fetchAssessmentStatus();
 
-        if (status.completed) {
-          const assessmentResult = await fetchAssessmentResult();
-          setResult(assessmentResult);
+        if (status.pre_completed && status.post_completed) {
+          const resultsArray = await fetchAssessmentResult();
+
+          const sorted = [...resultsArray].sort((a,b) => 
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+          
+          setAllResults(sorted);
+          setResult(sorted[sorted.length - 1]);
           setViewState("completed");
           return;
         }
 
+        if (status.pre_completed && !status.post_completed) {
+          setMode("POST");
+          setCurrentLevel(status.pre_proficiency_level);
+          setViewState("idle");
+          return;
+        }
+
+        setMode("PRE");
         setViewState("idle");
       } catch (err: any) {
         console.error(err);
-        setError(err?.message || "Unable to load your pre-assessment.");
+        setError(err?.message || "Unable to load your assessment.");
       } finally {
         setLoading(false);
       }
@@ -132,7 +151,9 @@ export default function Assessment() {
     try {
       setStarting(true);
       setError("");
-      const assessmentAttempt = await startPreAssessment();
+      const assessmentAttempt = mode === "PRE" 
+        ? await startPreAssessment() 
+        : await startPostAssessment();
 
       setAttempt(assessmentAttempt);
       setRatings({});
@@ -159,8 +180,18 @@ export default function Assessment() {
         rating: ratings[question.id],
       }));
 
-      const assessmentResult = await submitPreAssessment(payload);
+      // Branch based on mode!
+      const assessmentResult = mode === "PRE"
+        ? await submitPreAssessment(payload)
+        : await submitPostAssessment(payload);
+
       setResult(assessmentResult);
+      // If we just finished POST, we need to fetch all results to show comparison
+      if (mode === "POST") {
+         const resultsArray = await fetchAssessmentResult(false);
+         const sorted = [...resultsArray].sort((a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+         setAllResults(sorted);
+      }
       setAttempt(null);
       setHasPromptedSubmit(false);
       setViewState("completed");
@@ -199,7 +230,7 @@ export default function Assessment() {
           <div className="flex flex-wrap items-center gap-3">
             <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
               <Sparkles className="h-3.5 w-3.5" />
-              Pre-Assessment
+              {mode === "PRE" ? "Pre-Assessment" : "Post-Assessment"}
             </div>
             {showAdminEdit && (
               <Link
@@ -210,11 +241,15 @@ export default function Assessment() {
                 <Pencil className="h-3.5 w-3.5" />
                 Edit
               </Link>
-            )}
+            )} 
           </div>
-          <h2 className="mt-4 text-2xl font-bold lg:text-3xl">Measure digital literacy before coursework begins.</h2>
+          <h2 className="mt-4 text-2xl font-bold lg:text-3xl">
+            {mode === "PRE" ? "Measure digital literacy before coursework begins." : "Evaluate your overall growth and progress."}
+          </h2>
           <p className={`mt-3 max-w-xl text-sm leading-7 ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
-            Answer each statement based on your current confidence. Your score will determine your initial proficiency level and unlock the learning modules.
+            {mode === "PRE" 
+              ? "Answer each statement based on your current confidence. Your score will determine your initial proficiency level."
+              : "Now that you have completed at least 70% of the modules and quizzes, answer these statements again to evaluate your overall growth!"}
           </p>
         </div>
 
@@ -229,7 +264,7 @@ export default function Assessment() {
           </div>
           <div className={`rounded-2xl p-4 ${isDark ? "bg-white/5" : "bg-[#f5faf7]"}`}>
             <p className="text-xs uppercase tracking-[0.2em] opacity-70">Level</p>
-            <p className="mt-2 text-2xl font-bold">{formatProficiencyLevel(result?.proficiency_level)}</p>
+            <p className="mt-2 text-2xl font-bold">{formatProficiencyLevel(result?.proficiency_level || currentLevel)}</p>
           </div>
         </div>
       </div>
@@ -253,6 +288,15 @@ export default function Assessment() {
               ))}
             </div>
 
+            {mode === "POST" && (
+              <div className={`mt-6 flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm leading-6 ${isDark ? "border-amber-500/30 bg-amber-500/10 text-amber-200" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                <span>
+                  <strong>Final Evaluation:</strong> You can only take the Post-Assessment <strong>once</strong>. Please ensure you have completed at least 70% of your lessons and practice tasks before proceeding.
+                </span>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={handleStart}
@@ -260,7 +304,7 @@ export default function Assessment() {
               className={`mt-6 inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${isDark ? "bg-accentGreen text-black disabled:bg-zinc-700 disabled:text-zinc-300" : "bg-brandGreen text-white disabled:bg-gray-300"}`}
             >
               {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
-              {starting ? "Starting..." : "Start Pre-Assessment"}
+              {starting ? "Starting..." : `Start ${mode === "PRE" ? "Pre-Assessment" : "Post-Assessment"}`}
             </button>
           </div>
 
@@ -379,7 +423,7 @@ export default function Assessment() {
 
             <div className="mt-8 rounded-[1.5rem] bg-white/10 p-5">
               <p className="text-xs uppercase tracking-[0.2em] text-white/70">Proficiency level</p>
-              <p className="mt-3 text-2xl font-bold">{formatProficiencyLevel(result.proficiency_level)}</p>
+              <p className="mt-3 text-2xl font-bold">{formatProficiencyLevel(result?.proficiency_level || currentLevel)}</p>
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">

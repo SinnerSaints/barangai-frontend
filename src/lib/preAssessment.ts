@@ -57,8 +57,10 @@ export interface AssessmentAttempt {
 }
 
 export interface AssessmentStatus {
-  completed: boolean;
-  proficiency_level: string | null;
+  pre_completed: boolean;
+  pre_proficiency_level: string | null;
+  post_completed: boolean;
+  post_proficiency_level: string | null;
 }
 
 /** Admin list/detail payload — matches Django `AdminAssessmentSerializer`. */
@@ -234,26 +236,17 @@ export async function submitPreAssessment(
     method: "POST",
     body: JSON.stringify({ answers }),
   });
-
-  localStorage.setItem(
-    getUserScopedCacheKey(STATUS_CACHE_KEY),
-    JSON.stringify({
-      completed: true,
-      proficiency_level: data.proficiency_level,
-    } satisfies AssessmentStatus)
-  );
-  writeCache(RESULT_CACHE_KEY, data);
-
+  clearAssessmentCache();
   return data;
 }
 
-export async function fetchAssessmentResult(useCache = true): Promise<AssessmentResult> {
+export async function fetchAssessmentResult(useCache = true): Promise<AssessmentResult[]> {
   if (useCache) {
-    const cached = readCache<AssessmentResult>(RESULT_CACHE_KEY);
+    const cached = readCache<AssessmentResult[]>(RESULT_CACHE_KEY);
     if (cached) return cached;
   }
 
-  const data = await request<AssessmentResult>("result/");
+  const data = await request<AssessmentResult[]>("result/");
   writeCache(RESULT_CACHE_KEY, data);
   return data;
 }
@@ -331,4 +324,21 @@ export function formatProficiencyLevel(level?: string | null) {
 export function getScorePercent(score?: number) {
   if (typeof score !== "number" || Number.isNaN(score)) return 0;
   return Math.max(0, Math.min(100, Math.round((score / 5) * 100)));
+}
+
+export async function startPostAssessment(): Promise<AssessmentAttempt> {
+  const data = await request<AssessmentAttempt>("post/start/", { method: "POST" });
+  clearAssessmentCache();
+  return data;
+}
+
+export async function submitPostAssessment(
+  answers: Array<{ question_id: number; rating: number }>
+): Promise<AssessmentResult> {
+  const data = await request<AssessmentResult>("post/submit/", {
+    method: "POST",
+    body: JSON.stringify({ answers }),
+  });
+  clearAssessmentCache();
+  return data;
 }
