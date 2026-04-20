@@ -162,13 +162,24 @@ export default function AuthForm() {
     setError(null);
     setLoading(true);
     try {
-      // TODO: Connect to backend endpoint once it's ready
-      console.log("Sending reset link to:", email);
-      // Simulate network request
-      await new Promise(resolve => setTimeout(resolve, 1500)); 
-      setError("A password reset link has been sent if the email exists.");
+      // Use your actual Railway backend URL
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      
+      const res = await fetch(`${API_URL}/accounts/password-reset-request/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setError("Success! Check your email for the reset link.");
+      } else {
+        setError(data.error || "Something went wrong. Please try again.");
+      }
     } catch (err: any) {
-      setError("Failed to send reset link.");
+      setError("Network error. Is the backend running?");
     } finally {
       setLoading(false);
     }
@@ -350,7 +361,6 @@ export default function AuthForm() {
                     isDark ? "text-zinc-400 group-hover:text-zinc-200" : "text-[#1f2a44]"
                   }`}
                 >
-                  Light
                 </span>
                 <span
                   className={`relative inline-flex h-9 w-20 items-center rounded-full border px-1 transition ${
@@ -372,7 +382,6 @@ export default function AuthForm() {
                     isDark ? "text-[#9DE16A]" : "text-zinc-400 group-hover:text-zinc-600"
                   }`}
                 >
-                  Dark
                 </span>
               </button>
             </motion.div>
