@@ -70,11 +70,15 @@ const formVariants = {
 export default function AuthForm() {
   const [introDone, setIntroDone] = useState(false);
 
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [direction, setDirection] = useState(1);
 
-  const setModeWithDirection = (next: "login" | "signup") => {
-    setDirection(next === "signup" ? 1 : -1);
+  const setModeWithDirection = (next: "login" | "signup" | "forgot") => {
+    // If going to forgot, always slide forward. If returning to login, slide backward.
+    if (next === "forgot") setDirection(1);
+    else if (mode === "forgot" && next === "login") setDirection(-1);
+    else setDirection(next === "signup" ? 1 : -1);
+    
     setMode(next);
   };
 
@@ -95,7 +99,6 @@ export default function AuthForm() {
   const router = useRouter();
   const auth = useAuth();
   
-  // Destructured "toggle" specifically for the theme button
   const { theme, toggle } = useTheme();
   const isDark = theme === "dark";
 
@@ -104,7 +107,6 @@ export default function AuthForm() {
       ? "w-full py-1.5 px-2 rounded-md border border-white/10 bg-white/5 text-[13px] outline-none transition focus:border-accentGreen/60 focus:ring-1 focus:ring-accentGreen/25"
       : "w-full py-1.5 px-2 rounded-md border border-gray-200 bg-white text-[13px] outline-none transition focus:border-black/25 focus:ring-1 focus:ring-black/10";
 
-  // FIX 1: Pre-load the Google script immediately so it doesn't block the splash animation
   useEffect(() => {
     if (typeof window === "undefined") return;
     const script = document.createElement("script");
@@ -150,6 +152,23 @@ export default function AuthForm() {
       setMode("login");
     } catch (err: any) {
       setError(getFriendlyAuthError(err, "Signup failed"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      // TODO: Connect to backend endpoint once it's ready
+      console.log("Sending reset link to:", email);
+      // Simulate network request
+      await new Promise(resolve => setTimeout(resolve, 1500)); 
+      setError("A password reset link has been sent if the email exists.");
+    } catch (err: any) {
+      setError("Failed to send reset link.");
     } finally {
       setLoading(false);
     }
@@ -204,7 +223,6 @@ export default function AuthForm() {
     }
   };
 
-  // FIX 2: Better Google UI styling rendered after the splash screen
   useEffect(() => {
     if (!introDone || typeof window === "undefined") return;
 
@@ -328,6 +346,13 @@ export default function AuthForm() {
                 title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
               >
                 <span
+                  className={`text-sm font-semibold transition ${
+                    isDark ? "text-zinc-400 group-hover:text-zinc-200" : "text-[#1f2a44]"
+                  }`}
+                >
+                  Light
+                </span>
+                <span
                   className={`relative inline-flex h-9 w-20 items-center rounded-full border px-1 transition ${
                     isDark
                       ? "border-[#2f3a2f] bg-[#034440]"
@@ -341,6 +366,13 @@ export default function AuthForm() {
                   />
                   <span className="pointer-events-none absolute right-4 top-2 h-1.5 w-1.5 rounded-full bg-white/80" />
                   <span className="pointer-events-none absolute right-2.5 top-4 h-1.5 w-1.5 rounded-full bg-white/60" />
+                </span>
+                <span
+                  className={`text-sm font-semibold transition ${
+                    isDark ? "text-[#9DE16A]" : "text-zinc-400 group-hover:text-zinc-600"
+                  }`}
+                >
+                  Dark
                 </span>
               </button>
             </motion.div>
@@ -367,7 +399,7 @@ export default function AuthForm() {
                 {/* Form — compact */}
                 <div className="md:col-span-6 w-full max-w-md mx-auto md:max-w-none md:mx-0">
                   <div
-                    className={`w-full rounded-xl p-4 md:p-5 shadow-lg border flex flex-col ${isDark ? "bg-black/80 text-white border-white/10" : "bg-white text-black border-black/[0.06]"}`}
+                    className={`w-full rounded-xl p-4 md:p-5 shadow-lg border flex flex-col transition-colors ${isDark ? "bg-black/80 text-white border-white/10" : "bg-white text-black border-black/[0.06]"}`}
                   >
                     <div className="flex flex-col gap-3 mb-3">
                       <AnimatePresence mode="wait">
@@ -379,47 +411,50 @@ export default function AuthForm() {
                           exit={{ opacity: 0, y: 4 }}
                           transition={{ duration: 0.2, ease: easeOut }}
                         >
-                          {mode === "login" ? "Welcome back" : "Create your account"}
+                          {mode === "login" ? "Welcome back" : mode === "signup" ? "Create your account" : "Reset password"}
                         </motion.h2>
                       </AnimatePresence>
 
-                      <div
-                        className={`relative flex rounded-full p-0.5 ${isDark ? "bg-white/[0.08]" : "bg-black/[0.06]"}`}
-                        role="tablist"
-                        aria-label="Authentication mode"
-                      >
-                        <motion.div
-                          className="absolute top-0.5 bottom-0.5 z-0 rounded-full bg-accentGreen shadow-sm shadow-accentGreen/20"
-                          layout
-                          transition={springTab}
-                          style={{
-                            width: "calc(50% - 3px)",
-                            left: mode === "login" ? 3 : "calc(50% + 0px)",
-                          }}
-                        />
-                        <button
-                          type="button"
-                          role="tab"
-                          aria-selected={mode === "login"}
-                          onClick={() => setModeWithDirection("login")}
-                          className={`relative z-10 flex-1 py-2 text-xs font-semibold rounded-full transition-colors ${
-                            mode === "login" ? "text-black" : isDark ? "text-white/65" : "text-black/55"
-                          }`}
+                      {/* TABS - Only show if not in 'forgot' mode */}
+                      {mode !== "forgot" && (
+                        <div
+                          className={`relative flex rounded-full p-0.5 ${isDark ? "bg-white/[0.08]" : "bg-black/[0.06]"}`}
+                          role="tablist"
+                          aria-label="Authentication mode"
                         >
-                          Login
-                        </button>
-                        <button
-                          type="button"
-                          role="tab"
-                          aria-selected={mode === "signup"}
-                          onClick={() => setModeWithDirection("signup")}
-                          className={`relative z-10 flex-1 py-2 text-xs font-semibold rounded-full transition-colors ${
-                            mode === "signup" ? "text-black" : isDark ? "text-white/65" : "text-black/55"
-                          }`}
-                        >
-                          Sign Up
-                        </button>
-                      </div>
+                          <motion.div
+                            className="absolute top-0.5 bottom-0.5 z-0 rounded-full bg-accentGreen shadow-sm shadow-accentGreen/20"
+                            layout
+                            transition={springTab}
+                            style={{
+                              width: "calc(50% - 3px)",
+                              left: mode === "login" ? 3 : "calc(50% + 0px)",
+                            }}
+                          />
+                          <button
+                            type="button"
+                            role="tab"
+                            aria-selected={mode === "login"}
+                            onClick={() => setModeWithDirection("login")}
+                            className={`relative z-10 flex-1 py-2 text-xs font-semibold rounded-full transition-colors ${
+                              mode === "login" ? "text-black" : isDark ? "text-white/65" : "text-black/55"
+                            }`}
+                          >
+                            Login
+                          </button>
+                          <button
+                            type="button"
+                            role="tab"
+                            aria-selected={mode === "signup"}
+                            onClick={() => setModeWithDirection("signup")}
+                            className={`relative z-10 flex-1 py-2 text-xs font-semibold rounded-full transition-colors ${
+                              mode === "signup" ? "text-black" : isDark ? "text-white/65" : "text-black/55"
+                            }`}
+                          >
+                            Sign Up
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <div className={FORM_BODY_SLOT_CLASS}>
@@ -455,7 +490,7 @@ export default function AuthForm() {
                                   <input type="checkbox" className="accent-[#9DE16A] rounded" />
                                   Remember
                                 </label>
-                                <button type="button" className="hover:underline opacity-80 text-right truncate">
+                                <button type="button" onClick={() => setModeWithDirection("forgot")} className="hover:underline opacity-80 text-right truncate">
                                   Forgot password?
                                 </button>
                               </div>
@@ -480,7 +515,7 @@ export default function AuthForm() {
                               {loading ? "Signing in..." : "Login"}
                             </motion.button>
                           </motion.form>
-                        ) : (
+                        ) : mode === "signup" ? (
                           <motion.form
                             key="signup"
                             custom={direction}
@@ -567,16 +602,75 @@ export default function AuthForm() {
                               {loading ? "Creating..." : "Sign Up"}
                             </motion.button>
                           </motion.form>
+                        ) : (
+                          <motion.form
+                            key="forgot"
+                            custom={direction}
+                            variants={formVariants}
+                            initial="initial"
+                            animate="animate"
+                            exit="exit"
+                            onSubmit={handleForgotPassword}
+                            className="absolute inset-0 flex h-full min-h-0 flex-col gap-0"
+                          >
+                            <div className="space-y-1.5 shrink-0">
+                              <p className={`text-[12px] leading-relaxed mb-3 opacity-90 ${isDark ? "text-zinc-300" : "text-slate-600"}`}>
+                                Enter your email address and we will send you a link to reset your password.
+                              </p>
+                              <div>
+                                <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Email</label>
+                                <input 
+                                  type="email" 
+                                  required 
+                                  value={email} 
+                                  onChange={(e) => setEmail(e.target.value)} 
+                                  className={inputClass} 
+                                />
+                              </div>
+                              <div className="min-h-[2.25rem]">
+                                {error && (
+                                  <p className={`text-[11px] leading-snug ${isDark ? "text-accentGreen" : "text-[#034440]"}`}>{error}</p>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="min-h-0 flex-1" aria-hidden />
+                            
+                            <div className="mt-auto shrink-0 flex flex-col gap-2">
+                              <motion.button
+                                type="submit"
+                                className={
+                                  isDark
+                                    ? "w-full py-2 rounded-full bg-accentGreen text-black text-sm font-semibold"
+                                    : "w-full py-2 rounded-full bg-black text-white text-sm font-semibold"
+                                }
+                                disabled={loading}
+                                whileHover={{ scale: loading ? 1 : 1.01 }}
+                                whileTap={{ scale: loading ? 1 : 0.99 }}
+                              >
+                                {loading ? "Sending..." : "Send Reset Link"}
+                              </motion.button>
+                              <button
+                                type="button"
+                                onClick={() => setModeWithDirection("login")}
+                                className={`w-full py-1.5 text-xs font-semibold opacity-70 hover:opacity-100 transition-opacity ${isDark ? "text-white" : "text-black"}`}
+                              >
+                                Back to Login
+                              </button>
+                            </div>
+                          </motion.form>
                         )}
                       </AnimatePresence>
                     </div>
 
-                    <div
-                      className={`mt-3 pt-2 border-t text-center text-[11px] opacity-70 ${isDark ? "border-white/10" : "border-black/10"}`}
-                    >
-                      Or continue with
-                      <div id="googleSignInDiv" className="mt-2 flex justify-center scale-90 origin-top" />
-                    </div>
+                    {mode !== "forgot" && (
+                      <div
+                        className={`mt-3 pt-2 border-t text-center text-[11px] opacity-70 ${isDark ? "border-white/10" : "border-black/10"}`}
+                      >
+                        Or continue with
+                        <div id="googleSignInDiv" className="mt-2 flex justify-center scale-90 origin-top" />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
