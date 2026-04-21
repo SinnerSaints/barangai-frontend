@@ -1,8 +1,26 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { login as apiLogin, signup as apiSignup, logout as apiLogout, updateProfile as apiUpdateProfile } from "@/lib/auth";
+import {
+  login as apiLogin,
+  signup as apiSignup,
+  logout as apiLogout,
+  updateProfile as apiUpdateProfile,
+} from "@/lib/auth";
 import { API_BASE_URL } from "@/lib/auth";
+
+// ─── Cookie helpers (readable by middleware) ──────────────────────────────────
+
+function setAuthCookie(access: string) {
+  const isSecure = typeof location !== "undefined" && location.protocol === "https:";
+  document.cookie = `access_token=${access}; path=/; max-age=86400; SameSite=Strict${isSecure ? "; Secure" : ""}`;
+}
+
+function clearAuthCookie() {
+  document.cookie = "access_token=; path=/; max-age=0; SameSite=Strict";
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type User = {
   email?: string;
@@ -42,12 +60,33 @@ type AuthContextValue = {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (email: string, password: string, first_name: string, last_name: string, id?: number, role?: string) => Promise<void>;
+  login: (
+    email: string,
+    password: string,
+    first_name: string,
+    last_name: string,
+    id?: number,
+    role?: string
+  ) => Promise<void>;
   loginWithTokens: (access: string, refresh: string, userData: any) => void;
-  signup: (email: string, password: string, first_name: string, last_name: string, role?: string) => Promise<void>;
-  updateProfile: (opts: { email?: string; password?: string; avatarFile?: File | null; first_name: string; last_name: string }) => Promise<any>;
+  signup: (
+    email: string,
+    password: string,
+    first_name: string,
+    last_name: string,
+    role?: string
+  ) => Promise<void>;
+  updateProfile: (opts: {
+    email?: string;
+    password?: string;
+    avatarFile?: File | null;
+    first_name: string;
+    last_name: string;
+  }) => Promise<any>;
   logout: () => void;
 };
+
+// ─── Context ──────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
@@ -55,6 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Rehydrate from localStorage on mount + background sync
   useEffect(() => {
     const email = localStorage.getItem("user_email");
     const role = localStorage.getItem("user_role");
@@ -62,68 +102,105 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const last_name = localStorage.getItem("last_name");
     const avatar = localStorage.getItem("user_avatar");
     const prefLang = localStorage.getItem("preferred_language");
+
     if (email || role) {
-      setUser({ email: email || undefined, first_name: first_name || "", last_name: last_name || "", role: role || undefined, avatar: avatar || undefined, preferred_language: prefLang || "default"});
+      setUser({
+        email: email || undefined,
+        first_name: first_name || "",
+        last_name: last_name || "",
+        role: role || undefined,
+        avatar: avatar || undefined,
+        preferred_language: prefLang || "default",
+      });
     }
 
-    // Silently ping the database in the background to grab any cross-platform updates
     const token = localStorage.getItem("access_token");
     if (token) {
-      fetch(`${API_BASE_URL}accounts/users/me/`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      })
-      .then(res => {
-        if (!res.ok) throw new Error("Failed to fetch fresh profile");
-        return res.json();
-      })
-      .then(data => {
-        // Sync the latest language to localStorage
-        const latestLang = data.preferred_language || "default";
-        localStorage.setItem("preferred_language", latestLang);
-        
-        // Sync other important fields just in case they changed them elsewhere
-        if (data.first_name) localStorage.setItem("first_name", data.first_name);
-        if (data.last_name) localStorage.setItem("last_name", data.last_name);
-        if (data.avatar) localStorage.setItem("user_avatar", data.avatar);
+      // Ensure the cookie is present if the token is in localStorage
+      // (covers hard refreshes where cookie may have expired but localStorage hasn't)
+      setAuthCookie(token);
 
-        // Update the React State with the fresh data
-        setUser(prev => prev ? { 
-          ...prev, 
-          preferred_language: latestLang,
-          first_name: data.first_name || prev.first_name,
-          last_name: data.last_name || prev.last_name,
-          avatar: data.avatar || prev.avatar
-        } : null);
+      fetch(`${API_BASE_URL}accounts/users/me/`, {
+        headers: { Authorization: `Bearer ${token}` },
       })
-      .catch(err => console.error("Background sync failed:", err));
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to fetch fresh profile");
+          return res.json();
+        })
+        .then((data) => {
+          const latestLang = data.preferred_language || "default";
+          localStorage.setItem("preferred_language", latestLang);
+          if (data.first_name) localStorage.setItem("first_name", data.first_name);
+          if (data.last_name) localStorage.setItem("last_name", data.last_name);
+          if (data.avatar) localStorage.setItem("user_avatar", data.avatar);
+
+          setUser((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  preferred_language: latestLang,
+                  first_name: data.first_name || prev.first_name,
+                  last_name: data.last_name || prev.last_name,
+                  avatar: data.avatar || prev.avatar,
+                }
+              : null
+          );
+        })
+        .catch((err) => console.error("Background sync failed:", err));
     }
   }, []);
 
-  async function login(email: string, password: string, first_name: string, last_name: string, id?: number, role?: string) {
+  // ─── login ────────────────────────────────────────────────────────────────
+
+  async function login(
+    email: string,
+    password: string,
+    first_name: string,
+    last_name: string,
+    id?: number,
+    role?: string
+  ) {
     setLoading(true);
     try {
       const raw = await apiLogin(email, password, first_name, last_name, role ?? "");
       const data: any = raw as any;
+
+      // ✅ Set cookie so middleware can read it
+      if (data?.access) setAuthCookie(data.access);
+
       const uId = data?.id || localStorage.getItem("user_id") || undefined;
       const uEmail = data?.email || data?.user || localStorage.getItem("user_email") || email;
       const uRole = data?.role || localStorage.getItem("user_role") || undefined;
       const uAvatar = data?.avatar || data?.photo || localStorage.getItem("user_avatar") || undefined;
-      // NOTE: never fall back to `data.user` for names; many APIs use `user` for email/username.
       const uFirstName = data?.first_name || localStorage.getItem("first_name") || first_name;
       const uLastName = data?.last_name || localStorage.getItem("last_name") || last_name;
-
       const uPrefLang = data?.preferred_language || "default";
+
       localStorage.setItem("preferred_language", uPrefLang);
-      setUser({ id: uId, email: uEmail, role: uRole, avatar: uAvatar, first_name: uFirstName, last_name: uLastName, preferred_language: uPrefLang});
+
+      setUser({
+        id: uId,
+        email: uEmail,
+        role: uRole,
+        avatar: uAvatar,
+        first_name: uFirstName,
+        last_name: uLastName,
+        preferred_language: uPrefLang,
+      });
     } finally {
       setLoading(false);
     }
   }
 
-  // ✅ New: called after Google login
+  // ─── loginWithTokens (Google) ─────────────────────────────────────────────
+
   function loginWithTokens(access: string, refresh: string, userData: any) {
+    // ✅ Set cookie so middleware can read it
+    setAuthCookie(access);
+
     const maybeUser = userData?.user ?? userData?.profile ?? userData;
     const fromFullName = splitFullName(maybeUser?.name);
+
     const first_name =
       coerceString(maybeUser?.first_name) ??
       coerceString(maybeUser?.firstName) ??
@@ -156,7 +233,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       maybeUser?.pk ??
       localStorage.getItem("user_id") ??
       "";
-    const id = typeof idRaw === "string" ? idRaw.trim() : idRaw != null ? String(idRaw) : "";
+    const id =
+      typeof idRaw === "string" ? idRaw.trim() : idRaw != null ? String(idRaw) : "";
     const avatar =
       coerceString(maybeUser?.avatar_url) ??
       coerceString(maybeUser?.avatar) ??
@@ -164,8 +242,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       coerceString(maybeUser?.picture) ??
       localStorage.getItem("user_avatar") ??
       undefined;
-    
-    const prefLang = coerceString(maybeUser?.preferred_language) ?? localStorage.getItem("preferred_language") ?? "default";
+    const prefLang =
+      coerceString(maybeUser?.preferred_language) ??
+      localStorage.getItem("preferred_language") ??
+      "default";
 
     localStorage.setItem("access_token", access);
     localStorage.setItem("refresh_token", refresh);
@@ -175,7 +255,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem("first_name", first_name);
     localStorage.setItem("last_name", last_name);
     if (avatar) localStorage.setItem("user_avatar", avatar);
-    
     localStorage.setItem("preferred_language", prefLang);
 
     setUser({
@@ -189,11 +268,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }
 
-  async function signup(email: string, password: string, first_name: string, last_name: string, role?: string) {
+  // ─── signup ───────────────────────────────────────────────────────────────
+
+  async function signup(
+    email: string,
+    password: string,
+    first_name: string,
+    last_name: string,
+    role?: string
+  ) {
     setLoading(true);
     try {
       const raw = await apiSignup(email, password, first_name, last_name, role);
       const data: any = raw as any;
+
+      // ✅ Set cookie if signup returns tokens immediately
+      if (data?.access) setAuthCookie(data.access);
+
       if (data?.access) {
         const uEmail = data?.email || data?.user || email;
         const uRole = data?.role || undefined;
@@ -207,7 +298,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  async function updateProfile(opts: { email?: string; password?: string; avatarFile?: File | null; first_name: string; last_name: string }) {
+  // ─── updateProfile ────────────────────────────────────────────────────────
+
+  async function updateProfile(opts: {
+    email?: string;
+    password?: string;
+    avatarFile?: File | null;
+    first_name: string;
+    last_name: string;
+  }) {
     setLoading(true);
     try {
       const data = await apiUpdateProfile(opts);
@@ -223,10 +322,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
+  // ─── logout ───────────────────────────────────────────────────────────────
+
   function logout() {
+    // ✅ Clear cookie so middleware blocks access immediately
+    clearAuthCookie();
     apiLogout();
     setUser(null);
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   const value: AuthContextValue = {
     user,
