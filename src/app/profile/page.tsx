@@ -181,8 +181,8 @@ export default function ProfilePage() {
             onClick={() => router.push("/dashboard")}
             className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border shadow-sm backdrop-blur-md ${
               isDark 
-                ? "bg-black/40 border-white/10 text-white/80 hover:bg-white/10 hover:text-white" 
-                : "bg-white/60 border-black/10 text-black/70 hover:bg-black/5 hover:text-black"
+                ? "bg-green-500/40 border-white/10 text-white/80 hover:bg-white/10 hover:text-white" 
+                : "bg-green-500/60 border-black/10 text-black/70 hover:bg-white/40 hover:text-white"
             }`}
           >
             <svg className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
