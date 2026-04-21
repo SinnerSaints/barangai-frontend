@@ -347,9 +347,9 @@ export default function AuthForm() {
 
         {introDone && (
           <>
-            {/* TOP RIGHT CONTROLS (Back to Dashboard + Theme Toggle) */}
+            {/* TOP LEFT CONTROLS (Back to Dashboard) */}
             <motion.div
-              className="absolute top-4 right-4 md:top-6 md:right-8 z-50 flex items-center gap-3"
+              className="absolute top-4 left-4 md:top-6 md:left-8 z-50 flex items-center gap-3"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.35, ease: easeOut }}
@@ -359,8 +359,8 @@ export default function AuthForm() {
                 onClick={() => router.push("/")}
                 className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border shadow-sm backdrop-blur-md ${
                   isDark 
-                    ? "bg-black/40 border-white/10 text-white/80 hover:bg-white/10 hover:text-white" 
-                    : "bg-white/60 border-black/10 text-black/70 hover:bg-black/5 hover:text-black"
+                    ? "bg-accentGreen/95 border-white/10 text-black/80 hover:bg-white/10 hover:text-white" 
+                    : "bg-accentGreen/95 border-black/10 text-black/80 hover:bg-white hover:text-black"
                 }`}
               >
                 <svg className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -368,7 +368,15 @@ export default function AuthForm() {
                 </svg>
                 Dashboard
               </button>
+            </motion.div>
 
+            {/* TOP RIGHT CONTROLS (Theme Toggle) */}
+            <motion.div
+              className="absolute top-4 right-4 md:top-6 md:right-8 z-50 flex items-center gap-3"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.35, ease: easeOut }}
+            >
               {/* Theme Toggle */}
               <button
                 aria-label="Toggle theme"
