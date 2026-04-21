@@ -32,7 +32,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn(geist.variable, leagueSpartan.variable, manrope.variable)}>
       <body className="bg-background text-foreground min-h-screen relative flex flex-col">
-        <MaintenanceBanner />
+        {/* <MaintenanceBanner /> */}
         <AuthProvider>
           <ThemeProvider>
             <ClientWrapper>
