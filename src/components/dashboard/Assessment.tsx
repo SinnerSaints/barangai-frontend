@@ -77,9 +77,10 @@ export default function Assessment() {
   }, [user?.role]);
   const showAdminEdit = isAdminRole(user?.role ?? clientRole);
 
+  // STRICTLY YOUR ORIGINAL VARIABLES - NO ADDITIONS
   const [viewState, setViewState] = useState<ViewState>("idle");
-  const [mode, setMode] = useState<"PRE" | "POST">("PRE"); 
-  const [allResults, setAllResults] = useState<AssessmentResult[]>([]); 
+  const [mode, setMode] = useState<"PRE" | "POST">("PRE");
+  const [allResults, setAllResults] = useState<AssessmentResult[]>([]);
   const [attempt, setAttempt] = useState<AssessmentAttempt | null>(null);
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [ratings, setRatings] = useState<Record<number, number>>({});
@@ -102,10 +103,10 @@ export default function Assessment() {
         if (status.pre_completed && status.post_completed) {
           const resultsArray = await fetchAssessmentResult();
 
-          const sorted = [...resultsArray].sort((a,b) => 
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          const sorted = [...resultsArray].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
           );
-          
+
           setAllResults(sorted);
           setResult(sorted[sorted.length - 1]);
           setViewState("completed");
@@ -139,11 +140,16 @@ export default function Assessment() {
     [ratings]
   );
   const isComplete = Boolean(attempt) && answeredQuestions === totalQuestions && totalQuestions > 0;
+  const progressPercent = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
 
+  // UX ENHANCEMENT: Added a setTimeout so the user can see their final click before the modal pops up
   useEffect(() => {
     if (viewState === "ready" && isComplete && !showSubmitModal && !hasPromptedSubmit) {
-      setShowSubmitModal(true);
-      setHasPromptedSubmit(true);
+      const timer = setTimeout(() => {
+        setShowSubmitModal(true);
+        setHasPromptedSubmit(true);
+      }, 600); // 600ms delay for better visual feedback
+      return () => clearTimeout(timer);
     }
   }, [hasPromptedSubmit, isComplete, showSubmitModal, viewState]);
 
@@ -151,9 +157,7 @@ export default function Assessment() {
     try {
       setStarting(true);
       setError("");
-      const assessmentAttempt = mode === "PRE" 
-        ? await startPreAssessment() 
-        : await startPostAssessment();
+      const assessmentAttempt = mode === "PRE" ? await startPreAssessment() : await startPostAssessment();
 
       setAttempt(assessmentAttempt);
       setRatings({});
@@ -162,7 +166,7 @@ export default function Assessment() {
       setViewState("ready");
     } catch (err: any) {
       console.error(err);
-      setError(err?.message || "Unable to start the pre-assessment.");
+      setError(err?.message || "Unable to start the assessment.");
     } finally {
       setStarting(false);
     }
@@ -180,17 +184,13 @@ export default function Assessment() {
         rating: ratings[question.id],
       }));
 
-      // Branch based on mode!
-      const assessmentResult = mode === "PRE"
-        ? await submitPreAssessment(payload)
-        : await submitPostAssessment(payload);
+      const assessmentResult = mode === "PRE" ? await submitPreAssessment(payload) : await submitPostAssessment(payload);
 
       setResult(assessmentResult);
-      // If we just finished POST, we need to fetch all results to show comparison
       if (mode === "POST") {
-         const resultsArray = await fetchAssessmentResult(false);
-         const sorted = [...resultsArray].sort((a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-         setAllResults(sorted);
+        const resultsArray = await fetchAssessmentResult(false);
+        const sorted = [...resultsArray].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        setAllResults(sorted);
       }
       setAttempt(null);
       setHasPromptedSubmit(false);
@@ -215,9 +215,9 @@ export default function Assessment() {
   if (loading) {
     return (
       <section className={`mt-6 rounded-[2rem] border p-8 shadow-xl ${isDark ? "border-white/10 bg-zinc-950/85 text-white" : "border-gray-200 bg-white/90 text-[#034440]"}`}>
-        <div className="flex items-center gap-3 text-sm">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading pre-assessment...
+        <div className="flex items-center justify-center gap-3 py-12 text-sm font-medium">
+          <Loader2 className="h-6 w-6 animate-spin text-accentGreen" />
+          Loading your assessment profile...
         </div>
       </section>
     );
@@ -225,10 +225,12 @@ export default function Assessment() {
 
   return (
     <section className={`relative mt-6 rounded-[2rem] border p-6 shadow-xl lg:p-8 ${isDark ? "border-white/10 bg-zinc-950/85 text-white" : "border-gray-200 bg-white/90 text-[#034440]"}`}>
+      
+      {/* HEADER SECTION */}
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-2xl">
           <div className="flex flex-wrap items-center gap-3">
-            <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
+            <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] shadow-sm ${isDark ? "bg-accentGreen/20 text-accentGreen border border-accentGreen/20" : "bg-brandGreen/10 text-brandGreen border border-brandGreen/20"}`}>
               <Sparkles className="h-3.5 w-3.5" />
               {mode === "PRE" ? "Pre-Assessment" : "Post-Assessment"}
             </div>
@@ -241,30 +243,34 @@ export default function Assessment() {
                 <Pencil className="h-3.5 w-3.5" />
                 Edit
               </Link>
-            )} 
+            )}
           </div>
-          <h2 className="mt-4 text-2xl font-bold lg:text-3xl">
+          <h2 className="mt-4 text-2xl font-black tracking-tight lg:text-3xl">
             {mode === "PRE" ? "Measure digital literacy before coursework begins." : "Evaluate your overall growth and progress."}
           </h2>
-          <p className={`mt-3 max-w-xl text-sm leading-7 ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
-            {mode === "PRE" 
+          <p className={`mt-3 max-w-xl text-sm leading-relaxed ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
+            {mode === "PRE"
               ? "Answer each statement based on your current confidence. Your score will determine your initial proficiency level."
               : "Now that you have completed at least 70% of the modules and quizzes, answer these statements again to evaluate your overall growth!"}
           </p>
         </div>
 
         <div className={`grid min-w-full gap-3 sm:grid-cols-3 lg:min-w-[340px] ${isDark ? "text-zinc-200" : "text-gray-700"}`}>
-          <div className={`rounded-2xl p-4 ${isDark ? "bg-white/5" : "bg-[#f5faf7]"}`}>
-            <p className="text-xs uppercase tracking-[0.2em] opacity-70">Questions</p>
-            <p className="mt-2 text-2xl font-bold">{totalQuestions || 20}</p>
+          <div className={`rounded-2xl border p-4 shadow-sm ${isDark ? "bg-black/40 border-white/10" : "bg-gray-50 border-gray-100"}`}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Questions</p>
+            <p className="mt-2 text-3xl font-black">{totalQuestions || 20}</p>
           </div>
-          <div className={`rounded-2xl p-4 ${isDark ? "bg-white/5" : "bg-[#f5faf7]"}`}>
-            <p className="text-xs uppercase tracking-[0.2em] opacity-70">Answered</p>
-            <p className="mt-2 text-2xl font-bold">{viewState === "completed" ? result?.total_questions ?? 0 : answeredQuestions}</p>
+          <div className={`rounded-2xl border p-4 shadow-sm ${isDark ? "bg-black/40 border-white/10" : "bg-gray-50 border-gray-100"}`}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Answered</p>
+            <p className={`mt-2 text-3xl font-black ${answeredQuestions === totalQuestions && totalQuestions > 0 ? (isDark ? "text-accentGreen" : "text-brandGreen") : ""}`}>
+              {viewState === "completed" ? result?.total_questions ?? 0 : answeredQuestions}
+            </p>
           </div>
-          <div className={`rounded-2xl p-4 ${isDark ? "bg-white/5" : "bg-[#f5faf7]"}`}>
-            <p className="text-xs uppercase tracking-[0.2em] opacity-70">Level</p>
-            <p className="mt-2 text-2xl font-bold">{formatProficiencyLevel(result?.proficiency_level || currentLevel)}</p>
+          <div className={`rounded-2xl border p-4 shadow-sm ${isDark ? "bg-black/40 border-white/10" : "bg-gray-50 border-gray-100"}`}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Level</p>
+            <p className="mt-2 text-xl font-bold truncate" title={formatProficiencyLevel(result?.proficiency_level || currentLevel)}>
+              {formatProficiencyLevel(result?.proficiency_level || currentLevel)}
+            </p>
           </div>
         </div>
       </div>
@@ -276,20 +282,21 @@ export default function Assessment() {
         </div>
       )}
 
+      {/* IDLE STATE */}
       {viewState === "idle" && (
         <div className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className={`rounded-[1.75rem] p-6 ${isDark ? "bg-white/5" : "bg-[#f6fbf7]"}`}>
-            <h3 className="text-xl font-semibold">What this covers</h3>
+          <div className={`rounded-[1.75rem] border p-6 shadow-inner ${isDark ? "bg-black/40 border-white/5" : "bg-gray-50 border-gray-100"}`}>
+            <h3 className="text-xl font-bold">What this covers</h3>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {Object.values(CATEGORY_LABELS).map((label) => (
-                <div key={label} className={`rounded-2xl border px-4 py-3 text-sm ${isDark ? "border-white/10 bg-black/10 text-zinc-300" : "border-white bg-white text-gray-700"}`}>
+                <div key={label} className={`rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition-transform hover:-translate-y-0.5 ${isDark ? "border-white/10 bg-white/5 text-zinc-200" : "border-gray-200 bg-white text-gray-700"}`}>
                   {label}
                 </div>
               ))}
             </div>
 
             {mode === "POST" && (
-              <div className={`mt-6 flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm leading-6 ${isDark ? "border-amber-500/30 bg-amber-500/10 text-amber-200" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+              <div className={`mt-6 flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm leading-6 shadow-sm ${isDark ? "border-amber-500/30 bg-amber-500/10 text-amber-200" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                 <span>
                   <strong>Final Evaluation:</strong> You can only take the Post-Assessment <strong>once</strong>. Please ensure you have completed at least 70% of your lessons and practice tasks before proceeding.
@@ -301,20 +308,20 @@ export default function Assessment() {
               type="button"
               onClick={handleStart}
               disabled={starting}
-              className={`mt-6 inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${isDark ? "bg-accentGreen text-black disabled:bg-zinc-700 disabled:text-zinc-300" : "bg-brandGreen text-white disabled:bg-gray-300"}`}
+              className={`mt-8 inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-bold shadow-lg transition hover:scale-[1.02] active:scale-95 ${isDark ? "bg-accentGreen text-black shadow-accentGreen/20 disabled:bg-zinc-700 disabled:text-zinc-300" : "bg-brandGreen text-white shadow-brandGreen/20 disabled:bg-gray-300"}`}
             >
-              {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
+              {starting ? <Loader2 className="h-5 w-5 animate-spin" /> : <PlayCircle className="h-5 w-5" />}
               {starting ? "Starting..." : `Start ${mode === "PRE" ? "Pre-Assessment" : "Post-Assessment"}`}
             </button>
           </div>
 
-          <div className={`rounded-[1.75rem] p-6 ${isDark ? "bg-[#0f1f18]" : "bg-[#034440] text-white"}`}>
-            <h3 className="text-xl font-semibold">Rating guide</h3>
+          <div className={`rounded-[1.75rem] border p-6 shadow-lg ${isDark ? "bg-[#0a120f] border-white/10" : "bg-[#034440] border-transparent text-white"}`}>
+            <h3 className="text-xl font-bold">Rating guide</h3>
             <div className="mt-5 space-y-3 text-sm">
               {RATINGS.map((rating) => (
-                <div key={rating.value} className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3">
-                  <span>{rating.label}</span>
-                  <span className="text-lg font-bold">{rating.value}</span>
+                <div key={rating.value} className="flex items-center justify-between rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
+                  <span className="font-medium">{rating.label}</span>
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-full font-bold shadow-sm ${isDark ? "bg-white/20 text-white" : "bg-white/20 text-white"}`}>{rating.value}</span>
                 </div>
               ))}
             </div>
@@ -322,135 +329,144 @@ export default function Assessment() {
         </div>
       )}
 
+      {/* READY STATE - SCROLL CONFINED UX */}
       {viewState === "ready" && attempt && (
-        <div className="mt-8">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm ${isDark ? "bg-white/10 text-zinc-200" : "bg-brandGreen/10 text-brandGreen"}`}>
-              <BarChart3 className="h-4 w-4" />
-              {answeredQuestions} of {totalQuestions} statements answered
+        <div className={`mt-8 flex flex-col overflow-hidden rounded-[1.75rem] border shadow-inner ${isDark ? "border-white/10 bg-black/20" : "border-gray-200 bg-gray-50"}`}>
+          
+          {/* Sticky Progress Header */}
+          <div className={`sticky top-0 z-10 flex flex-wrap items-center justify-between gap-4 border-b p-5 backdrop-blur-md ${isDark ? "border-white/10 bg-[#0a120f]/90" : "border-gray-200 bg-white/90"}`}>
+            <div className="flex-1 space-y-2">
+              <div className="flex justify-between text-xs font-bold uppercase tracking-widest opacity-80">
+                <span>Progress</span>
+                <span>{Math.round(progressPercent)}%</span>
+              </div>
+              <div className={`h-2.5 w-full overflow-hidden rounded-full ${isDark ? "bg-white/10" : "bg-gray-100"}`}>
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ease-out ${isDark ? "bg-accentGreen" : "bg-brandGreen"}`} 
+                  style={{ width: `${progressPercent}%` }} 
+                />
+              </div>
             </div>
             <button
               type="button"
               onClick={() => setShowSubmitModal(true)}
               disabled={!isComplete || submitting}
-              className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${isDark ? "bg-accentGreen text-black disabled:bg-zinc-700 disabled:text-zinc-300" : "bg-brandGreen text-white disabled:bg-gray-300"}`}
+              className={`shrink-0 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold shadow-sm transition hover:scale-[1.02] active:scale-95 ${isDark ? "bg-accentGreen text-black disabled:bg-zinc-700 disabled:text-zinc-400" : "bg-brandGreen text-white disabled:bg-gray-300"}`}
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {submitting ? "Submitting..." : "Submit Assessment"}
+              Submit
             </button>
           </div>
 
-          <div className="space-y-6">
-            {Object.entries(groupedQuestions).map(([category, questions]) => (
-              <div key={category} className={`rounded-[1.75rem] border p-5 ${isDark ? "border-white/10 bg-white/5" : "border-gray-200 bg-[#fbfdfb]"}`}>
-                <h3 className="text-lg font-semibold">{CATEGORY_LABELS[category] || category}</h3>
-                <div className="mt-5 space-y-4">
-                  {questions.map((question) => (
-                    <div key={question.id} className={`rounded-2xl border p-4 ${isDark ? "border-white/10 bg-black/10" : "border-white bg-white"}`}>
-                      <p className="text-sm font-medium leading-7">{question.order}. {question.question_text}</p>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {RATINGS.map((rating) => {
-                          const active = ratings[question.id] === rating.value;
-                          return (
-                            <button
-                              key={rating.value}
-                              type="button"
-                              onClick={() => handleRate(question.id, rating.value)}
-                              className={`rounded-full px-4 py-2 text-sm transition ${
-                                active
-                                  ? isDark
-                                    ? "bg-accentGreen text-black"
-                                    : "bg-brandGreen text-white"
-                                  : isDark
-                                    ? "bg-white/10 text-zinc-300 hover:bg-white/15"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                              }`}
-                            >
-                              {rating.value}
-                            </button>
-                          );
-                        })}
+          {/* Endless Scroll Fix: Confined height with internal scrolling */}
+          <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden p-5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-400/50 hover:scrollbar-thumb-gray-400 dark:scrollbar-thumb-white/20 dark:hover:scrollbar-thumb-white/40">
+            <div className="space-y-8">
+              {Object.entries(groupedQuestions).map(([category, questions]) => (
+                <div key={category} className="space-y-4">
+                  <h3 className={`sticky top-0 z-0 py-2 text-lg font-black tracking-tight drop-shadow-sm ${isDark ? "text-accentGreen bg-transparent" : "text-brandGreen bg-transparent"}`}>
+                    {CATEGORY_LABELS[category] || category}
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    {questions.map((question) => (
+                      <div key={question.id} className={`rounded-2xl border p-5 transition-colors ${isDark ? "border-white/10 bg-[#0f1714]" : "border-gray-200 bg-white shadow-sm"}`}>
+                        <p className="mb-5 text-base font-medium leading-relaxed">
+                          <span className="mr-2 font-black opacity-40">{question.order}.</span> 
+                          {question.question_text}
+                        </p>
+                        
+                        {/* Enhanced Touch-Friendly Grid */}
+                        <div className="grid grid-cols-5 gap-2 md:gap-3">
+                          {RATINGS.map((rating) => {
+                            const isSelected = ratings[question.id] === rating.value;
+                            return (
+                              <button
+                                key={rating.value}
+                                type="button"
+                                onClick={() => handleRate(question.id, rating.value)}
+                                className={`flex flex-col items-center justify-center rounded-xl border p-2 transition-all md:py-3 ${
+                                  isSelected
+                                    ? isDark
+                                      ? "scale-105 border-accentGreen bg-accentGreen text-black shadow-lg shadow-accentGreen/20"
+                                      : "scale-105 border-brandGreen bg-brandGreen text-white shadow-md"
+                                    : isDark
+                                      ? "border-white/10 bg-white/5 text-zinc-300 hover:border-accentGreen/50 hover:bg-white/10"
+                                      : "border-gray-200 bg-gray-50 text-gray-700 hover:border-brandGreen/50 hover:bg-brandGreen/5"
+                                }`}
+                              >
+                                <span className="text-lg font-black md:text-xl">{rating.value}</span>
+                                <span className="mt-1 hidden text-center text-[9px] font-bold uppercase leading-tight tracking-wider opacity-80 md:block">
+                                  {rating.label}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {/* Mobile Only Label Helper */}
+                        <div className="mt-3 flex justify-between text-[10px] font-bold uppercase tracking-wider opacity-50 md:hidden">
+                          <span>Strongly Disagree</span>
+                          <span>Strongly Agree</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-
-      {isComplete && (
-        <div className={`mt-6 flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] border px-5 py-4 ${isDark ? "border-accentGreen/30 bg-[#123428]" : "border-brandGreen/20 bg-brandGreen/5"}`}>
-          <div>
-            <p className="text-base font-semibold">All statements answered</p>
-            <p className={`mt-1 text-sm ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
-              Your assessment is ready to submit. Review your answers below or submit now.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => setShowSubmitModal(true)}
-              className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold ${isDark ? "bg-accentGreen text-black" : "bg-brandGreen text-white"}`}
-            >
-              <Send className="h-4 w-4" />
-              Submit Assessment
-            </button>
-          </div>
-        </div>
-      )}
-
+      {/* COMPLETED STATE */}
       {viewState === "completed" && result && (
         <div className="mt-8 grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-          <div className={`rounded-[1.75rem] p-6 ${isDark ? "bg-[#0f1f18]" : "bg-[#034440] text-white"}`}>
+          <div className={`rounded-[1.75rem] border p-8 shadow-lg ${isDark ? "bg-[#0a120f] border-white/10" : "bg-[#034440] border-transparent text-white"}`}>
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-6 w-6 text-accentGreen" />
-              <h3 className="text-xl font-semibold">Assessment complete</h3>
+              <CheckCircle2 className={`h-8 w-8 ${isDark ? "text-accentGreen" : "text-[#9DE16A]"}`} />
+              <h3 className="text-2xl font-black">Assessment Complete</h3>
             </div>
 
             <div className="mt-8 flex items-end gap-4">
               <div>
-                <p className="text-sm uppercase tracking-[0.2em] text-white/70">Overall score</p>
-                <p className="mt-2 text-5xl font-bold">{result.overall_score.toFixed(1)}</p>
-                <p className="mt-2 text-sm text-white/80">out of 5.0</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Overall score</p>
+                <p className="mt-1 text-6xl font-black tracking-tighter">{result.overall_score.toFixed(1)}</p>
+                <p className="mt-1 text-sm font-medium opacity-80">out of 5.0</p>
               </div>
-              <div className="rounded-2xl bg-white/10 px-4 py-3 text-sm">
+              <div className={`rounded-2xl px-5 py-4 text-xl font-black shadow-inner ${isDark ? "bg-white/10" : "bg-white/20"}`}>
                 {getScorePercent(result.overall_score)}%
               </div>
             </div>
 
-            <div className="mt-8 rounded-[1.5rem] bg-white/10 p-5">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/70">Proficiency level</p>
-              <p className="mt-3 text-2xl font-bold">{formatProficiencyLevel(result?.proficiency_level || currentLevel)}</p>
+            <div className={`mt-8 rounded-[1.5rem] border p-6 shadow-sm ${isDark ? "border-white/10 bg-white/5" : "border-white/20 bg-white/10"}`}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Proficiency level</p>
+              <p className="mt-2 text-3xl font-black tracking-tight">{formatProficiencyLevel(result?.proficiency_level || currentLevel)}</p>
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-8">
               <Link
                 href="/dashboard"
                 onClick={() => window.scrollTo({ top: 0 })}
-                className="inline-flex items-center justify-center rounded-full bg-accentGreen px-5 py-3 text-sm font-semibold text-black"
+                className={`inline-flex w-full items-center justify-center rounded-full px-6 py-4 text-sm font-bold shadow-lg transition hover:scale-[1.02] active:scale-95 ${isDark ? "bg-accentGreen text-black shadow-accentGreen/20" : "bg-white text-[#034440]"}`}
               >
                 Back to Dashboard
               </Link>
             </div>
           </div>
 
-          <div className={`rounded-[1.75rem] p-6 ${isDark ? "bg-white/5" : "bg-[#f6fbf7]"}`}>
-            <h3 className="text-xl font-semibold">Category breakdown</h3>
-            <div className="mt-5 space-y-4">
+          <div className={`rounded-[1.75rem] border p-6 shadow-inner lg:p-8 ${isDark ? "bg-black/40 border-white/10" : "bg-gray-50 border-gray-100"}`}>
+            <h3 className="text-xl font-bold">Category Breakdown</h3>
+            <div className="mt-8 space-y-6">
               {CATEGORY_FIELDS.map((item) => {
                 const score = result[item.key];
                 const percent = getScorePercent(score);
 
                 return (
                   <div key={item.key}>
-                    <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                      <span>{item.label}</span>
-                      <span className="font-semibold">{score.toFixed(1)} / 5.0</span>
+                    <div className="mb-3 flex items-center justify-between gap-3 text-sm">
+                      <span className="font-bold">{item.label}</span>
+                      <span className="font-black opacity-60">{score.toFixed(1)} <span className="font-medium text-xs">/ 5.0</span></span>
                     </div>
-                    <div className={`h-3 overflow-hidden rounded-full ${isDark ? "bg-white/10" : "bg-white"}`}>
+                    <div className={`h-3 w-full overflow-hidden rounded-full shadow-inner ${isDark ? "bg-white/10" : "bg-gray-200"}`}>
                       <div
                         className="h-full rounded-full bg-gradient-to-r from-[#A4ED7D] to-[#56CFAF]"
                         style={{ width: `${percent}%` }}
@@ -464,48 +480,40 @@ export default function Assessment() {
         </div>
       )}
 
+      {/* SUBMIT MODAL */}
       {showSubmitModal && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/35 px-4 backdrop-blur-sm">
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-md transition-opacity">
           <div
-            className={`w-full max-w-lg rounded-[1.75rem] border p-6 shadow-2xl ${
-              isDark ? "border-white/10 bg-zinc-950/95 text-white" : "border-gray-200 bg-white text-[#034440]"
+            className={`w-full max-w-lg rounded-[2rem] border p-8 shadow-2xl ${
+              isDark ? "border-white/10 bg-[#0f1714] text-white" : "border-gray-200 bg-white text-[#034440]"
             }`}
           >
             <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className={`rounded-2xl p-3 ${isDark ? "bg-white/10" : "bg-brandGreen/10"}`}>
-                  <LockKeyhole className="h-6 w-6 text-brandGreen" />
+              <div className="flex items-start gap-4">
+                <div className={`mt-1 rounded-2xl p-4 shadow-inner ${isDark ? "bg-accentGreen/20" : "bg-brandGreen/10"}`}>
+                  <CheckCircle2 className={`h-8 w-8 ${isDark ? "text-accentGreen" : "text-brandGreen"}`} />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold">Submit your assessment?</h3>
-                  <p className={`mt-2 text-sm leading-6 ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
-                    You answered all {totalQuestions} statements. Once submitted, your responses will be reviewed and used to set your proficiency level.
+                  <h3 className="text-2xl font-black tracking-tight">Ready to submit?</h3>
+                  <p className={`mt-3 text-sm leading-relaxed ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
+                    Great job! You have answered all <strong>{totalQuestions} statements</strong>. Once submitted, your responses will be locked in and used to calculate your final proficiency level.
                   </p>
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setShowSubmitModal(false)}
-                className={`rounded-full p-2 transition ${isDark ? "bg-white/10 text-zinc-300 hover:bg-white/15" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
-                aria-label="Close submit confirmation"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => setShowSubmitModal(false)}
-                className={`rounded-full px-5 py-3 text-sm font-semibold ${isDark ? "bg-white/10 text-zinc-200" : "bg-gray-100 text-gray-700"}`}
+                className={`w-full rounded-full px-6 py-3.5 text-sm font-bold sm:w-auto transition ${isDark ? "bg-white/10 text-white hover:bg-white/20" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
               >
-                Review Answers
+                Wait, let me review
               </button>
               <button
                 type="button"
                 onClick={handleConfirmSubmit}
-                className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold ${isDark ? "bg-accentGreen text-black" : "bg-brandGreen text-white"}`}
+                className={`inline-flex w-full items-center justify-center gap-2 rounded-full px-8 py-3.5 text-sm font-black shadow-lg sm:w-auto transition hover:scale-[1.02] active:scale-95 ${isDark ? "bg-accentGreen text-black shadow-accentGreen/20" : "bg-brandGreen text-white shadow-brandGreen/20"}`}
               >
                 <Send className="h-4 w-4" />
                 Submit Assessment
@@ -515,19 +523,20 @@ export default function Assessment() {
         </div>
       )}
 
+      {/* SUBMITTING OVERLAY */}
       {submitting && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 backdrop-blur-md">
           <div
-            className={`w-full max-w-md rounded-[1.75rem] border p-6 text-center shadow-2xl ${
-              isDark ? "border-white/10 bg-zinc-950/95 text-white" : "border-gray-200 bg-white text-[#034440]"
+            className={`w-full max-w-sm rounded-[2rem] border p-8 text-center shadow-2xl ${
+              isDark ? "border-white/10 bg-[#0f1714] text-white" : "border-gray-200 bg-white text-[#034440]"
             }`}
           >
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brandGreen/10">
-              <Loader2 className="h-7 w-7 animate-spin text-brandGreen" />
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-brandGreen/10 shadow-inner">
+              <Loader2 className={`h-10 w-10 animate-spin ${isDark ? "text-accentGreen" : "text-brandGreen"}`} />
             </div>
-            <h3 className="mt-5 text-xl font-semibold">Checking Assessment</h3>
-            <p className={`mt-2 text-sm leading-6 ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
-              Please wait while we review your responses and calculate your proficiency level.
+            <h3 className="mt-6 text-2xl font-black tracking-tight">Calculating Results</h3>
+            <p className={`mt-3 text-sm leading-relaxed ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
+              Hang tight while we analyze your responses and process your digital proficiency profile.
             </p>
           </div>
         </div>
