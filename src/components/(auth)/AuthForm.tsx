@@ -197,11 +197,14 @@ export default function AuthForm() {
     setLoading(true);
     setError(null);
     try {
-      const API_URL = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id_token }),
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+      const baseUrl = API_BASE.endsWith('/') ? API_BASE : `${API_BASE}/`;
+      
+      // Send the token to the GoogleLoginView in your Django code
+      const res = await fetch(`${baseUrl}accounts/google-login/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id_token }),
       });
       const data = await res.json();
 
@@ -343,25 +346,35 @@ export default function AuthForm() {
 
         {introDone && (
           <>
-            {/* FLOATING THEME TOGGLE (Top Right) */}
+            {/* TOP RIGHT CONTROLS (Back to Dashboard + Theme Toggle) */}
             <motion.div
-              className="absolute top-4 right-4 md:top-6 md:right-8 z-50"
+              className="absolute top-4 right-4 md:top-6 md:right-8 z-50 flex items-center gap-3"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.35, ease: easeOut }}
             >
+              {/* Back to Dashboard Button */}
+              <button
+                onClick={() => router.push("/dashboard")}
+                className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border shadow-sm backdrop-blur-md ${
+                  isDark 
+                    ? "bg-black/40 border-white/10 text-white/80 hover:bg-white/10 hover:text-white" 
+                    : "bg-white/60 border-black/10 text-black/70 hover:bg-black/5 hover:text-black"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Dashboard
+              </button>
+
+              {/* Theme Toggle */}
               <button
                 aria-label="Toggle theme"
                 onClick={toggle}
                 className="group inline-flex items-center gap-2 rounded-full px-2 py-1 transition"
                 title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
               >
-                <span
-                  className={`text-sm font-semibold transition ${
-                    isDark ? "text-zinc-400 group-hover:text-zinc-200" : "text-[#1f2a44]"
-                  }`}
-                >
-                </span>
                 <span
                   className={`relative inline-flex h-9 w-20 items-center rounded-full border px-1 transition ${
                     isDark
@@ -376,12 +389,6 @@ export default function AuthForm() {
                   />
                   <span className="pointer-events-none absolute right-4 top-2 h-1.5 w-1.5 rounded-full bg-white/80" />
                   <span className="pointer-events-none absolute right-2.5 top-4 h-1.5 w-1.5 rounded-full bg-white/60" />
-                </span>
-                <span
-                  className={`text-sm font-semibold transition ${
-                    isDark ? "text-[#9DE16A]" : "text-zinc-400 group-hover:text-zinc-600"
-                  }`}
-                >
                 </span>
               </button>
             </motion.div>

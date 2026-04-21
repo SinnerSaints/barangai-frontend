@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion, LayoutGroup } from "framer-motion";
 import { useTheme } from "@/context/theme";
 import { BackgroundPaths } from "@/components/ui/paths";
@@ -57,11 +58,14 @@ export default function NotFoundPage() {
               </h1>
               
               <div className="text-xl md:text-2xl font-bold mb-4" style={{ fontFamily: "'Poppins', 'Plus Jakarta Sans', sans-serif" }}>
-                Lost in the <span className="text-accentGreen">BarangAI?</span>
+                Oops! looks like you got lost in <span className="text-accentGreen">BarangAI?</span>
               </div>
               
               <p className={`text-sm md:text-base mb-8 max-w-sm ${isDark ? "text-white/70" : "text-black/70"}`}>
-                The page you are looking for doesn't exist, has been moved, or you don't have access to it.
+                The page you are looking for doesn't exist, has been moved, or you don't have access to it. If you have concerns, please contact support:{" "}
+                <Link href="/contact" className={`font-semibold hover:underline transition-colors ${isDark ? "text-accentGreen hover:text-green-300" : "text-[#034440] hover:text-[#022b28]"}`}>
+                  Contact us
+                </Link>.
               </p>
 
               <motion.button
