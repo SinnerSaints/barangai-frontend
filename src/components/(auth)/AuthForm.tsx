@@ -165,7 +165,7 @@ export default function AuthForm() {
       // Use your actual Railway backend URL
       const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       
-      const res = await fetch(`${API_URL}accounts/password-reset-request/`, {
+      const res = await fetch(`${API_URL}accounts/password-reset/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
