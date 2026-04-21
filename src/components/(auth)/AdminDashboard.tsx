@@ -7,9 +7,10 @@ import Sidebar from "@/components/dashboard/Sidebar";
 import TopBar from "@/components/dashboard/TopBar";
 import {
   Check, X, Trash2, Search, RefreshCw, AlertCircle, Users,
-  BookOpen, ClipboardList, Plus, Pencil, BarChart3, ChevronLeft
+  BookOpen, ClipboardList, Plus, Pencil, BarChart3, ChevronLeft, Settings
 } from "lucide-react";
 
+// ... (keep all your existing types: UserStats, UserItem, QuestionInput) ...
 type UserStats = {
   pre_assessment?: { score: number; completed_at: string };
   lesson_progress: { title: string; topic?: string; progress: number; completed: boolean }[];
@@ -30,13 +31,24 @@ export default function AdminDashboard() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const [activeTab, setActiveTab] = useState<"users" | "courses" | "quizzes" | "tracking">("users");
+  // Added "settings" to the activeTab options
+  const [activeTab, setActiveTab] = useState<"users" | "courses" | "quizzes" | "tracking" | "settings">("users");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Banner state
+  const [showBanner, setShowBanner] = useState(true);
 
   useEffect(() => {
-    try { const v = localStorage.getItem("sidebar_collapsed"); if (v !== null) setSidebarCollapsed(v === "true"); } catch {}
+    try { 
+      const v = localStorage.getItem("sidebar_collapsed"); 
+      if (v !== null) setSidebarCollapsed(v === "true"); 
+      
+      const b = localStorage.getItem("show_maintenance_banner");
+      if (b !== null) setShowBanner(b === "true");
+    } catch {}
   }, []);
 
+  // ... (keep all your existing state declarations: lastRefreshed, users, etc.) ...
   const [lastRefreshed, setLastRefreshed] = useState<string | null>(null);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [pendingUsers, setPendingUsers] = useState<UserItem[]>([]);
@@ -73,6 +85,15 @@ export default function AdminDashboard() {
     try { localStorage.setItem("sidebar_collapsed", String(next)); } catch {}
   };
 
+  // Toggle handler for the banner
+  const handleToggleBanner = () => {
+    const next = !showBanner;
+    setShowBanner(next);
+    localStorage.setItem("show_maintenance_banner", String(next));
+    window.dispatchEvent(new Event("banner_toggle"));
+  };
+
+  // ... (keep all your existing functions: getAccessToken, fetchPending, useEffect hooks, handleAction, course/quiz logic, etc.) ...
   const getAccessToken = async () => {
     let token = localStorage.getItem("access_token");
     const refreshToken = localStorage.getItem("refresh_token");
@@ -286,11 +307,13 @@ export default function AdminDashboard() {
     <p className={`text-sm px-4 py-2.5 rounded-xl ${msg.includes("Error") ? (isDark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600") : (isDark ? "bg-green-500/10 text-green-400" : "bg-green-50 text-green-700")}`}>{msg}</p>
   ) : null;
 
+  // Added Settings to the tabs
   const tabs = [
     { key: "users" as const, icon: Users, label: "Users" },
     { key: "courses" as const, icon: BookOpen, label: "Courses" },
     { key: "quizzes" as const, icon: ClipboardList, label: "Quizzes" },
     { key: "tracking" as const, icon: BarChart3, label: "Tracking" },
+    { key: "settings" as const, icon: Settings, label: "Settings" },
   ];
 
   return (
@@ -334,6 +357,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* ... (Keep USERS, COURSES, QUIZZES, TRACKING exactly as they were) ... */}
           {/* ════ USERS ════ */}
           {activeTab === "users" && (
             <div className="space-y-4">
@@ -718,6 +742,33 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ════ SETTINGS (NEW TAB) ════ */}
+          {activeTab === "settings" && (
+            <div className="space-y-4">
+              <div className={`${sectionCard} p-6 max-w-2xl`}>
+                <h2 className="text-base font-semibold mb-5">Site Settings</h2>
+                
+                <div className={`flex items-center justify-between p-5 border rounded-2xl ${isDark ? "border-white/10 bg-white/5" : "border-gray-200 bg-gray-50"}`}>
+                  <div>
+                    <h3 className="font-semibold text-sm">Maintenance Banner</h3>
+                    <p className={`text-xs mt-1 ${muted}`}>Show the scrolling warning banner across all pages.</p>
+                  </div>
+                  
+                  {/* The Toggle Switch */}
+                  <button 
+                    onClick={handleToggleBanner} 
+                    className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${showBanner ? (isDark ? "bg-accentGreen" : "bg-brandGreen") : (isDark ? "bg-zinc-700" : "bg-gray-300")}`}
+                  >
+                    <span 
+                      className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out ${showBanner ? "translate-x-6" : "translate-x-0"}`} 
+                    />
+                  </button>
+                </div>
+
+              </div>
             </div>
           )}
         </div>
