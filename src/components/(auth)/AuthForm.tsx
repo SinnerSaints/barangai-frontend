@@ -197,7 +197,7 @@ export default function AuthForm() {
     setLoading(true);
     setError(null);
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+      const API_URL = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
