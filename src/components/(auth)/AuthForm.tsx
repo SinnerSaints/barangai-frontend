@@ -197,7 +197,8 @@ export default function AuthForm() {
     setLoading(true);
     setError(null);
     try {
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://barangaibackend-production.up.railway.app/";
       const baseUrl = API_BASE.endsWith('/') ? API_BASE : `${API_BASE}/`;
       
       // Send the token to the GoogleLoginView in your Django code
@@ -355,7 +356,7 @@ export default function AuthForm() {
             >
               {/* Back to Dashboard Button */}
               <button
-                onClick={() => router.push("/dashboard")}
+                onClick={() => router.push("/")}
                 className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border shadow-sm backdrop-blur-md ${
                   isDark 
                     ? "bg-black/40 border-white/10 text-white/80 hover:bg-white/10 hover:text-white" 

@@ -161,6 +161,7 @@ export async function updateProfile(opts: {
   avatarFile?: File | null;
   first_name?: string;
   last_name?: string;
+  role?: string;
 }) {
   const user_id = localStorage.getItem("user_id");
   const access = localStorage.getItem("access_token");
