@@ -69,6 +69,13 @@ function ChatSection() {
 
   const [isWaitingForAI, setIsWaitingForAI] = useState(false);
 
+  const activeSessionRef = useRef<string | null>(null);
+  
+  // Keep the ref constantly updated with whatever session the user is looking at
+  useEffect(() => {
+    activeSessionRef.current = sessionUUID;
+  }, [sessionUUID]);
+
   // 1. LOAD HISTORY & USER ON MOUNT
   useEffect(() => {
     const userId = localStorage.getItem("user_id");
@@ -190,6 +197,9 @@ function ChatSection() {
     
     setIsWaitingForAI(true); 
 
+    // FIX: Capture the session ID *before* the fetch begins
+    const startingSessionId = sessionUUID;
+
     try {
       const baseUrl = OPENAI_API_KEY.replace(/\/$/, "");
       const token = localStorage.getItem("access_token");
@@ -217,6 +227,11 @@ function ChatSection() {
       setIsWaitingForAI(false);
 
       const activeSessionId = data.session_uuid || sessionUUID || crypto.randomUUID();
+
+      // This prevents the loop from thinking we switched chats on brand new conversations
+      if (activeSessionRef.current === startingSessionId) {
+        activeSessionRef.current = activeSessionId;
+      }
 
       if (!sessionUUID) {
         setSessionUUID(activeSessionId);
@@ -246,11 +261,40 @@ function ChatSection() {
         { role: "assistant", content: "", time: new Date().toISOString(), typing: true },
       ]);
 
+      const requestSessionId = activeSessionId; 
+
       for (let i = 0; i < fullText.length; i++) {
+        // Check if the user clicks new chat or recent chat
+        if (activeSessionRef.current !== requestSessionId) {
+          // Save the full response directly to the correct session in background
+          setHistory((prevHistory) => prevHistory.map(session => {
+            if (session.id === requestSessionId) {
+              const updatedMessages = [...session.messages];
+              // Ensure the assistant message exists before updating
+              if (updatedMessages.length > 0) {
+                updatedMessages[updatedMessages.length - 1] = {
+                  ...updatedMessages[updatedMessages.length - 1],
+                  content: fullText, // Instantly drop the full text in
+                  typing: false
+                };
+              }
+              return { ...session, messages: updatedMessages };
+            }
+            return session;
+          }));
+          
+          // Break out of the loop completely to save memory/CPU
+          break; 
+        }
+
+        // If the user is STILL looking at this chat, continue the animation
         currentText += fullText[i];
         await new Promise((resolve) => setTimeout(resolve, 10));
         
         setMessages((prev) => {
+          // CRASH PREVENTION: If messages were cleared right before the loop broke, ignore
+          if (prev.length === 0) return prev; 
+          
           const updated = [...prev];
           updated[updated.length - 1].content = currentText;
           return updated;
@@ -261,11 +305,15 @@ function ChatSection() {
         }
       }
 
-      setMessages((prev) => {
-        const updated = [...prev];
-        updated[updated.length - 1].typing = false;
-        return updated;
-      });
+      // Cleanup: Turn off the typing indicator dot (only if they are still on this chat)
+      if (activeSessionRef.current === requestSessionId) {
+        setMessages((prev) => {
+          if (prev.length === 0) return prev;
+          const updated = [...prev];
+          updated[updated.length - 1].typing = false;
+          return updated;
+        });
+      }
     } catch (error) {
       console.error("Chat Error:", error);
       setMessages((prev) => [
@@ -276,7 +324,7 @@ function ChatSection() {
     setLoading(false);
   };
 
-  // 4. FUNCTIONAL SIDEBAR ACTIONS
+  // FUNCTIONAL SIDEBAR ACTIONS
   const startNewChat = () => {
     setHasStartedChat(false);
     setMessages([]);
