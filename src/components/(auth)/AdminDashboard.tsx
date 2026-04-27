@@ -29,15 +29,43 @@ type QuestionInput = {
 
 function isUserExplicitlyApproved(user: any): boolean {
   if (!user || typeof user !== "object") return false;
-  if (user.is_approved === true || user.isApproved === true || user.approved === true) return true;
+
+  // Booleans win first
+  if (user.is_approved === false || user.isApproved === false || user.approved === false) {
+    return false;
+  }
+  if (user.is_approved === true || user.isApproved === true || user.approved === true) {
+    return true;
+  }
 
   const statusCandidates = [user.approval_status, user.account_status, user.status];
   for (const value of statusCandidates) {
     if (typeof value !== "string") continue;
     const normalized = value.trim().toLowerCase();
     if (!normalized) continue;
-    if (normalized.includes("approved")) return true;
+
+    // Must run BEFORE "includes('approved')" — e.g. "not approved" contains substring "approved"
+    if (
+      normalized.includes("not approved") ||
+      normalized.includes("unapproved") ||
+      normalized.includes("pending") ||
+      normalized.includes("awaiting") ||
+      normalized.includes("rejected") ||
+      normalized.includes("denied")
+    ) {
+      return false;
+    }
+
+    if (
+      normalized === "approved" ||
+      normalized.endsWith(" approved") ||
+      normalized.startsWith("approved ") ||
+      normalized.includes("fully approved")
+    ) {
+      return true;
+    }
   }
+
   return false;
 }
 
