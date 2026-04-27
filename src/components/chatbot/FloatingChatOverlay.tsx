@@ -83,15 +83,13 @@ export default function FloatingChatOverlay() {
           aria-label="Open BIDA overlay"
           className={`group inline-flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-xl transition-all duration-300 hover:scale-105 hover:-translate-y-0.5 active:scale-95 ${
             isDark
-              ? "bg-[#B4ED7C] text-black shadow-[#B4ED7C]/30"
-              : "bg-brandGreen text-white shadow-brandGreen/30"
+              ? "bg-black/50 shadow-[#B4ED7C]/30"
+              : "bg-brandGreen shadow-brandGreen/30"
           }`}
         >
-          <div className="relative h-4 w-4 overflow-hidden rounded-sm bg-white/20">
+          <div className="relative h-10 w-10 overflow-hidden rounded-sm">
             <Image src="/favicon.ico" alt="BIDA icon" fill className="object-cover" />
           </div>
-          BIDA
-          <Sparkles className="h-3.5 w-3.5 opacity-70 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
         </button>
       )}
     </div>

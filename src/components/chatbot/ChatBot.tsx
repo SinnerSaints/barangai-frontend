@@ -447,11 +447,34 @@ export function ChatSection({ compact = false }: { compact?: boolean }) {
   return (
     <>
       {!entered && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center animate-pulse">
-            <div className={`w-10 h-10 border-4 border-t-transparent rounded-full animate-spin mb-4 shadow-lg ${isDark ? "border-[#8CD559]" : "border-brandGreen"}`}></div>
-            <p className={`text-sm font-semibold tracking-wide ${isDark ? "text-[#8CD559]" : "text-brandGreen"}`}>
-              Starting BarangAI...
-            </p>
+          <div className="absolute inset-0 z-50 flex items-center justify-center px-4">
+            <div
+              className={`rounded-3xl border p-5 shadow-2xl backdrop-blur-xl ${
+                isDark
+                  ? "border-white/10 bg-zinc-950/80 text-zinc-100"
+                  : "border-zinc-200 bg-white/90 text-zinc-900"
+              }`}
+            >
+              <div className="relative flex h-14 w-14 items-center justify-center">
+                <div
+                  className={`absolute inset-0 rounded-full blur-md ${
+                    isDark ? "bg-[#8CD559]/40" : "bg-brandGreen/25"
+                  }`}
+                />
+                <div
+                  className={`absolute h-14 w-14 rounded-full border-2 border-transparent border-t-current border-r-current animate-spin ${
+                    isDark ? "border-[#8CD559]" : "border-brandGreen"
+                  }`}
+                />
+                <div
+                  className={`relative h-10 w-10 overflow-hidden rounded-full ring-2 ${
+                    isDark ? "ring-zinc-700 bg-zinc-900" : "ring-zinc-200 bg-white"
+                  }`}
+                >
+                  <Image src="/favicon.ico" alt="BIDA icon" fill className="object-cover" />
+                </div>
+              </div>
+            </div>
           </div>
       )}
       <section className={sectionClass}>
