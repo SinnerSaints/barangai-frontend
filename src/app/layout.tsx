@@ -4,6 +4,7 @@ import { AuthProvider } from "@/context/auth";
 import { ThemeProvider } from "@/context/theme";
 import ClientWrapper from "@/components/dashboard/ClientWrapper";
 import MaintenanceBanner from "@/components/dashboard/MaintenanceBanner"; 
+import FloatingChatOverlay from "@/components/chatbot/FloatingChatOverlay";
 import { Geist, League_Spartan, Manrope } from "next/font/google";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +40,7 @@ export default function RootLayout({
               <main className="flex-1 w-full">
                 {children}
               </main>
+              <FloatingChatOverlay />
             </ClientWrapper>
           </ThemeProvider>
         </AuthProvider>

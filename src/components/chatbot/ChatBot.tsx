@@ -45,7 +45,7 @@ export default function ChatbotPage() {
   );
 }
 
-function ChatSection() {
+export function ChatSection({ compact = false }: { compact?: boolean }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
@@ -412,6 +412,38 @@ function ChatSection() {
     ? "flex items-center gap-3 text-sm font-semibold rounded-xl px-3 py-2.5 transition bg-[#8CD559]/15 text-[#8CD559] border border-[#8CD559]/10 hover:bg-[#8CD559]/25 hover:shadow-[0_0_15px_rgba(140,213,89,0.1)]" 
     : "flex items-center gap-3 text-sm font-semibold rounded-xl px-3 py-2.5 transition bg-brandGreen/10 text-brandGreen border border-brandGreen/20 hover:bg-brandGreen/20";
 
+  const sectionClass = compact
+    ? `${entered ? "chat-enter" : "opacity-0"} h-full`
+    : `${entered ? "chat-enter" : "opacity-0"} mt-4`;
+  const chatModeContainerClass = compact
+    ? "h-full grid grid-cols-1 gap-3"
+    : "h-[calc(100vh-132px)] grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] gap-4 lg:gap-6 mt-2";
+  const showDesktopSidebar = !compact;
+  const messagePanelClass = compact
+    ? "chat-scroll-area flex-1 overflow-y-auto px-2 pb-36"
+    : "chat-scroll-area flex-1 overflow-y-auto px-2 md:px-5 pb-40";
+  const inputWrapPositionClass = compact
+    ? "absolute bottom-2 left-0 right-0 px-2 bg-transparent"
+    : "absolute bottom-3 left-0 right-0 px-2 md:px-5 bg-transparent";
+  const compactTopActionsClass = compact
+    ? `mb-2 flex items-center justify-end px-2 ${isDark ? "text-zinc-200" : "text-zinc-700"}`
+    : "hidden";
+  const compactIntroWrapClass = compact
+    ? "flex h-full flex-col items-center gap-5 px-4 pt-8 pb-4 text-center"
+    : "flex flex-col items-center gap-6 mt-8";
+  const compactHeadingClass = compact
+    ? isDark
+      ? "text-center text-4xl font-bold leading-tight text-white"
+      : "text-center text-4xl font-bold leading-tight text-black"
+    : headingClass;
+  const compactParaClass = compact
+    ? isDark
+      ? "text-center text-base text-zinc-300"
+      : "text-center text-base text-zinc-600"
+    : paraClass;
+  const compactInputMaxWidthClass = compact ? "w-full max-w-full" : "w-full max-w-[680px]";
+  const showRecentChatsInIntro = !compact;
+
   return (
     <>
       {!entered && (
@@ -422,20 +454,15 @@ function ChatSection() {
             </p>
           </div>
       )}
-      <section className={`${entered ? "chat-enter" : "opacity-0"} mt-4`}>
+      <section className={sectionClass}>
         {!isChatMode ? (
-          <div className="flex flex-col items-center gap-6 mt-8">
+          <div className={compactIntroWrapClass}>
             <div className="w-12 h-12 md:w-14 md:h-14 drop-shadow-[0_0_15px_rgba(140,213,89,0.2)]">
               <Image src={circle} alt="circle" width={56} height={56} className="object-cover" />
             </div>
-            <h1 className={headingClass}>Good morning, {userName}!<br />Can I help you with anything?</h1>
-            <p className={paraClass}>choose a prompt below or<br />write your own to start using the chatbot.</p>
-            <div className="flex flex-wrap justify-center gap-4 mt-2">
-              {["Make a report for my current progress", "Show me my completed tutorials", "Suggest next steps", "Recommend community projects"].map((text, i) => (
-                <button key={text} className={btnClass} style={{ animationDelay: `${i * 80}ms` }} onClick={() => sendMessage(text)}>{text}</button>
-              ))}
-            </div>
-            <div className="w-full max-w-[680px]">
+            <h1 className={compactHeadingClass}>Good morning, {userName}!<br />Can I help you with anything?</h1>
+            <p className={compactParaClass}>Write your message below to start chatting with BIDA.</p>
+            <div className={compactInputMaxWidthClass}>
               <div className={inputWrap}>
                 <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder="How may I help you today?" className={inputClass} />
                 <button onClick={() => sendMessage()} disabled={loading || !message.trim()} className={sendButtonClass}>
@@ -443,7 +470,7 @@ function ChatSection() {
                 </button>
               </div>
             </div>
-            {history.length > 0 && (
+            {showRecentChatsInIntro && history.length > 0 && (
               <div className="mt-4 w-full max-w-[680px]">
                 <p className={`text-xs font-semibold uppercase mb-2 ${isDark ? "text-gray-500" : "text-gray-400"}`}>Recent chats</p>
                 <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
@@ -455,8 +482,8 @@ function ChatSection() {
             )}
           </div>
         ) : (
-          <div className="h-[calc(100vh-132px)] grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] gap-4 lg:gap-6 mt-2">
-            <aside className={`hidden lg:flex flex-col pr-4 border-r h-full max-h-[calc(100vh-160px)] ${isDark ? "border-white/10" : "border-black/15"}`}>
+          <div className={chatModeContainerClass}>
+            <aside className={`${showDesktopSidebar ? "hidden lg:flex" : "hidden"} flex-col pr-4 border-r h-full max-h-[calc(100vh-160px)] ${isDark ? "border-white/10" : "border-black/15"}`}>
               <button onClick={startNewChat} className={newChatButtonClass}>
                 <MessageSquarePlus size={18} /> New chat
               </button>
@@ -508,7 +535,22 @@ function ChatSection() {
             </aside>
 
             <main className="relative flex flex-col h-full min-h-0 overflow-hidden">
-              <div ref={scrollContainerRef} onScroll={handleScroll} className="chat-scroll-area flex-1 overflow-y-auto px-2 md:px-5 pb-40">
+              {compact && (
+                <div className={compactTopActionsClass}>
+                  <button
+                    onClick={startNewChat}
+                    className={`inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all ${
+                      isDark
+                        ? "bg-[#8CD559]/15 text-[#8CD559] border border-[#8CD559]/30 hover:bg-[#8CD559]/25"
+                        : "bg-brandGreen/10 text-brandGreen border border-brandGreen/30 hover:bg-brandGreen/20"
+                    }`}
+                  >
+                    <MessageSquarePlus size={14} />
+                    New Chat
+                  </button>
+                </div>
+              )}
+              <div ref={scrollContainerRef} onScroll={handleScroll} className={messagePanelClass}>
                 <div className="max-w-3xl mx-auto w-full pt-3 space-y-5">
                   {loading && !isWaitingForAI && messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center mt-32 opacity-80 animate-fadeIn">
@@ -575,7 +617,7 @@ function ChatSection() {
                 </div>
               </div>
               
-              <div className="absolute bottom-3 left-0 right-0 px-2 md:px-5 bg-transparent">
+              <div className={inputWrapPositionClass}>
                 <div className="max-w-3xl mx-auto">
                   <div className={inputWrap}>
                     <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage()} placeholder="How may I help you today?" className={inputClass} />
