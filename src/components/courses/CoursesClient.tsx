@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { BookOpen, ChevronRight } from "lucide-react";
+import { BookOpen, Calendar, ChevronDown, ChevronRight } from "lucide-react";
 import TopBar from "@/components/dashboard/TopBar";
 import { API_BASE_URL } from "@/lib/auth";
 import { LessonRecord, mapLesson, readCachedLessons, writeCachedLessons } from "@/lib/lessonProgress";
@@ -57,10 +57,10 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"enrolled" | "completed">("enrolled");
   const [query, setQuery] = React.useState("");
+  const [openTopics, setOpenTopics] = useState<Record<string, boolean>>({});
 
   const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL : `${API_BASE_URL}/`;
   const fetchEndpoint = apiUrl || `${baseUrl}lessons/`;
-  const LESSONS_FETCHED_FLAG_KEY = "lessons_fetched_once";
 
   useEffect(() => {
     const fetchLessons = async () => {
@@ -68,7 +68,6 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
       if (cachedLessons.length > 0) {
         setLessons(cachedLessons);
         setLoading(false);
-        return;
       }
 
       try {
@@ -90,7 +89,6 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
         const mappedLessons = lessonsArray.map((lesson: any, index: number) => mapLesson(lesson, index + 1));
 
         writeCachedLessons(mappedLessons);
-        localStorage.setItem(LESSONS_FETCHED_FLAG_KEY, "true");
         setLessons(mappedLessons);
       } catch (err) {
         console.error(err);
@@ -98,13 +96,6 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
         setLoading(false);
       }
     };
-
-    const hasFetchedOnce = localStorage.getItem(LESSONS_FETCHED_FLAG_KEY) === "true";
-    if (hasFetchedOnce && readCachedLessons().length > 0) {
-      setLessons(readCachedLessons());
-      setLoading(false);
-      return;
-    }
 
     fetchLessons();
   }, [fetchEndpoint]);
@@ -147,6 +138,20 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
     [topicGroups]
   );
   const visibleTopicGroups = activeTab === "completed" ? completedTopicGroups : enrolledTopicGroups;
+
+  useEffect(() => {
+    setOpenTopics((current) => {
+      const next: Record<string, boolean> = {};
+      for (const group of visibleTopicGroups) {
+        next[group.topic] = current[group.topic] ?? true;
+      }
+      return next;
+    });
+  }, [visibleTopicGroups]);
+
+  const toggleTopic = (topic: string) => {
+    setOpenTopics((current) => ({ ...current, [topic]: !current[topic] }));
+  };
 
   if (loading) return (
     <div className="flex items-center justify-center h-full p-10 text-brandGreen font-medium">
@@ -206,6 +211,7 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
         ) : (
           <div className="space-y-4">
             {visibleTopicGroups.map(({ topic, topicLessons, completedCount }) => {
+              const isOpen = openTopics[topic];
               const topicProgress = topicLessons.length
                 ? Math.round(topicLessons.reduce((sum, lesson) => sum + lesson.progress, 0) / topicLessons.length)
                 : 0;
@@ -217,7 +223,11 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
                   className={`overflow-hidden rounded-2xl border ${isDark ? "border-zinc-800 bg-zinc-900/40" : "border-zinc-200 bg-white"}`}
                 >
                   <div className={`h-1.5 w-full bg-gradient-to-r ${getTopicColors(topic).banner}`} />
-                  <div className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left ${isDark ? "hover:bg-zinc-800/50" : "hover:bg-zinc-50"} rounded-2xl`}>
+                  <button
+                    type="button"
+                    onClick={() => toggleTopic(topic)}
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left ${isDark ? "hover:bg-zinc-800/50" : "hover:bg-zinc-50"} rounded-2xl`}
+                  >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className={`p-2 rounded-lg ${isDark ? "bg-zinc-800 text-accentGreen" : "bg-green-50 text-brandGreen"}`}>
                         <BookOpen size={16} />
@@ -241,27 +251,80 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
                       <span className={`text-[11px] font-semibold ${isDark ? "text-zinc-300" : "text-zinc-600"}`}>
                         {topicProgress}%
                       </span>
+                      {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </div>
-                  </div>
+                  </button>
 
-                  <div className={`border-t px-4 py-3 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
-                    <div className="flex items-center justify-between gap-3">
-                      <p className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                        Open this course page to browse all lessons.
-                      </p>
-                      <Link
-                        href={`/courses/topic/${encodeURIComponent(topic)}`}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                          isDark
-                            ? "bg-accentGreen text-zinc-900 hover:bg-accentGreen/90"
-                            : "bg-brandGreen text-white hover:bg-brandGreen/90"
-                        }`}
-                      >
-                        View Lessons
-                        <ChevronRight size={14} />
-                      </Link>
+                  {isOpen && (
+                    <div className={`border-t px-3 py-2 ${isDark ? "border-zinc-800" : "border-zinc-200"}`}>
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        {topicLessons.map((lesson) => (
+                          <article
+                            key={lesson.id}
+                            className={`overflow-hidden rounded-xl border ${isDark ? "border-zinc-800 bg-zinc-950/50" : "border-zinc-200 bg-white"} shadow-sm`}
+                          >
+                            <div className={`h-1.5 w-full bg-gradient-to-r ${getTopicColors(topic).banner}`} />
+
+                            <div className="p-3">
+                              <div className="min-w-0">
+                                <p className="line-clamp-2 text-sm font-semibold leading-snug">{lesson.title}</p>
+                                <div className={`mt-1.5 flex flex-wrap items-center gap-2 text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
+                                  <span
+                                    className={`rounded-md px-1.5 py-0.5 font-medium ${
+                                      lesson.completed
+                                        ? isDark
+                                          ? "bg-accentGreen/20 text-accentGreen"
+                                          : "bg-green-100 text-green-700"
+                                        : lesson.progress > 0
+                                          ? isDark
+                                            ? "bg-zinc-800 text-zinc-300"
+                                            : "bg-amber-100 text-amber-700"
+                                          : isDark
+                                            ? "bg-zinc-800 text-zinc-400"
+                                            : "bg-zinc-100 text-zinc-600"
+                                    }`}
+                                  >
+                                    {lesson.completed ? "Completed" : lesson.progress > 0 ? "In progress" : "Not started"}
+                                  </span>
+                                  <span>{lesson.progress}%</span>
+                                  {typeof lesson.score === "number" && <span>Score {lesson.score}%</span>}
+                                </div>
+                              </div>
+
+                              <div className="mt-3 space-y-2">
+                                <div className={`h-1.5 w-full overflow-hidden rounded-full ${isDark ? "bg-zinc-800" : "bg-zinc-100"}`}>
+                                  <div
+                                    className={`h-full rounded-full ${isDark ? "bg-accentGreen" : "bg-brandGreen"}`}
+                                    style={{ width: `${lesson.progress}%` }}
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className={`inline-flex items-center gap-1 text-[11px] ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
+                                    <Calendar size={11} />
+                                    {new Date(lesson.created_at).toLocaleDateString(undefined, {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    })}
+                                  </span>
+                                  <Link
+                                    href={`/courses/${lesson.id}`}
+                                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                      isDark
+                                        ? "bg-accentGreen text-zinc-900 hover:bg-accentGreen/90"
+                                        : "bg-brandGreen text-white hover:bg-brandGreen/90"
+                                    }`}
+                                  >
+                                    Open Lesson
+                                  </Link>
+                                </div>
+                              </div>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </section>
               );
             })}

@@ -247,10 +247,16 @@ export default function CourseDetailPage() {
   // Quiz link — navigates to /quizzes with topic pre-selected
   const quizHref = useMemo(() => {
     const topic = (lesson?.topic || "").trim();
-    if (!topic) return "/quizzes";
-    // Pass lesson id so QuizPage can match and auto-open the right quiz
-    return `/quizzes?topic=${encodeURIComponent(topic)}&lessonId=${courseId}`;
-  }, [lesson?.topic, courseId]);
+    const lessonTitle = (lesson?.title || "").trim();
+    if (!topic && !lessonTitle) return "/quizzes";
+
+    // Pass multiple selectors so QuizPage can resolve the exact quiz robustly.
+    const params = new URLSearchParams();
+    if (topic) params.set("topic", topic);
+    params.set("lessonId", String(courseId));
+    if (lessonTitle) params.set("lessonTitle", lessonTitle);
+    return `/quizzes?${params.toString()}`;
+  }, [lesson?.topic, lesson?.title, courseId]);
 
   const handleCompleteCourse = async () => {
     if (!lesson) return;

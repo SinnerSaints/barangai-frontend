@@ -33,6 +33,7 @@ interface Question {
 
 interface Assessment {
   id: number;
+  lessonId?: number;
   title: string;
   topic: string;
   questions: Question[];
@@ -56,13 +57,29 @@ interface QuizResult {
 type ChoiceKey = "A" | "B" | "C" | "D";
 type TabType = "ALL" | "PENDING" | "COMPLETED";
 
+function normalizeText(value?: string | null) {
+  return (value || "").trim().toLowerCase();
+}
+
+function toNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function mapAssessment(item: any, idx: number): Assessment {
   const questions = Array.isArray(item?.questions) ? item.questions : [];
   const broadCategory = item?.lesson?.category?.name ?? item?.title ?? "General";
   const specificQuizName = item?.lesson?.title ?? item?.topic ?? `Assessment ${idx + 1}`;
+  const quizId = toNumber(item?.id) ?? idx;
+  const lessonId = toNumber(item?.lesson?.id) ?? toNumber(item?.lesson_id) ?? undefined;
 
   return {
-    id: item?.id ?? idx,
+    id: quizId,
+    lessonId,
     title: specificQuizName,
     topic: broadCategory,
     questions,
@@ -113,6 +130,7 @@ export default function QuizPage() {
   useEffect(() => {
     const topicParam = searchParams.get("topic");
     const lessonIdParam = searchParams.get("lessonId");
+    const lessonTitleParam = searchParams.get("lessonTitle");
 
     const fetchAndAutoOpen = async () => {
       try {
@@ -138,12 +156,32 @@ export default function QuizPage() {
           // SCENARIO 1: From Course Page (Both Topic and LessonId exist)
           if (topicParam && lessonIdParam) {
             const decodedTopic = decodeURIComponent(topicParam);
-            const targetId = Number(lessonIdParam);
+            const normalizedTopic = normalizeText(decodedTopic);
+            const normalizedLessonTitle = normalizeText(
+              lessonTitleParam ? decodeURIComponent(lessonTitleParam) : ""
+            );
+            const targetId = toNumber(lessonIdParam);
+
+            const matchesTopic = (a: Assessment) =>
+              normalizeText(a.topic) === normalizedTopic;
+            const matchesTitle = (a: Assessment) =>
+              normalizedLessonTitle.length > 0 &&
+              normalizeText(a.title) === normalizedLessonTitle;
 
             const matched =
-              mapped.find((a) => a.id === targetId && a.topic === decodedTopic) ??
-              mapped.find((a) => a.id === targetId) ??
-              mapped.find((a) => a.topic === decodedTopic);
+              (targetId !== null
+                ? mapped.find((a) => a.lessonId === targetId && matchesTopic(a) && matchesTitle(a))
+                : undefined) ??
+              (targetId !== null
+                ? mapped.find((a) => a.lessonId === targetId && matchesTitle(a))
+                : undefined) ??
+              (targetId !== null
+                ? mapped.find((a) => a.lessonId === targetId && matchesTopic(a))
+                : undefined) ??
+              (targetId !== null ? mapped.find((a) => a.lessonId === targetId) : undefined) ??
+              mapped.find((a) => matchesTopic(a) && matchesTitle(a)) ??
+              mapped.find((a) => matchesTitle(a)) ??
+              mapped.find((a) => matchesTopic(a));
 
             if (matched) {
               setSelectedTopic(matched.topic);
@@ -165,11 +203,17 @@ export default function QuizPage() {
           // SCENARIO 2: From Dashboard Page (Only Topic exists)
           else if (topicParam) {
             const decodedTopic = decodeURIComponent(topicParam);
-            const topicExists = mapped.some((a) => a.topic === decodedTopic);
+            const normalizedTopic = normalizeText(decodedTopic);
+            const topicExists = mapped.some(
+              (a) => normalizeText(a.topic) === normalizedTopic
+            );
 
             if (topicExists) {
-              // Just open the sidebar to the right topic. Leave the specific quiz blank.
-              setSelectedTopic(decodedTopic);
+              // Open the sidebar using the exact topic label from fetched quizzes.
+              const matchedTopicLabel =
+                mapped.find((a) => normalizeText(a.topic) === normalizedTopic)?.topic ??
+                decodedTopic;
+              setSelectedTopic(matchedTopicLabel);
             }
           }
         }
