@@ -27,6 +27,20 @@ type QuestionInput = {
   option_c: string; option_d: string; correct_choice: string;
 };
 
+function isUserExplicitlyApproved(user: any): boolean {
+  if (!user || typeof user !== "object") return false;
+  if (user.is_approved === true || user.isApproved === true || user.approved === true) return true;
+
+  const statusCandidates = [user.approval_status, user.account_status, user.status];
+  for (const value of statusCandidates) {
+    if (typeof value !== "string") continue;
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) continue;
+    if (normalized.includes("approved")) return true;
+  }
+  return false;
+}
+
 export default function AdminDashboard() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -121,16 +135,19 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (Array.isArray(data)) {
         const mapped: UserItem[] = data.map((u: any, idx: number) => ({
-          id: u.id ?? idx + 1, email: u.email ?? u.user ?? "",
+          id: u.id ?? idx + 1,
+          email: u.email ?? u.user?.email ?? u.user ?? "",
           password: u.password ?? u.raw_password ?? undefined,
           role: u.role ?? undefined,
           is_active: u.is_active ?? u.isActive ?? undefined,
           is_approved: u.is_approved ?? u.isApproved ?? undefined, ...u,
         }));
         setUsers(mapped);
-        const approved = mapped.filter(x => x.is_active === true || x.is_approved === true);
+        // Important: pending users may still be is_active=true in some backends.
+        // Approval list should only use explicit approval flags/status.
+        const approved = mapped.filter((x) => isUserExplicitlyApproved(x));
         setApprovedUsers(approved);
-        setPendingUsers(mapped.filter(x => !approved.includes(x)));
+        setPendingUsers(mapped.filter((x) => !isUserExplicitlyApproved(x)));
         setLastRefreshed(new Date().toLocaleString());
       }
     } catch {

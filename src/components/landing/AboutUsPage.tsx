@@ -10,21 +10,21 @@ const teamMembers = [
     role: "Project Lead | Researcher | Fullstack Developer | UI/UX Designer",
     focus: "Fullstack development, UI/UX design, AI engineering, and Project Management.",
     image:
-      "https://i.pinimg.com/736x/d2/8b/a8/d28ba839e012fb5daf07c0f768632f72.jpg",
+      "https://i.postimg.cc/yxKRw9ck/Unknown3123.jpg",
   },
   {
     name: "Jamescarl A. Galvez",
     role: "Data Analyst | Researcher | Technical Writer | System Tester",
     focus: "Data analysis, Implementation support, testing, and technical documentation.",
     image:
-      "https://i.pinimg.com/736x/db/90/1b/db901b06c684bbf95afe1e36eb8bd7c4.jpg",
+      "https://scontent.fceb9-1.fna.fbcdn.net/v/t39.30808-6/517381743_718962401097017_7959348603691953503_n.jpg?stp=cp6_dst-jpg_tt6&_nc_cat=110&ccb=1-7&_nc_sid=7b2446&_nc_eui2=AeEky4kVg7PYQzjfXtoap_MBPGYMfQqzwXg8Zgx9CrPBeKszmzSbWMYJBcaVI2Win1JLnEeVHVlhd43NtZE9tHL_&_nc_ohc=-Uy3hKI88TQQ7kNvwHF7lac&_nc_oc=AdqjLFo90GOo76D02uCwvNNSretTQ0QvYpLfTYOrVKJ0QubVevb4PYtn5kl79tw7AZk&_nc_zt=23&_nc_ht=scontent.fceb9-1.fna&_nc_gid=-Y0mU2mk2wh9_qtFRpLnkg&_nc_ss=7b2a8&oh=00_Af2xpHcdeE-YEWHfb6mUJQFdq29VzbPvKffOesgfY7pkqw&oe=69F560B7",
   },
   {
     name: "Clint Joseph S. Ubanan",
     role: "Backend Developer | Researcher| AI Engineer | Database Engineer",
     focus: "Backend development, AI engineering, database engineering.",
     image:
-      "https://i.pinimg.com/1200x/00/c1/a5/00c1a556a4c7c3fa8d9ab6968fa6a047.jpg",
+      "https://i.postimg.cc/cC5sQGxr/Unknown424234.jpg",
   },
 ];
 

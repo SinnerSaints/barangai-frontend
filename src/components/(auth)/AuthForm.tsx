@@ -210,7 +210,42 @@ export default function AuthForm() {
       const data = await res.json();
 
       if (!res.ok) {
+        const apiMessage = String(data?.error || data?.detail || "").toLowerCase();
+        const isApprovalPending =
+          res.status === 403 &&
+          (apiMessage.includes("approval") ||
+            apiMessage.includes("approved") ||
+            apiMessage.includes("pending") ||
+            apiMessage.includes("not approved"));
+
+        if (isApprovalPending) {
+          const emailForWaitScreen =
+            data?.user?.email ||
+            tokenClaims?.email ||
+            "";
+          const waitUrl = emailForWaitScreen
+            ? `/pending-approval?email=${encodeURIComponent(emailForWaitScreen)}`
+            : "/pending-approval";
+          router.push(waitUrl);
+          return;
+        }
+
         setError(data.error || data.detail || "Google login failed");
+        return;
+      }
+
+      // Fail-closed approval gate for Google flow.
+      // If backend does not explicitly mark the user approved, send to waiting screen.
+      const googleApproved = data?.user?.is_approved === true;
+      if (!googleApproved) {
+        const emailForWaitScreen =
+          data?.user?.email ||
+          tokenClaims?.email ||
+          "";
+        const waitUrl = emailForWaitScreen
+          ? `/pending-approval?email=${encodeURIComponent(emailForWaitScreen)}`
+          : "/pending-approval";
+        router.push(waitUrl);
         return;
       }
 

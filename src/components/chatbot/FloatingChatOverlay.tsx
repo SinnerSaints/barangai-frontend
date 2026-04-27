@@ -10,11 +10,21 @@ import { ChatSection } from "@/components/chatbot/ChatBot";
 const STORAGE_KEY = "floating_chat_overlay_open";
 
 function isSupportedRoute(pathname: string) {
-  return (
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/courses") ||
-    pathname.startsWith("/quizzes")
-  );
+  if (pathname === "/dashboard" || pathname === "/quizzes" || pathname === "/courses") {
+    return true;
+  }
+
+  // Course detail pages: /courses/[id]
+  if (/^\/courses\/\d+$/.test(pathname)) {
+    return true;
+  }
+
+  // Topic pages: /courses/topic/[topic]
+  if (/^\/courses\/topic\/[^/]+$/.test(pathname)) {
+    return true;
+  }
+
+  return false;
 }
 
 export default function FloatingChatOverlay() {

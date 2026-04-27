@@ -6,24 +6,22 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isProtectedRoute =
-    pathname.startsWith("/dashboard")       ||
-    pathname.startsWith("/assessments")     ||
-    pathname.startsWith("/settings")        ||
-    pathname.startsWith("/settings")        ||
-    pathname.startsWith("/courses")         ||
-    pathname.startsWith("/quizzes")         ||
-    pathname.startsWith("/statistics")      ||
-    pathname.startsWith("/chatbot")         ||
-    pathname.startsWith("/admin")           ||
-    pathname.startsWith("/pre-assessment")  ||
-    pathname.startsWith("/reset-password"); 
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/assessments") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/courses") ||
+    pathname.startsWith("/quizzes") ||
+    pathname.startsWith("/statistics") ||
+    pathname.startsWith("/chatbot") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/pre-assessment");
 
-  const isAuthRoute = pathname === "/login" || pathname === "/signup";
+  const isAuthRoute = pathname === "/auth";
 
   if (isProtectedRoute && !token) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
+    const authUrl = new URL("/auth", request.url);
+    authUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(authUrl);
   }
 
   if (isAuthRoute && token) {
@@ -38,7 +36,12 @@ export const config = {
     "/dashboard/:path*",
     "/assessments/:path*",
     "/settings/:path*",
-    "/login",
-    "/signup",
+    "/courses/:path*",
+    "/quizzes/:path*",
+    "/statistics/:path*",
+    "/chatbot/:path*",
+    "/admin/:path*",
+    "/pre-assessment/:path*",
+    "/auth",
   ],
 };
