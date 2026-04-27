@@ -435,6 +435,48 @@ export default function AdminDashboard() {
                         </tbody>
                       </table>
                     </div>
+
+                    {isPending && (
+                      <div className={`px-5 py-4 border-t ${divider}`}>
+                        <h3 className="text-sm font-semibold">Pending Emails</h3>
+                        <p className={`text-xs mt-0.5 ${muted}`}>
+                          Quick view of accounts waiting for approval.
+                        </p>
+                        <div className="mt-3 max-h-40 overflow-y-auto space-y-1.5">
+                          {list
+                            .filter((u) => {
+                              const q = query.toLowerCase();
+                              return (
+                                !q ||
+                                u.email.toLowerCase().includes(q) ||
+                                (u.role || "").toLowerCase().includes(q)
+                              );
+                            })
+                            .map((u) => (
+                              <div
+                                key={`pending-email-${u.id}`}
+                                className={`rounded-lg border px-3 py-2 text-xs font-medium ${
+                                  isDark
+                                    ? "border-white/10 bg-zinc-800/40 text-zinc-200"
+                                    : "border-gray-200 bg-gray-50 text-gray-700"
+                                }`}
+                              >
+                                {u.email}
+                              </div>
+                            ))}
+                          {list.filter((u) => {
+                            const q = query.toLowerCase();
+                            return (
+                              !q ||
+                              u.email.toLowerCase().includes(q) ||
+                              (u.role || "").toLowerCase().includes(q)
+                            );
+                          }).length === 0 && (
+                            <p className={`text-xs italic ${muted}`}>No pending emails to show.</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
