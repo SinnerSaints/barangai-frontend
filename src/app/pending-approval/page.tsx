@@ -1,12 +1,13 @@
-"use client";
-
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { Clock3, ShieldAlert } from "lucide-react";
 
-export default function PendingApprovalPage() {
-  const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "";
+type PendingApprovalPageProps = {
+  searchParams?: Promise<{ email?: string }>;
+};
+
+export default async function PendingApprovalPage({ searchParams }: PendingApprovalPageProps) {
+  const params = searchParams ? await searchParams : undefined;
+  const email = params?.email || "";
 
   return (
     <main className="min-h-screen flex items-center justify-center px-4 py-10">
